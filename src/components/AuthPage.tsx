@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
-import { LogIn, UserPlus, Key, User, ShieldCheck } from 'lucide-react';
-import logoUrl from '../assets/logo.png';
+import { LogIn, UserPlus, Key, User, ShieldCheck, Sun, Moon } from 'lucide-react';
 
 interface AuthPageProps {
   onLoginSuccess: (user: { id: string; username: string; is_admin: number }) => void;
@@ -15,6 +14,22 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [registerAsAdmin, setRegisterAsAdmin] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>('light');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    const attr = document.documentElement.getAttribute('data-theme');
+    const initialTheme = (saved === 'dark' || attr === 'dark') ? 'dark' : 'light';
+    setCurrentTheme(initialTheme);
+    document.documentElement.setAttribute('data-theme', initialTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    setCurrentTheme(nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('theme', nextTheme);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,277 +61,221 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '85vh',
-      padding: '30px 16px'
-    }} className="animate-fade-in">
-      <div className="hardcover-book-wrapper">
-        <div className="hardcover-book">
-          {/* Cover decorative elements */}
-          <div className="cover-stitched-frame" />
-          <div className="book-corner-brass book-corner-tr" />
-          <div className="book-corner-brass book-corner-br" />
-          <div className="book-ribbon-tag" title="PobiNotes 書籤" />
+    <div className="binder-auth-stage">
+      {/* Top Bar with Theme Toggle */}
+      <div className="binder-auth-top-bar">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="binder-auth-theme-btn"
+          title={currentTheme === 'dark' ? '切換為復古牛皮紙淺色' : '切換為墨黑皮革暗紋深色'}
+        >
+          {currentTheme === 'dark' ? (
+            <>
+              <Sun size={15} />
+              <span>淺色紙張</span>
+            </>
+          ) : (
+            <>
+              <Moon size={15} />
+              <span>深色皮革</span>
+            </>
+          )}
+        </button>
+      </div>
 
-          {/* Hardcover Embossed Title & Mascot */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            marginBottom: '20px',
-            position: 'relative',
-            zIndex: 6
-          }}>
-            <div style={{
-              padding: '6px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '16px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(212, 175, 55, 0.5)',
-              marginBottom: '10px'
-            }}>
-              <img 
-                src={logoUrl} 
-                alt="PobiNotes Logo" 
-                style={{
-                  width: '90px',
-                  height: '90px',
-                  objectFit: 'contain',
-                  display: 'block'
-                }}
-              />
-            </div>
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: 800,
-              color: '#FFFFFF',
-              letterSpacing: '0.04em',
-              textShadow: '0 2px 8px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.8)',
-              marginBottom: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              <span>PobiNotes-線上錯題本</span>
-            </h2>
-            <div style={{
-              color: '#A5D6A7',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)'
-            }}>
-              活頁錯題診斷・學習成長手帳
-            </div>
+      <div className="binder-auth-wrapper">
+        <div className="binder-auth-card">
+          {/* Brass Binder Rings along the left gutter */}
+          <div className="binder-auth-rings" aria-hidden="true">
+            <div className="binder-auth-ring-hole" />
+            <div className="binder-auth-ring-hole" />
+            <div className="binder-auth-ring-hole" />
+            <div className="binder-auth-ring-hole" />
           </div>
 
-          {/* Bookplate Insertion Page (溫潤米黃藏書票/內頁插頁) */}
-          <div className="bookplate-insert washi-tape-strip">
-            <div style={{
-              textAlign: 'center',
-              marginBottom: '18px',
-              paddingBottom: '10px',
-              borderBottom: '1px dashed #D4C9BA'
-            }}>
-              <h3 style={{
-                fontSize: '1.05rem',
-                fontWeight: 700,
-                color: '#001F65',
-                marginBottom: '4px'
-              }}>
-                {isLogin ? '歡迎翻開錯題本' : '建立專屬錯題本'}
-              </h3>
-              <p style={{ color: '#4A586E', fontSize: '0.82rem' }}>
-                {isLogin ? '請登入您的帳戶，翻閱您的錯題紀錄' : '立即剪貼註冊，開始建立知識資料庫'}
-              </p>
+          {/* Dossier Header */}
+          <div className="binder-auth-header">
+            <div className="binder-auth-logo-box" style={{ width: '56px', height: '56px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/logo.png" alt="POBI STUDIO" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+            </div>
+            <div className="binder-auth-badge font-binder-title">
+              ACADEMIC DOSSIER · VOL. 00
+            </div>
+            <h1 className="binder-auth-title">
+              POBI STUDIO
+            </h1>
+            <p className="binder-auth-subtitle">
+              {isLogin ? '數位錯題手帳 · 學術診斷簽到處' : '建立專屬數位活頁手帳帳戶'}
+            </p>
+          </div>
+
+          {/* Feedback Alerts */}
+          {error && (
+            <div
+              style={{
+                marginLeft: '12px',
+                marginBottom: '16px',
+                padding: '9px 12px',
+                borderRadius: '6px',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                backgroundColor: currentTheme === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                border: currentTheme === 'dark' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid #ef4444',
+                color: currentTheme === 'dark' ? '#fca5a5' : '#991b1b'
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div
+              style={{
+                marginLeft: '12px',
+                marginBottom: '16px',
+                padding: '9px 12px',
+                borderRadius: '6px',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                backgroundColor: currentTheme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
+                border: currentTheme === 'dark' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid #22c55e',
+                color: currentTheme === 'dark' ? '#86efac' : '#14532d'
+              }}
+            >
+              {success}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            <div className="binder-auth-input-group">
+              <label className="binder-auth-label">
+                使用者名稱
+              </label>
+              <div className="binder-auth-input-wrapper">
+                <span className="binder-auth-input-icon">
+                  <User size={16} />
+                </span>
+                <input
+                  type="text"
+                  className="binder-auth-input"
+                  placeholder="請輸入使用者名稱"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="username"
+                />
+              </div>
             </div>
 
-            {error && (
-              <div style={{
-                background: '#FEE2E2',
-                border: '1px solid #EF4444',
-                color: '#991B1B',
-                padding: '10px 12px',
-                borderRadius: '6px',
-                marginBottom: '16px',
-                fontSize: '0.85rem',
-                fontWeight: 500
-              }}>
-                {error}
+            <div className="binder-auth-input-group">
+              <label className="binder-auth-label">
+                密碼
+              </label>
+              <div className="binder-auth-input-wrapper">
+                <span className="binder-auth-input-icon">
+                  <Key size={16} />
+                </span>
+                <input
+                  type="password"
+                  className="binder-auth-input"
+                  placeholder={isLogin ? '請輸入密碼' : '設定 6 位數以上安全密碼'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                />
               </div>
-            )}
+            </div>
 
-            {success && (
-              <div style={{
-                background: '#DCFCE7',
-                border: '1px solid #22C55E',
-                color: '#14532D',
-                padding: '10px 12px',
-                borderRadius: '6px',
-                marginBottom: '16px',
-                fontSize: '0.85rem',
-                fontWeight: 500
-              }}>
-                {success}
-              </div>
-            )}
+            <button
+              type="submit"
+              className="binder-auth-submit-btn"
+              disabled={loading}
+            >
+              {loading ? (
+                '處理中...'
+              ) : isLogin ? (
+                <>
+                  <span>翻開手帳登入</span>
+                  <LogIn size={16} />
+                </>
+              ) : (
+                <>
+                  <span>立即建立帳戶</span>
+                  <UserPlus size={16} />
+                </>
+              )}
+            </button>
+          </form>
 
-            <form onSubmit={handleSubmit}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ color: '#001F65', fontWeight: 700, fontSize: '0.82rem' }}>
-                  使用者名稱
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#64748B'
-                  }}>
-                    <User size={16} />
-                  </span>
-                  <input
-                    type="text"
-                    className="input"
-                    style={{
-                      paddingLeft: '38px',
-                      height: '42px',
-                      background: '#FFFFFF',
-                      borderColor: '#D4C9BA',
-                      color: '#001F65',
-                      fontWeight: 500
-                    }}
-                    placeholder="請輸入使用者名稱"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label" style={{ color: '#001F65', fontWeight: 700, fontSize: '0.82rem' }}>
-                  密碼
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#64748B'
-                  }}>
-                    <Key size={16} />
-                  </span>
-                  <input
-                    type="password"
-                    className="input"
-                    style={{
-                      paddingLeft: '38px',
-                      height: '42px',
-                      background: '#FFFFFF',
-                      borderColor: '#D4C9BA',
-                      color: '#001F65',
-                      fontWeight: 500
-                    }}
-                    placeholder={isLogin ? "請輸入密碼" : "設定 6 位數以上密碼"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  height: '44px',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.02em',
-                  boxShadow: '0 4px 12px rgba(0, 31, 101, 0.28)'
-                }}
-                disabled={loading}
-              >
-                {loading ? '處理中...' : (
-                  isLogin ? (
-                    <>登入 <LogIn size={16} /></>
-                  ) : (
-                    <>註冊 <UserPlus size={16} /></>
-                  )
-                )}
-              </button>
-            </form>
-
-            <div style={{
-              marginTop: '18px',
+          {/* Switch Login/Register */}
+          <div
+            style={{
+              marginTop: '16px',
+              paddingLeft: '12px',
               textAlign: 'center',
               fontSize: '0.84rem',
-              color: '#475569'
-            }}>
-              {isLogin ? '還沒有帳號嗎？' : '已經有帳號了？'}
+              color: 'var(--binder-text-muted)'
+            }}
+          >
+            <span>{isLogin ? '初次使用？' : '已有手帳帳戶？'}</span>
+            <button
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--binder-accent)',
+                cursor: 'pointer',
+                fontWeight: 700,
+                marginLeft: '6px',
+                textDecoration: 'underline'
+              }}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+                setSuccess('');
+                setRegisterAsAdmin(false);
+              }}
+              disabled={loading}
+            >
+              {isLogin ? '建立新帳號' : '前往登入'}
+            </button>
+          </div>
+
+          {/* Admin toggle if register */}
+          {!isLogin && (
+            <div
+              style={{
+                marginTop: '10px',
+                paddingLeft: '12px',
+                textAlign: 'center',
+                fontSize: '0.8rem'
+              }}
+            >
               <button
                 type="button"
-                className="btn-text"
+                onClick={() => setRegisterAsAdmin(prev => !prev)}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#001F65',
+                  color: registerAsAdmin ? 'var(--success)' : 'var(--binder-text-muted)',
                   cursor: 'pointer',
-                  fontWeight: '700',
-                  marginLeft: '4px',
-                  textDecoration: 'underline'
-                }}
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError('');
-                  setSuccess('');
-                  setRegisterAsAdmin(false);
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontWeight: registerAsAdmin ? 700 : 500
                 }}
                 disabled={loading}
               >
-                {isLogin ? '立即註冊' : '前往登入'}
+                <ShieldCheck size={14} />
+                <span>{registerAsAdmin ? '已啟用管理員註冊' : '以管理員身份註冊'}</span>
               </button>
             </div>
-
-            {/* Admin Registration Toggle */}
-            {!isLogin && (
-              <div style={{
-                marginTop: '10px',
-                textAlign: 'center',
-                fontSize: '0.8rem',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setRegisterAsAdmin(prev => !prev)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: registerAsAdmin ? '#197A27' : '#64748B',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    fontWeight: registerAsAdmin ? 700 : 500,
-                    transition: 'color 0.2s'
-                  }}
-                  disabled={loading}
-                >
-                  <ShieldCheck size={13} />
-                  {registerAsAdmin ? '✓ 將以管理員身份註冊' : '以管理員身份註冊'}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

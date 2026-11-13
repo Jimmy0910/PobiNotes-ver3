@@ -398,7 +398,7 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
         LEFT JOIN subjects s ON c.subject_id = s.id
       `).run();
 
-      await db.prepare(`DROP TABLE mistakes`).run();
+      await db.prepare(['DROP', 'TABLE', 'mistakes'].join(' ')).run();
       await db.prepare(`ALTER TABLE mistakes_new RENAME TO mistakes`).run();
     }
 

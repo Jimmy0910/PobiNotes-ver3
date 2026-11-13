@@ -20,10 +20,13 @@ import {
   Sparkles,
   FileDown,
   Layers,
-  Tag
+  Tag,
+  Library
 } from 'lucide-react';
 
 export type AppViewType =
+  | 'bookshelf'
+  | 'notebook'
   | 'all'
   | 'dashboard'
   | 'chapter'
@@ -374,6 +377,29 @@ export default function Dashboard({
       {/* Sidebar Content - hidden when collapsed */}
       {!collapsed && (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', padding: '6px 0' }}>
+          {/* Quick Bookshelf Switcher */}
+          <div style={{ margin: '4px 10px 0 10px' }}>
+            <button
+              type="button"
+              onClick={() => onNavigateView('bookshelf')}
+              className="btn btn-secondary"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                borderRadius: '8px'
+              }}
+            >
+              <Library size={16} />
+              <span>開啟數位書架</span>
+            </button>
+          </div>
+
           {/* 1. 學科 / 章節 / 單元目錄 Card (Collapsible) */}
           <div
             className="sidebar-card washi-card"

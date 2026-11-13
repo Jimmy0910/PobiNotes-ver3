@@ -1,0 +1,2620 @@
+/* ==========================================================================
+   POBI STUDIO: REFINED DIGITAL BINDER SYSTEM (V2.5)
+   Design Core: Vintage Kraft Paper, Obsidian Dark Leather, Instant Response
+   ========================================================================== */
+
+:root {
+  /* Typography */
+  --font-serif: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', Georgia, serif;
+  --font-sans: 'Noto Sans TC', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Surfaces & Paper - Material 1: Classic Vintage Kraft (Default Light) */
+  --desk-bg: #eae3d6;
+  --desk-pattern: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.45) 0%, rgba(220, 210, 195, 0.5) 100%);
+  --binder-surface: #f7f2e7;
+  --binder-paper: #faf6ee;
+  --binder-paper-border: #d9cfbe;
+  
+  /* Harmonized Warm Kraft Spine */
+  --binder-spine-bg: #ede4d5;
+  --binder-spine-border: #d9cdbe;
+  --binder-spine-text: #2f251c;
+  --binder-spine-text-muted: #7a6c5d;
+  --binder-spine-hover: #e2d7c5;
+  --binder-spine-active: #d6caa140;
+  --binder-spine-active-pill: #d8cdbe;
+  --binder-rings: #8a7c6f;
+  --binder-stitch: rgba(140, 110, 80, 0.25);
+  
+  --binder-text-title: #231c16;
+  --binder-text-body: #342d26;
+  --binder-text-muted: #6e6459;
+  
+  --binder-accent: #8b5a2b;
+  --binder-accent-soft: rgba(139, 90, 43, 0.1);
+  --binder-accent-border: rgba(139, 90, 43, 0.25);
+  
+  --binder-shadow-desk: 0 10px 30px rgba(60, 45, 30, 0.12), 0 2px 8px rgba(60, 45, 30, 0.06);
+  --binder-shadow-page: 0 4px 18px rgba(50, 40, 30, 0.08), inset 0 0 40px rgba(180, 150, 110, 0.06);
+  --binder-tab-radius: 6px 12px 12px 6px;
+}
+
+[data-theme="dark"] {
+  /* Surfaces & Paper - Material 4: Obsidian Dark Leather (Night Mode) */
+  --desk-bg: #0d1117;
+  --desk-pattern: radial-gradient(circle at 50% 30%, rgba(30, 38, 50, 0.3) 0%, rgba(10, 14, 20, 0.8) 100%);
+  --binder-surface: #161b22;
+  --binder-paper: #1c212a;
+  --binder-paper-border: #2d3545;
+
+  /* Harmonized Obsidian Dark Spine */
+  --binder-spine-bg: #121720;
+  --binder-spine-border: #232c3b;
+  --binder-spine-text: #f1f5f9;
+  --binder-spine-text-muted: #cbd5e1;
+  --binder-spine-hover: #1c2433;
+  --binder-spine-active: #253043;
+  --binder-spine-active-pill: #283347;
+  --binder-rings: #484f58;
+  --binder-stitch: rgba(255, 255, 255, 0.1);
+
+  --binder-text-title: #ffffff;
+  --binder-text-body: #f1f5f9;
+  --binder-text-muted: #cbd5e1;
+
+  --binder-accent: #58a6ff;
+  --binder-accent-soft: rgba(88, 166, 255, 0.12);
+  --binder-accent-border: rgba(88, 166, 255, 0.3);
+
+  --binder-shadow-desk: 0 12px 35px rgba(0, 0, 0, 0.5);
+  --binder-shadow-page: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Typography Utility Classes */
+.font-binder-title {
+  font-family: var(--font-serif) !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.font-binder-body {
+  font-family: var(--font-sans) !important;
+}
+
+/* App Outer Shell */
+.binder-app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--desk-bg);
+  background-image: var(--desk-pattern);
+  color: var(--binder-text-body);
+  font-family: var(--font-sans);
+}
+
+/* Left Spine Navigation (書脊導航列) */
+.binder-spine-nav {
+  background-color: var(--binder-spine-bg);
+  color: var(--binder-spine-text);
+  border-right: 1px solid var(--binder-spine-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 190px;
+  min-width: 190px;
+  flex-shrink: 0;
+  z-index: 40;
+  position: relative;
+  user-select: none;
+  box-shadow: 2px 0 8px rgba(60, 45, 30, 0.04);
+}
+
+.binder-spine-nav.sidebar-collapsed {
+  width: 54px !important;
+  min-width: 54px !important;
+}
+
+/* Brand Spine Header */
+.binder-spine-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--binder-spine-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.binder-spine-brand:hover {
+  opacity: 0.9;
+}
+
+.binder-spine-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--binder-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  box-shadow: 0 2px 5px rgba(80, 50, 20, 0.2);
+}
+
+.binder-spine-brand-title {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--binder-spine-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.binder-spine-brand-sub {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--binder-spine-text-muted);
+  display: block;
+}
+
+/* Navigation Menu Items */
+.binder-nav-list {
+  padding: 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.binder-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px !important;
+  min-height: 33px !important;
+  height: 33px !important;
+  border-radius: 6px;
+  color: var(--binder-spine-text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: left;
+  width: 100%;
+  position: relative;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.binder-nav-item::after {
+  display: none !important;
+}
+
+.binder-nav-item:hover {
+  background: var(--binder-spine-hover);
+  color: var(--binder-spine-text);
+}
+
+html:not([data-theme="dark"]) .binder-nav-item.active {
+  background: #ded1be !important;
+  color: #2b1f15 !important;
+  font-weight: 700 !important;
+  box-shadow: inset 3px 0 0 #8b5a2b !important;
+}
+
+html:not([data-theme="dark"]) .binder-nav-item.active .binder-nav-icon {
+  color: #8b5a2b !important;
+}
+
+.binder-spine-nav.sidebar-collapsed .binder-nav-item.active {
+  box-shadow: none !important;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .binder-nav-item.active {
+  background: #253043 !important;
+  box-shadow: inset 3px 0 0 var(--binder-accent) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .binder-nav-item.active .binder-nav-icon {
+  color: #58a6ff !important;
+}
+
+.binder-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+}
+
+/* Bottom User & System Tools on Spine */
+.binder-spine-footer {
+  padding: 8px 6px 10px 6px;
+  border-top: 1px solid var(--binder-spine-border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.binder-spine-user-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: var(--binder-spine-hover);
+  color: var(--binder-spine-text);
+  font-size: 0.78rem;
+}
+
+.binder-spine-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--binder-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* Main Content Stage */
+.binder-main-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Top Header Bar */
+.binder-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  min-height: 54px;
+  border-bottom: 1px solid var(--binder-paper-border);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+[data-theme="dark"] .binder-top-bar {
+  background: rgba(22, 27, 34, 0.6);
+  border-bottom: 1px solid var(--binder-paper-border);
+}
+
+.binder-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--binder-text-muted);
+}
+
+.binder-breadcrumb-item.active {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--binder-text-title);
+  font-size: 1rem;
+}
+
+/* Binder Main Paper Container */
+.binder-stage-container {
+  flex: 1;
+  padding: 24px 32px 48px 32px;
+  display: flex;
+  flex-direction: column;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .binder-spine-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 56px;
+    flex-direction: row;
+    z-index: 50;
+    border-right: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
+  }
+  .binder-spine-brand,
+  .binder-spine-footer {
+    display: none;
+  }
+  .binder-nav-list {
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 4px;
+    width: 100%;
+  }
+  .binder-nav-item {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.68rem;
+    padding: 6px 4px;
+    align-items: center;
+    justify-content: center;
+  }
+  .binder-stage-container {
+    padding: 16px 12px 72px 12px;
+  }
+}
+
+
+/* ==========================================================================
+   AUTHENTIC VINTAGE KRAFT PAPER & NOTEBOOK INNER SPREAD STYLING
+   ========================================================================== */
+
+:root {
+  --notebook-paper: #f5efe4 !important;
+  --bg-secondary: #fbf7ee !important;
+  --notebook-line: rgba(140, 110, 80, 0.08) !important;
+}
+
+[data-theme="dark"] {
+  --notebook-paper: #191f28 !important;
+  --bg-secondary: #212936 !important;
+  --notebook-line: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Notebook Book Body */
+.notebook-book-body {
+  background: var(--notebook-paper, #f5efe4) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 14px 40px rgba(60, 42, 25, 0.18), 0 2px 8px rgba(60, 42, 25, 0.08) !important;
+  border: 1px solid #dcd1be !important;
+}
+
+/* Notebook Pages (Left & Right Spread) */
+.notebook-page-left,
+.notebook-page-right {
+  background-color: var(--notebook-paper, #f5efe4) !important;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.45) 0%, rgba(235, 222, 204, 0.35) 100%),
+    linear-gradient(rgba(140, 110, 80, 0.065) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 100% 32px !important;
+  color: #342d26 !important;
+}
+
+[data-theme="dark"] .notebook-page-left,
+[data-theme="dark"] .notebook-page-right {
+  background-color: #191f28 !important;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) !important;
+  background-size: 100% 32px !important;
+  color: #c9d1d9 !important;
+}
+
+/* Center Seam Gutter & Brass Rings */
+.notebook-center-seam {
+  width: 32px !important;
+  background: linear-gradient(90deg, rgba(60, 40, 20, 0.07), rgba(60, 40, 20, 0.22) 50%, rgba(60, 40, 20, 0.07)) !important;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.15) !important;
+}
+
+.binder-ring {
+  background: linear-gradient(180deg, #fffcf0 0%, #d4af37 38%, #a48118 72%, #4d3a06 100%) !important;
+  box-shadow: 0 2px 4px rgba(40, 25, 10, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+
+.binder-ring::before,
+.binder-ring::after {
+  background: #3b2a1a !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Inner Notebook Cards & Summary Boxes */
+html:not([data-theme="dark"]) .notebook-page-left .bg-bg-secondary\/80,
+html:not([data-theme="dark"]) .notebook-page-left .bg-glass-highlight\/70,
+html:not([data-theme="dark"]) .notebook-page-right .bg-bg-secondary,
+html:not([data-theme="dark"]) .notebook-page-right .rounded-xl.border {
+  background-color: rgba(255, 253, 248, 0.92) !important;
+  border: 1px solid #dfd4c3 !important;
+  box-shadow: 0 1px 4px rgba(70, 50, 30, 0.04) !important;
+  color: #342d26 !important;
+}
+
+[data-theme="dark"] .notebook-page-left .bg-bg-secondary\/80,
+[data-theme="dark"] .notebook-page-left .bg-glass-highlight\/70,
+[data-theme="dark"] .notebook-page-right .bg-bg-secondary,
+[data-theme="dark"] .notebook-page-right .rounded-xl.border {
+  background-color: rgba(28, 35, 46, 0.92) !important;
+  border-color: #2e3a4e !important;
+  box-shadow: none !important;
+  color: #c9d1d9 !important;
+}
+
+/* Notebook Titles */
+.notebook-page-left h2,
+.notebook-page-right h3 {
+  font-family: var(--font-serif) !important;
+  color: #231c16 !important;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="dark"] .notebook-page-left h2,
+[data-theme="dark"] .notebook-page-right h3 {
+  color: #f0f6fc !important;
+}
+
+/* Leather Action Buttons inside Notebook */
+html:not([data-theme="dark"]) button.bg-pobi-blue,
+html:not([data-theme="dark"]) .notebook-tool-btn.bg-pobi-blue,
+html:not([data-theme="dark"]) .notebook-page-right .bg-pobi-blue {
+  background-color: #fde68a !important;
+  border: 1.5px solid #d97706 !important;
+  color: #1c1917 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.2) !important;
+}
+
+html:not([data-theme="dark"]) button.bg-pobi-blue:hover,
+html:not([data-theme="dark"]) .notebook-tool-btn.bg-pobi-blue:hover,
+html:not([data-theme="dark"]) .notebook-page-right .bg-pobi-blue:hover {
+  background-color: #fcd34d !important;
+  border-color: #b45309 !important;
+  color: #1c1917 !important;
+}
+
+[data-theme="dark"] button.bg-pobi-blue,
+[data-theme="dark"] .notebook-tool-btn.bg-pobi-blue,
+[data-theme="dark"] .notebook-page-right .bg-pobi-blue {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  border: 1.5px solid #f59e0b !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35) !important;
+}
+
+[data-theme="dark"] button.bg-pobi-blue:hover,
+[data-theme="dark"] .notebook-tool-btn.bg-pobi-blue:hover,
+[data-theme="dark"] .notebook-page-right .bg-pobi-blue:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: #fbbf24 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.45) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-tool-btn {
+  background: #fbf7ee !important;
+  color: #4a3c30 !important;
+  border: 1px solid #dfd5c4 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-tool-btn:hover {
+  background: #ede3d3 !important;
+  color: #2b221a !important;
+  border-color: #cbbba6 !important;
+}
+
+/* ==========================================================================
+   HIGH CONTRAST DARK MODE TYPOGRAPHY & ELEMENTS (WCAG AAA)
+   ========================================================================== */
+
+[data-theme="dark"] {
+  --text-primary: #ffffff !important;
+  --text-secondary: #f1f5f9 !important;
+  --text-muted: #cbd5e1 !important;
+  --success: #4ade80 !important;
+  --danger: #f87171 !important;
+  --warning: #fbbf24 !important;
+  --warning-border: #fbbf24 !important;
+  --glass-border: #334155 !important;
+}
+
+/* Brand Title Contrast (POBI STUDIO 標題淺色模式深色、深色模式純白色字體) */
+html:not([data-theme="dark"]) .binder-spine-brand-title {
+  color: #231c16 !important;
+  -webkit-text-fill-color: #231c16 !important;
+}
+
+[data-theme="dark"] .binder-spine-brand-title,
+[data-theme="dark"] .navbar-title {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+[data-theme="dark"] .binder-spine-brand-sub {
+  color: #cbd5e1 !important;
+}
+
+/* Headings & Text Classes */
+[data-theme="dark"] .text-text-primary,
+[data-theme="dark"] .text-primary,
+[data-theme="dark"] .text-text-secondary,
+[data-theme="dark"] .text-secondary {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .text-text-muted,
+[data-theme="dark"] .text-muted {
+  color: #cbd5e1 !important;
+}
+
+/* High Contrast Vibrant Metric Numbers */
+[data-theme="dark"] .text-success,
+[data-theme="dark"] .notebook-page-left .text-success {
+  color: #4ade80 !important;
+}
+
+[data-theme="dark"] .text-danger,
+[data-theme="dark"] .notebook-page-left .text-danger {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .text-warning,
+[data-theme="dark"] .text-warning-border,
+[data-theme="dark"] .notebook-page-left .text-warning-border,
+[data-theme="dark"] .notebook-page-left [class*="text-amber"] {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .bg-success,
+[data-theme="dark"] .notebook-page-left .bg-success {
+  background-color: #22c55e !important;
+}
+
+[data-theme="dark"] .bg-danger,
+[data-theme="dark"] .notebook-page-left .bg-danger {
+  background-color: #ef4444 !important;
+}
+
+[data-theme="dark"] .bg-warning,
+[data-theme="dark"] .notebook-page-left .bg-warning {
+  background-color: #f59e0b !important;
+}
+
+[data-theme="dark"] .text-pobi-blue,
+[data-theme="dark"] .notebook-page-left .text-pobi-blue {
+  color: #60a5fa !important;
+}
+
+/* Editorial Badges & Metadata Tags */
+[data-theme="dark"] .editorial-badge {
+  color: #e2d5c3 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+}
+
+[data-theme="dark"] .notebook-page-left .bg-glass-highlight,
+[data-theme="dark"] .notebook-page-right .bg-glass-highlight {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: #3b4d66 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Tool Buttons in Dark Mode */
+[data-theme="dark"] .notebook-tool-btn {
+  background-color: #1e2633 !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .notebook-tool-btn:hover {
+  background-color: #2b3648 !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+}
+
+/* Primary Action Buttons in Dark Mode (e.g. 建立第一個章節, 新增錯題) - 璀璨琥珀金漸層 */
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] button.btn-primary,
+[data-theme="dark"] button.bg-pobi-blue,
+[data-theme="dark"] .notebook-page-right .btn-primary {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  border: 1.5px solid #f59e0b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.4) !important;
+}
+
+[data-theme="dark"] .btn-primary:hover,
+[data-theme="dark"] button.btn-primary:hover,
+[data-theme="dark"] button.bg-pobi-blue:hover,
+[data-theme="dark"] .notebook-page-right .btn-primary:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: #fbbf24 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* Back Button & Secondary Row Buttons */
+[data-theme="dark"] .notebook-breadcrumb-back {
+  background-color: #1e2633 !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+}
+
+[data-theme="dark"] .notebook-breadcrumb-back:hover {
+  background-color: #2b3648 !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+}
+
+[data-theme="dark"] button.bg-bg-secondary {
+  background-color: #1e2633 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] button.bg-bg-secondary:hover {
+  background-color: #2b3648 !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+}
+
+/* Tree Directory & Inner Cards */
+[data-theme="dark"] .notebook-page-left .bg-bg-secondary\/80,
+[data-theme="dark"] .notebook-page-left .bg-glass-highlight\/70,
+[data-theme="dark"] .notebook-page-right .bg-bg-secondary,
+[data-theme="dark"] .notebook-page-right .rounded-xl.border {
+  background-color: rgba(22, 29, 39, 0.95) !important;
+  border-color: #2e3a4d !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .leader-line,
+[data-theme="dark"] .notebook-page-right .leader-line {
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-theme="dark"] .border-glass-border {
+  border-color: #2e3a4d !important;
+}
+
+/* ==========================================================================
+   BINDER AUTH DOSSIER (活頁手帳簽到扉頁 / 登入頁面)
+   ========================================================================== */
+
+.binder-auth-stage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background-color: var(--desk-bg);
+  background-image: var(--desk-pattern);
+  position: relative;
+}
+
+.binder-auth-top-bar {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 20;
+}
+
+.binder-auth-theme-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background: var(--binder-surface);
+  border: 1px solid var(--binder-paper-border);
+  color: var(--binder-text-body);
+}
+
+.binder-auth-wrapper {
+  width: 100%;
+  max-width: 460px;
+  position: relative;
+}
+
+.binder-auth-card {
+  position: relative;
+  background-color: var(--binder-paper);
+  border-radius: 10px;
+  border: 1px solid var(--binder-paper-border);
+  box-shadow: var(--binder-shadow-desk);
+  padding: 36px 32px 28px 32px;
+  overflow: hidden;
+}
+
+/* 左側活頁夾裝訂邊緣與扣環 */
+.binder-auth-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 18px;
+  background: linear-gradient(90deg, rgba(60, 40, 20, 0.08), transparent);
+  border-right: 1px dashed var(--binder-stitch);
+  pointer-events: none;
+}
+
+.binder-auth-rings {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 28px 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.binder-auth-ring-hole {
+  width: 10px;
+  height: 18px;
+  background: linear-gradient(180deg, #fffdf5 0%, #d4af37 40%, #9e7b16 80%, #4a3704 100%);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.binder-auth-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-left: 12px;
+}
+
+.binder-auth-logo-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  background: var(--binder-accent);
+  color: #ffffff;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.binder-auth-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+html:not([data-theme="dark"]) .binder-auth-badge {
+  color: #8b5a2b;
+}
+
+[data-theme="dark"] .binder-auth-badge {
+  color: #e2d5c3;
+}
+
+.binder-auth-title {
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+  color: var(--binder-text-title);
+}
+
+[data-theme="dark"] .binder-auth-title {
+  color: #ffffff !important;
+}
+
+.binder-auth-subtitle {
+  font-size: 0.82rem;
+  color: var(--binder-text-muted);
+}
+
+/* 輸入框組件 */
+.binder-auth-input-group {
+  margin-bottom: 18px;
+  padding-left: 12px;
+}
+
+.binder-auth-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--binder-text-body);
+}
+
+.binder-auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.binder-auth-input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--binder-text-muted);
+  pointer-events: none;
+}
+
+.binder-auth-input {
+  width: 100%;
+  height: 42px;
+  padding: 8px 12px 8px 38px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-auth-input {
+  background-color: #fdfbf7;
+  border: 1px solid #d5c8b5;
+  color: #2b1f15;
+}
+
+html:not([data-theme="dark"]) .binder-auth-input:focus {
+  border-color: #8b5a2b;
+  box-shadow: 0 0 0 2px rgba(139, 90, 43, 0.15);
+}
+
+[data-theme="dark"] .binder-auth-input {
+  background-color: #121720;
+  border: 1px solid #334155;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .binder-auth-input:focus {
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+/* 登入按鈕 (淺色模式使用淺色按鈕，深色模式高對比) */
+.binder-auth-submit-btn {
+  width: calc(100% - 12px);
+  margin-left: 12px;
+  height: 44px;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-auth-submit-btn {
+  background-color: #ede4d5 !important;
+  border: 1px solid #cbbaa3 !important;
+  color: #342211 !important;
+  box-shadow: 0 1px 3px rgba(60, 40, 20, 0.08) !important;
+}
+
+html:not([data-theme="dark"]) .binder-auth-submit-btn:hover {
+  background-color: #dfcfb9 !important;
+  border-color: #bda68a !important;
+  color: #1c1208 !important;
+}
+
+[data-theme="dark"] .binder-auth-submit-btn {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  border: 1.5px solid #f59e0b !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.4) !important;
+}
+
+[data-theme="dark"] .binder-auth-submit-btn:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: #fbbf24 !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* 訪客體驗按鈕 (淺色模式使用淺色，深色模式暗調) */
+.binder-auth-demo-btn {
+  width: calc(100% - 12px);
+  margin-left: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-auth-demo-btn {
+  background-color: #f7f2e8 !important;
+  border: 1px solid #dcd1be !important;
+  color: #4a3c30 !important;
+}
+
+html:not([data-theme="dark"]) .binder-auth-demo-btn:hover {
+  background-color: #ede3d3 !important;
+  color: #2b1f15 !important;
+  border-color: #cbbaa3 !important;
+}
+
+[data-theme="dark"] .binder-auth-demo-btn {
+  background-color: #1e2633 !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .binder-auth-demo-btn:hover {
+  background-color: #283447 !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+}
+
+/* ==========================================================================
+   PHASE 2: BINDER MISTAKE CARD & SELF-TESTING MODE (活頁錯題卡與主動自測模式)
+   ========================================================================== */
+
+/* 頂部章節活頁標籤橫向滑軌 (Binder Index Tabs) */
+.binder-index-tabs-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 4px 10px 4px;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.binder-index-tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  font-weight: 600;
+  border-radius: 6px 12px 12px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+html:not([data-theme="dark"]) .binder-index-tab {
+  background: #f0e6d6;
+  border: 1px solid #dcd1bf;
+  color: #4a3c30;
+}
+
+html:not([data-theme="dark"]) .binder-index-tab:hover {
+  background: #e6dac6;
+  color: #2b1f15;
+}
+
+html:not([data-theme="dark"]) .binder-index-tab.active {
+  background: #fde68a !important;
+  border-color: #d97706 !important;
+  color: #1c1917 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.22) !important;
+}
+
+[data-theme="dark"] .binder-index-tab {
+  background: #1c2433;
+  border: 1px solid #2e3a4e;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .binder-index-tab:hover {
+  background: #253043;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .binder-index-tab.active {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 錯題卡片容器 (Binder Card) */
+.binder-mistake-card {
+  position: relative;
+  border-radius: 8px;
+  padding: 18px 20px 16px 20px;
+  background-color: var(--binder-paper);
+  border: 1px solid var(--binder-paper-border);
+  box-shadow: 0 2px 8px rgba(50, 40, 30, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.binder-mistake-card.selected {
+  border-color: var(--binder-accent) !important;
+  box-shadow: 0 0 0 1px var(--binder-accent), 0 3px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 卡片左側打孔裝訂指示 */
+.binder-mistake-card::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 6px;
+  bottom: 10px;
+  width: 4px;
+  border-left: 2px dotted var(--binder-stitch);
+  pointer-events: none;
+}
+
+/* 標籤膠囊 (Pill Tag) */
+.binder-pill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* 掌握度一鍵循環切換按鈕 - 依使用者要求文字全數強制使用高對比純黑色 */
+.binder-fam-cycle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+  color: #000000 !important;
+}
+
+.binder-fam-cycle-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.binder-fam-cycle-btn.fam-success {
+  background: #bbf7d0 !important;
+  border-color: #86efac !important;
+  color: #000000 !important;
+}
+
+[data-theme="dark"] .binder-fam-cycle-btn.fam-success {
+  background: #86efac !important;
+  border-color: #4ade80 !important;
+  color: #000000 !important;
+}
+
+.binder-fam-cycle-btn.fam-warning {
+  background: #fde68a !important;
+  border-color: #fcd34d !important;
+  color: #000000 !important;
+}
+
+[data-theme="dark"] .binder-fam-cycle-btn.fam-warning {
+  background: #fde68a !important;
+  border-color: #fbbf24 !important;
+  color: #000000 !important;
+}
+
+.binder-fam-cycle-btn.fam-danger {
+  background: #fecaca !important;
+  border-color: #fca5a5 !important;
+  color: #000000 !important;
+}
+
+[data-theme="dark"] .binder-fam-cycle-btn.fam-danger {
+  background: #fca5a5 !important;
+  border-color: #f87171 !important;
+  color: #000000 !important;
+}
+
+/* 全域掌握度標籤與按鈕文字一律黑色 */
+.fam-chip,
+.badge-familiarity,
+.mastery-text-black,
+.binder-mastery-badge {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+/* 主動回想拉開解析條 (Self-Testing Reveal Bar) */
+.binder-reveal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-reveal-bar {
+  background: #f2ece0;
+  border: 1px solid #dcd1bf;
+  color: #5a493a;
+}
+
+html:not([data-theme="dark"]) .binder-reveal-bar:hover {
+  background: #eadecd;
+  color: #2b1f15;
+}
+
+html:not([data-theme="dark"]) .binder-reveal-bar.is-expanded {
+  background: #ede3d3;
+  border-color: #cbbaa3;
+  color: #8b5a2b;
+}
+
+[data-theme="dark"] .binder-reveal-bar {
+  background: #18202c;
+  border: 1px solid #2e3a4e;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .binder-reveal-bar:hover {
+  background: #202b3b;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .binder-reveal-bar.is-expanded {
+  background: #202b3b;
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+/* 詳解答案展開區塊 (Answer & Solution Block) */
+.binder-answer-dossier {
+  border-radius: 6px;
+  padding: 12px 14px;
+  border-top: none;
+}
+
+html:not([data-theme="dark"]) .binder-answer-dossier {
+  background: rgba(255, 253, 248, 0.95);
+  border: 1px dashed #dcd1be;
+}
+
+[data-theme="dark"] .binder-answer-dossier {
+  background: rgba(18, 24, 34, 0.95);
+  border: 1px dashed #2e3a4e;
+}
+
+/* ==========================================================================
+   IN-NOTEBOOK EDITOR & FULL IMAGE VIEWER (書本內新增與完整圖文檢視)
+   ========================================================================== */
+
+/* 書本內題目卡片完整圖文容器 */
+.binder-question-card {
+  position: relative;
+  background-color: var(--binder-paper);
+  border: 1px solid var(--binder-paper-border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(60, 45, 30, 0.05);
+}
+
+.binder-question-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 題目與詳解圖片完整高畫質展示 (Full-Width High-Res Media) */
+.binder-full-image-wrapper {
+  position: relative;
+  margin: 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--binder-paper-border);
+  background: rgba(0, 0, 0, 0.02);
+  cursor: zoom-in;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.binder-full-image {
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
+  border-radius: 6px;
+}
+
+.binder-image-zoom-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+/* 書本內編輯表單 (In-Book Editor Form) */
+.binder-inbook-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.binder-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.binder-form-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--binder-text-body);
+}
+
+.binder-form-input,
+.binder-form-textarea,
+.binder-form-select {
+  width: 100%;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-form-input,
+html:not([data-theme="dark"]) .binder-form-textarea,
+html:not([data-theme="dark"]) .binder-form-select {
+  background: #fdfbf7;
+  border: 1px solid #d5c8b5;
+  color: #2b1f15;
+}
+
+html:not([data-theme="dark"]) .binder-form-input:focus,
+html:not([data-theme="dark"]) .binder-form-textarea:focus,
+html:not([data-theme="dark"]) .binder-form-select:focus {
+  border-color: #8b5a2b;
+}
+
+[data-theme="dark"] .binder-form-input,
+[data-theme="dark"] .binder-form-textarea,
+[data-theme="dark"] .binder-form-select {
+  background: #141a24;
+  border: 1px solid #2e3a4e;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .binder-form-input:focus,
+[data-theme="dark"] .binder-form-textarea:focus,
+[data-theme="dark"] .binder-form-select:focus {
+  border-color: #58a6ff;
+}
+
+/* 上傳與剪貼簿粘貼區 (Image Upload & Paste Zone) */
+.binder-paste-zone {
+  border: 1.5px dashed var(--binder-paper-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+html:not([data-theme="dark"]) .binder-paste-zone {
+  background: #fbf7ef;
+}
+
+html:not([data-theme="dark"]) .binder-paste-zone:hover {
+  background: #f4ecdf;
+  border-color: #8b5a2b;
+}
+
+[data-theme="dark"] .binder-paste-zone {
+  background: #151c27;
+}
+
+[data-theme="dark"] .binder-paste-zone:hover {
+  background: #1d2533;
+  border-color: #58a6ff;
+}
+
+/* 全螢幕相簿燈箱 (Full-Screen Lightbox Modal) */
+.binder-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.88);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.binder-lightbox-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.binder-lightbox-img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+}
+
+.binder-lightbox-close-btn {
+  position: absolute;
+  top: -44px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.binder-lightbox-close-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ==========================================================================
+   膠帶圖案全部徹底移除 (Remove All Washi Tape Strips)
+   ========================================================================== */
+.washi-tape-strip,
+.washi-tape-amber,
+.washi-tape-blue,
+.washi-card,
+.memo-note {
+  position: relative !important;
+}
+
+.washi-tape-strip::before,
+.washi-tape-amber::before,
+.washi-tape-blue::before,
+.washi-card::before,
+.memo-note::before,
+.washi-tape-strip::after,
+.washi-tape-amber::after,
+.washi-tape-blue::after,
+.washi-card::after,
+.memo-note::after,
+[class*="washi"]::before,
+[class*="washi"]::after,
+[class*="tape"]::before,
+[class*="tape"]::after {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* ==========================================================================
+   淺色模式全面禁止白色字體 (Zero White Text in Light Mode Mandate)
+   換為顯眼高對比深色字體
+   ========================================================================== */
+/* ==========================================================================
+   LIGHT MODE ZERO-WHITE-TEXT MANDATE (淺色模式嚴格防禦：絕不允許按鈕文字或選取項變白)
+   ========================================================================== */
+html:not([data-theme="dark"]) button,
+html:not([data-theme="dark"]) .btn,
+html:not([data-theme="dark"]) .btn-primary,
+html:not([data-theme="dark"]) button.btn-primary,
+html:not([data-theme="dark"]) .btn-secondary,
+html:not([data-theme="dark"]) button.btn-secondary,
+html:not([data-theme="dark"]) .notebook-primary-btn,
+html:not([data-theme="dark"]) button.bg-pobi-blue,
+html:not([data-theme="dark"]) .bg-pobi-blue,
+html:not([data-theme="dark"]) .badge,
+html:not([data-theme="dark"]) .binder-pill-tag,
+html:not([data-theme="dark"]) .fam-chip,
+html:not([data-theme="dark"]) .mastery-badge,
+html:not([data-theme="dark"]) .binder-fam-cycle-btn,
+html:not([data-theme="dark"]) .modal-content button,
+html:not([data-theme="dark"]) .notebook-tool-btn,
+html:not([data-theme="dark"]) .notebook-prompt-btn,
+html:not([data-theme="dark"]) .notebook-tab-item,
+html:not([data-theme="dark"]) .active,
+html:not([data-theme="dark"]) [class*="active"],
+html:not([data-theme="dark"]) .selected,
+html:not([data-theme="dark"]) [class*="selected"] {
+  color: #1C1917 !important; /* 顯眼高對比深墨黑，確保在任何淺金、米黃背景皆清晰可見 */
+}
+
+html:not([data-theme="dark"]) button svg,
+html:not([data-theme="dark"]) .btn svg,
+html:not([data-theme="dark"]) .active svg,
+html:not([data-theme="dark"]) [class*="active"] svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* 淺色模式下主要按鈕背景配色 - 溫潤琥珀暖金搭配深色邊框，字體黑亮醒目 */
+html:not([data-theme="dark"]) .btn-primary,
+html:not([data-theme="dark"]) button.btn-primary,
+html:not([data-theme="dark"]) .notebook-primary-btn {
+  background: #fde68a !important;
+  border: 1.5px solid #d97706 !important;
+  color: #1c1917 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.2) !important;
+}
+
+html:not([data-theme="dark"]) .btn-primary:hover,
+html:not([data-theme="dark"]) button.btn-primary:hover,
+html:not([data-theme="dark"]) .notebook-primary-btn:hover {
+  background: #fcd34d !important;
+  border-color: #b45309 !important;
+  color: #000000 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(217, 119, 6, 0.3) !important;
+}
+
+/* 淺色模式下次要/工具按鈕背景與文字 */
+html:not([data-theme="dark"]) .btn-secondary,
+html:not([data-theme="dark"]) button.btn-secondary,
+html:not([data-theme="dark"]) .notebook-tool-btn {
+  background: #fdfbf7 !important;
+  border: 1.5px solid #d6cfc7 !important;
+  color: #1c1917 !important;
+  font-weight: 600 !important;
+}
+
+html:not([data-theme="dark"]) .btn-secondary:hover,
+html:not([data-theme="dark"]) button.btn-secondary:hover,
+html:not([data-theme="dark"]) .notebook-tool-btn:hover {
+  background: #f5eee6 !important;
+  border-color: #b5a99c !important;
+  color: #000000 !important;
+}
+
+/* 淺色模式標籤全面高對比深色 */
+html:not([data-theme="dark"]) .binder-pill-tag,
+html:not([data-theme="dark"]) .badge,
+html:not([data-theme="dark"]) .binder-mastery-badge {
+  color: #1c1917 !important;
+  font-weight: 650 !important;
+}
+
+/* 圖片操作工具列與紅筆標註按鈕 */
+.binder-full-image-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+}
+
+.binder-full-image {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
+}
+
+.binder-image-action-bar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+.binder-image-annotate-btn,
+.binder-image-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transition: all 0.15s;
+  backdrop-filter: blur(4px);
+  user-select: none;
+}
+
+.binder-image-annotate-btn {
+  background: rgba(254, 226, 226, 0.95) !important;
+  color: #991b1b !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.binder-image-annotate-btn:hover {
+  background: #fee2e2 !important;
+  color: #7f1d1d !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
+}
+
+.binder-image-zoom-btn {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #1c1917 !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.binder-image-zoom-btn:hover {
+  background: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   TABLET & MOBILE RESPONSIVE ENHANCEMENTS (平版與行動端自適應優化)
+   ========================================================================== */
+
+/* 1. Tablet & Responsive Breakpoints (< 992px) */
+.notebook-tablet-toggle-container {
+  display: none;
+}
+
+@media (max-width: 992px) {
+  .notebook-tablet-toggle-container {
+    display: block !important;
+  }
+
+  .notebook-book-body {
+    flex-direction: column !important;
+    min-height: auto !important;
+    border-radius: 6px !important;
+  }
+
+  .notebook-center-seam {
+    display: none !important;
+  }
+
+  .notebook-spread-outer {
+    max-width: 100% !important;
+    padding-bottom: 20px !important;
+  }
+
+  /* Show page switcher tabs on tablet portrait & mobile */
+  .notebook-book-body > .notebook-tablet-toggle-container {
+    display: block !important;
+  }
+
+  .notebook-mobile-toggle {
+    display: flex !important;
+    background: rgba(139, 90, 43, 0.08) !important;
+    padding: 4px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(139, 90, 43, 0.2) !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .notebook-mobile-toggle-btn {
+    flex: 1 !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    border: none !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    color: var(--text-secondary, #4a3c30) !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .notebook-mobile-toggle-btn.active {
+    background: #fde68a !important;
+    border: 1px solid #d97706 !important;
+    color: #1c1917 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25) !important;
+  }
+
+  /* Ensure single page takes 100% width on tablet portrait and only the active one displays */
+  .notebook-book-body .notebook-page-left:not(.tablet-page-active),
+  .notebook-book-body .notebook-page-right:not(.tablet-page-active) {
+    display: none !important;
+  }
+
+  .notebook-book-body .notebook-page-left.tablet-page-active,
+  .notebook-book-body .notebook-page-right.tablet-page-active {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 24px 20px !important;
+  }
+
+  /* Responsive action buttons for images */
+  .binder-image-action-bar {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .binder-image-annotate-btn,
+  .binder-image-zoom-btn {
+    padding: 7px 12px !important;
+    font-size: 0.82rem !important;
+    min-height: 36px !important;
+  }
+}
+
+/* 2. Compact Touch Devices & Mobile (< 640px) */
+@media (max-width: 640px) {
+  .binder-spine-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    height: 58px !important;
+    z-index: 9999 !important;
+    border-top: 1.5px solid var(--glass-border) !important;
+    border-right: none !important;
+    background: var(--binder-spine-bg) !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    padding: 4px 6px !important;
+  }
+
+  .binder-stage-container {
+    padding: 12px 10px 76px 10px !important;
+  }
+
+  .notebook-page-left,
+  .notebook-page-right {
+    padding: 16px 12px !important;
+  }
+
+  /* Mobile PDF sheet padding */
+  #print-sheet-preview {
+    padding: 24px 16px !important;
+  }
+
+  /* Mobile Annotator full viewport */
+  .image-annotator-overlay {
+    padding: 0 !important;
+  }
+
+  .image-annotator-overlay > div {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* 3. Touch Screen & Stylus / Apple Pencil Support */
+@media (pointer: coarse) {
+  .binder-image-action-bar {
+    opacity: 1 !important;
+  }
+
+  button, 
+  .notebook-tool-btn, 
+  .notebook-primary-btn {
+    touch-action: manipulation;
+  }
+}
+
+/* ========================================================
+   實體試卷列印工坊按鈕樣式 (徹底移除深棕色，改用溫潤琥珀金與現代夜空藍)
+   ======================================================== */
+.export-opt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #ffffff;
+  border: 1.5px solid #d4c9ba;
+  color: #4b5563;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.export-opt-btn:hover {
+  background: #fdfbf7;
+  border-color: #b45309;
+  color: #1c1917;
+  transform: translateY(-1px);
+}
+
+.export-opt-btn.active {
+  background: #fde68a !important;
+  border: 1.5px solid #d97706 !important;
+  color: #1c1917 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25) !important;
+}
+
+.export-check-icon {
+  color: #b45309 !important;
+}
+
+.export-active-settings-bar {
+  background: #fdfbf7 !important;
+  border: 1.5px solid #e2d9cc !important;
+  color: #4b5563 !important;
+}
+
+.export-settings-label {
+  color: #78350f !important;
+}
+
+.export-settings-tag {
+  background: #fef3c7 !important;
+  border: 1px solid #d97706 !important;
+  color: #78350f !important;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+/* 深色模式下的列印工坊按鈕 */
+[data-theme="dark"] .export-opt-btn {
+  background: #1e293b !important;
+  border: 1.5px solid #334155 !important;
+  color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .export-opt-btn:hover {
+  background: #24344d !important;
+  border-color: #f59e0b !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .export-opt-btn.active {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  border: 1.5px solid #f59e0b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45) !important;
+}
+
+[data-theme="dark"] .export-check-icon {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .export-active-settings-bar {
+  background: #0f172a !important;
+  border: 1.5px solid #1e293b !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .export-settings-label {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .export-settings-tag {
+  background: #1e293b !important;
+  border: 1px solid #d97706 !important;
+  color: #fcd34d !important;
+}
+
+/* ========================================================
+   深色模式下書架暗夜沉穩氛圍 (曜黑皮革與深邃黑檀木)
+   ======================================================== */
+[data-theme="dark"] .bookshelf-room {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .shelf-unit {
+  background: linear-gradient(180deg, #131a26, #0d121b) !important;
+  border: 1px solid #243044 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme="dark"] .shelf-plank {
+  background: linear-gradient(180deg, #2a201a, #1a1410 40%, #0f0c0a) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .shelf-plank::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.03)) !important;
+}
+
+[data-theme="dark"] .add-book-cover {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #9ca3af !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .add-book-cover:hover {
+  background: #1f2937 !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .add-book-icon-circle {
+  border-color: #374151 !important;
+  color: #f59e0b !important;
+}
+
+[data-theme="dark"] .dashboard-snapshot {
+  background: #131a26 !important;
+  border-color: #243044 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .dashboard-snapshot-stat strong {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dashboard-snapshot-stat span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .dashboard-snapshot-heading h2 {
+  color: #f8fafc !important;
+}
+
+/* ========================================================
+   錯題本內頁排版改良 (文字與外框邊界充裕，深色高對比)
+   ======================================================== */
+.notebook-page-left {
+  padding: 32px 28px 28px 38px !important;
+}
+
+.notebook-page-right {
+  padding: 32px 38px 28px 28px !important;
+}
+
+@media (max-width: 900px) {
+  .notebook-page-left, .notebook-page-right {
+    padding: 24px 20px !important;
+  }
+}
+
+/* ========================================================
+   精裝手帳高質感按鈕與深色模式高對比排版 (Pobi Impeccable Craft)
+   ======================================================== */
+
+/* 深色模式手帳文字高對比：徹底解決黑字問題 */
+html[data-theme="dark"] .notebook-chapter-title,
+html.dark .notebook-chapter-title,
+[data-theme="dark"] .notebook-chapter-title {
+  color: #F8FAFC !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="dark"] .notebook-stat-label,
+html.dark .notebook-stat-label,
+[data-theme="dark"] .notebook-stat-label {
+  color: #F1F5F9 !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="dark"] .notebook-stat-pct,
+html.dark .notebook-stat-pct,
+[data-theme="dark"] .notebook-stat-pct {
+  color: #CBD5E1 !important;
+}
+
+/* 1. 新增大章節高質感按鈕 */
+.notebook-header-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+html:not([data-theme="dark"]) .notebook-header-add-btn {
+  background: linear-gradient(180deg, #FDFBF7 0%, #F5EFE6 100%) !important;
+  border: 1px solid #D6C8B4 !important;
+  color: #45321B !important;
+}
+
+html:not([data-theme="dark"]) .notebook-header-add-btn:hover {
+  background: linear-gradient(180deg, #FFFFFF 0%, #EDE4D5 100%) !important;
+  border-color: #B49A76 !important;
+  color: #1F150B !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(70, 50, 30, 0.1) !important;
+}
+
+html[data-theme="dark"] .notebook-header-add-btn,
+html.dark .notebook-header-add-btn {
+  background: linear-gradient(180deg, #1E293B 0%, #151E2E 100%) !important;
+  border: 1px solid #3B4D66 !important;
+  color: #F1F5F9 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+html[data-theme="dark"] .notebook-header-add-btn:hover,
+html.dark .notebook-header-add-btn:hover {
+  background: linear-gradient(180deg, #2A384F 0%, #1E293B 100%) !important;
+  border-color: #F59E0B !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15) !important;
+}
+
+/* 2. 瀏覽全部題目膠囊按鈕 */
+.notebook-all-mistakes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+html:not([data-theme="dark"]) .notebook-all-mistakes-btn {
+  background: rgba(245, 241, 234, 0.8) !important;
+  border: 1px solid #DFD7CA !important;
+  color: #5C4835 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-all-mistakes-btn:hover {
+  background: #EAE3D5 !important;
+  border-color: #BFAEA0 !important;
+  color: #2D1E10 !important;
+}
+
+html[data-theme="dark"] .notebook-all-mistakes-btn,
+html.dark .notebook-all-mistakes-btn {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 1px solid #334155 !important;
+  color: #CBD5E1 !important;
+}
+
+html[data-theme="dark"] .notebook-all-mistakes-btn:hover,
+html.dark .notebook-all-mistakes-btn:hover {
+  background: rgba(51, 65, 85, 0.9) !important;
+  border-color: #475569 !important;
+  color: #F8FAFC !important;
+}
+
+/* 3. 章節列表「檢視題目」按鈕 */
+.notebook-chapter-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+html:not([data-theme="dark"]) .notebook-chapter-action-btn {
+  background: #FDFBF7 !important;
+  border: 1px solid #D6CBBF !important;
+  color: #3C2E1F !important;
+  box-shadow: 0 1px 2px rgba(60, 40, 20, 0.05);
+}
+
+html:not([data-theme="dark"]) .notebook-chapter-action-btn:hover {
+  background: #F4ECE0 !important;
+  border-color: #BCAE9E !important;
+  color: #1A1208 !important;
+}
+
+html[data-theme="dark"] .notebook-chapter-action-btn,
+html.dark .notebook-chapter-action-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #F1F5F9 !important;
+}
+
+html[data-theme="dark"] .notebook-chapter-action-btn:hover,
+html.dark .notebook-chapter-action-btn:hover {
+  background: #2D3D54 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+/* 4. 章節列表「+」新增單元小按鈕 */
+.notebook-chapter-plus-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+html:not([data-theme="dark"]) .notebook-chapter-plus-btn {
+  background: #F8F4ED !important;
+  border: 1px solid #DFD5C7 !important;
+  color: #6B553E !important;
+}
+
+html:not([data-theme="dark"]) .notebook-chapter-plus-btn:hover {
+  background: #EFE8DC !important;
+  border-color: #BBAA94 !important;
+  color: #261B0E !important;
+}
+
+html[data-theme="dark"] .notebook-chapter-plus-btn,
+html.dark .notebook-chapter-plus-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #94A3B8 !important;
+}
+
+html[data-theme="dark"] .notebook-chapter-plus-btn:hover,
+html.dark .notebook-chapter-plus-btn:hover {
+  background: #334155 !important;
+  border-color: #475569 !important;
+  color: #F8FAFC !important;
+}
+
+/* 5. 左頁管理標籤按鈕 */
+.notebook-tag-manage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+html:not([data-theme="dark"]) .notebook-tag-manage-btn {
+  background: #FDFBF7 !important;
+  border: 1px solid #D6CBBF !important;
+  color: #5C4733 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-tag-manage-btn:hover {
+  background: #F2E9DB !important;
+  border-color: #BFAEA0 !important;
+  color: #241A0E !important;
+}
+
+html[data-theme="dark"] .notebook-tag-manage-btn,
+html.dark .notebook-tag-manage-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #F1F5F9 !important;
+}
+
+html[data-theme="dark"] .notebook-tag-manage-btn:hover,
+html.dark .notebook-tag-manage-btn:hover {
+  background: #2D3D54 !important;
+  color: #FFFFFF !important;
+}
+
+/* 6. 主要確認按鈕 (notebook-primary-btn) 全局尺寸與深淺色打磨 */
+.notebook-primary-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 42px !important;
+  height: auto !important;
+  padding: 10px 24px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  border-radius: 9px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-primary-btn {
+  background: linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%) !important;
+  border: 1.5px solid #D97706 !important;
+  color: #451A03 !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-primary-btn:hover {
+  background: linear-gradient(180deg, #FEF08A 0%, #D97706 100%) !important;
+  border-color: #B45309 !important;
+  color: #1E0B00 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35) !important;
+}
+
+html[data-theme="dark"] .notebook-primary-btn,
+html.dark .notebook-primary-btn {
+  background: linear-gradient(180deg, #D97706 0%, #B45309 100%) !important;
+  border: 1px solid #F59E0B !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.4) !important;
+}
+
+html[data-theme="dark"] .notebook-primary-btn:hover,
+html.dark .notebook-primary-btn:hover {
+  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%) !important;
+  border-color: #FBBF24 !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5) !important;
+}
+
+.notebook-primary-btn:active {
+  transform: translateY(1px) !important;
+}
+
+/* 6-1. 新增大章節 / 單元彈窗專屬按鈕與輸入框 */
+.notebook-dialog-cancel-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  min-width: 86px !important;
+  padding: 0 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-cancel-btn {
+  background: #F4ECE1 !important;
+  border: 1px solid #D8CABE !important;
+  color: #4A3A2A !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-cancel-btn:hover {
+  background: #EAE0D3 !important;
+  border-color: #BCAE9E !important;
+  color: #1F150B !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-cancel-btn,
+html.dark .notebook-dialog-cancel-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-cancel-btn:hover,
+html.dark .notebook-dialog-cancel-btn:hover {
+  background: #2D3D54 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+.notebook-dialog-submit-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  min-width: 104px !important;
+  padding: 0 24px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-submit-btn {
+  background: linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%) !important;
+  border: 1.5px solid #D97706 !important;
+  color: #451A03 !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-submit-btn:hover {
+  background: linear-gradient(180deg, #FEF08A 0%, #D97706 100%) !important;
+  border-color: #B45309 !important;
+  color: #1E0B00 !important;
+  transform: translateY(-1px) !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-submit-btn,
+html.dark .notebook-dialog-submit-btn {
+  background: linear-gradient(180deg, #D97706 0%, #B45309 100%) !important;
+  border: 1px solid #F59E0B !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 3px 10px rgba(180, 83, 9, 0.4) !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-submit-btn:hover,
+html.dark .notebook-dialog-submit-btn:hover {
+  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%) !important;
+  border-color: #FBBF24 !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px) !important;
+}
+
+.notebook-dialog-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: 44px !important;
+  padding: 10px 14px !important;
+  font-size: 15px !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-input {
+  background: #FFFFFF !important;
+  border: 1.5px solid #D6C8B8 !important;
+  color: #1C1917 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-dialog-input:focus {
+  border-color: #D97706 !important;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15) !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-input,
+html.dark .notebook-dialog-input {
+  background: #0F172A !important;
+  border: 1.5px solid #334155 !important;
+  color: #F8FAFC !important;
+}
+
+html[data-theme="dark"] .notebook-dialog-input:focus,
+html.dark .notebook-dialog-input:focus {
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25) !important;
+}
+
+/* 7. 次要/取消按鈕 (notebook-tool-btn) 全局深色模式 */
+html[data-theme="dark"] .notebook-tool-btn,
+html.dark .notebook-tool-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+html[data-theme="dark"] .notebook-tool-btn:hover,
+html.dark .notebook-tool-btn:hover {
+  background: #2D3D54 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+/* 8. 實體 A4 列印工坊在深色模式下文字亮白 */
+html[data-theme="dark"] .export-opt-btn,
+html.dark .export-opt-btn,
+[data-theme="dark"] .export-opt-btn {
+  color: #F1F5F9 !important;
+}
+
+html[data-theme="dark"] .export-opt-btn.active,
+html.dark .export-opt-btn.active,
+[data-theme="dark"] .export-opt-btn.active {
+  color: #FFFFFF !important;
+}
+
+/* ========================================================
+   錯題手帳編輯頁高質感按鈕體系 (Familiarity & Tag Pills)
+   ======================================================== */
+
+/* 9. 掌握度三級按鈕 (精熟綠、複習黃、加強紅) */
+.notebook-fam-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 22px !important;
+  min-height: 42px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  white-space: nowrap !important;
+}
+
+html:not([data-theme="dark"]) .notebook-fam-btn {
+  background: #FDFCFA !important;
+  border: 1.5px solid #D6C8B8 !important;
+  color: #4A3C30 !important;
+  box-shadow: 0 1px 3px rgba(60, 40, 20, 0.05) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-fam-btn:hover {
+  background: #F5EFE6 !important;
+  border-color: #BBAA94 !important;
+  color: #1F150B !important;
+}
+
+html[data-theme="dark"] .notebook-fam-btn,
+html.dark .notebook-fam-btn {
+  background: #1E293B !important;
+  border: 1.5px solid #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+html[data-theme="dark"] .notebook-fam-btn:hover,
+html.dark .notebook-fam-btn:hover {
+  background: #2D3D54 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+/* 精熟掌握 (綠色系) 選中 */
+html:not([data-theme="dark"]) .notebook-fam-btn.selected-mastered {
+  background: #ECFDF5 !important;
+  border: 2px solid #10B981 !important;
+  color: #065F46 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+html[data-theme="dark"] .notebook-fam-btn.selected-mastered,
+html.dark .notebook-fam-btn.selected-mastered {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border: 2px solid #34D399 !important;
+  color: #6EE7B7 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 一般複習 (黃色系) 選中 */
+html:not([data-theme="dark"]) .notebook-fam-btn.selected-reviewing {
+  background: #FEF3C7 !important;
+  border: 2px solid #F59E0B !important;
+  color: #92400E !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+html[data-theme="dark"] .notebook-fam-btn.selected-reviewing,
+html.dark .notebook-fam-btn.selected-reviewing {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border: 2px solid #FBBF24 !important;
+  color: #FDE68A !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 重點待加強 (紅色系) 選中 */
+html:not([data-theme="dark"]) .notebook-fam-btn.selected-urgent {
+  background: #FFE4E6 !important;
+  border: 2px solid #F43F5E !important;
+  color: #9F1239 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+html[data-theme="dark"] .notebook-fam-btn.selected-urgent,
+html.dark .notebook-fam-btn.selected-urgent {
+  background: rgba(244, 63, 94, 0.22) !important;
+  border: 2px solid #FB7185 !important;
+  color: #FECDD3 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 10. 錯因標籤 (可多選) 圓角膠囊按鈕 */
+.notebook-reason-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 18px !important;
+  min-height: 34px !important;
+  border-radius: 9999px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+html:not([data-theme="dark"]) .notebook-reason-btn {
+  background: #F8F4EE !important;
+  border: 1px solid #DFD5C7 !important;
+  color: #5C4835 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-reason-btn:hover {
+  background: #EFE8DC !important;
+  border-color: #BBAA94 !important;
+  color: #261B0E !important;
+}
+
+html[data-theme="dark"] .notebook-reason-btn,
+html.dark .notebook-reason-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #CBD5E1 !important;
+}
+
+html[data-theme="dark"] .notebook-reason-btn:hover,
+html.dark .notebook-reason-btn:hover {
+  background: #334155 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+/* 錯因標籤選中狀態 */
+html:not([data-theme="dark"]) .notebook-reason-btn.selected {
+  background: #FEF3C7 !important;
+  border: 1.5px solid #D97706 !important;
+  color: #78350F !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.15) !important;
+}
+
+html[data-theme="dark"] .notebook-reason-btn.selected,
+html.dark .notebook-reason-btn.selected {
+  background: rgba(217, 119, 6, 0.28) !important;
+  border: 1.5px solid #F59E0B !important;
+  color: #FDE68A !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* 11. 編輯頁底部按鈕 (取消與儲存貼入本手帳) */
+.notebook-cancel-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 44px !important;
+  padding: 0 24px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+html:not([data-theme="dark"]) .notebook-cancel-btn {
+  background: #F8F4EE !important;
+  border: 1px solid #D6C8B8 !important;
+  color: #5C4835 !important;
+}
+
+html:not([data-theme="dark"]) .notebook-cancel-btn:hover {
+  background: #EFE8DC !important;
+  border-color: #BBAA94 !important;
+  color: #261B0E !important;
+}
+
+html[data-theme="dark"] .notebook-cancel-btn,
+html.dark .notebook-cancel-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+html[data-theme="dark"] .notebook-cancel-btn:hover,
+html.dark .notebook-cancel-btn:hover {
+  background: #2D3D54 !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+.notebook-submit-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 44px !important;
+  padding: 0 28px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-submit-btn {
+  background: linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%) !important;
+  border: 1.5px solid #D97706 !important;
+  color: #451A03 !important;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25) !important;
+}
+
+html:not([data-theme="dark"]) .notebook-submit-btn:hover {
+  background: linear-gradient(180deg, #FEF08A 0%, #D97706 100%) !important;
+  border-color: #B45309 !important;
+  color: #1E0B00 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.35) !important;
+}
+
+html[data-theme="dark"] .notebook-submit-btn,
+html.dark .notebook-submit-btn {
+  background: linear-gradient(180deg, #D97706 0%, #B45309 100%) !important;
+  border: 1px solid #F59E0B !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.35) !important;
+}
+
+html[data-theme="dark"] .notebook-submit-btn:hover,
+html.dark .notebook-submit-btn:hover {
+  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%) !important;
+  border-color: #FBBF24 !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45) !important;
+}
+
+.notebook-submit-btn:active {
+  transform: translateY(1px) !important;
+}

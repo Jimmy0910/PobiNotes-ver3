@@ -1,0 +1,840 @@
+/* ==========================================================================
+   POBINOTES V2: IMPECCABLE DESIGN SYSTEM (BOOKSHELF & OPEN NOTEBOOK)
+   Design Tenet: Artisanal Stationery, Debossed Hot-Foil & Authentic Physical Depth
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. BOOKSHELF ROOM (實體數位書房)
+   -------------------------------------------------------------------------- */
+.bookshelf-room {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  padding: 40px 32px 80px 32px;
+  background: radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.6) 0%, transparent 80%), var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+[data-theme="dark"] .bookshelf-room {
+  background: radial-gradient(circle at 50% 10%, rgba(30, 41, 59, 0.4) 0%, transparent 80%), var(--bg-primary);
+}
+
+.bookshelf-header {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto 44px auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 24px;
+}
+
+.bookshelf-title-group h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bookshelf-title-group p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.bookshelf-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bookshelf-stage {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.shelf-unit {
+  position: relative;
+  padding-bottom: 28px;
+}
+
+.shelf-books-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 36px 28px;
+  align-items: flex-end;
+  padding: 0 20px;
+  margin-bottom: -4px;
+  z-index: 2;
+  position: relative;
+}
+
+/* 建築級多層實木層架 (Architectural Solid Wood Shelf Plank) */
+.shelf-plank {
+  height: 24px;
+  background: linear-gradient(180deg, #E6DDD1 0%, #D8CABE 40%, #B8A493 100%);
+  border-radius: 4px;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 8px 16px rgba(60, 40, 20, 0.08),
+    0 22px 32px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 1;
+}
+
+.shelf-plank::before {
+  /* 層架上方受光倒角斜切面 (Top Bevel Reflection) */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 100%);
+  border-radius: 4px 4px 0 0;
+}
+
+.shelf-plank::after {
+  /* 書架下緣在牆面投射的自然環境陰影 (Drop Ambient Shadow) */
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 12px;
+  right: 12px;
+  height: 16px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22) 0%, transparent 75%);
+  filter: blur(6px);
+  z-index: -1;
+}
+
+[data-theme="dark"] .shelf-plank {
+  background: linear-gradient(180deg, #334155 0%, #1E293B 40%, #0F172A 100%);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    0 12px 24px rgba(0, 0, 0, 0.45),
+    0 24px 38px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .shelf-plank::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+/* --------------------------------------------------------------------------
+   2. ARTISANAL 3D HARDCOVER BOOK (工藝級精裝燙金書封)
+   -------------------------------------------------------------------------- */
+.book-item-wrapper {
+  perspective: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.book-item-wrapper:hover {
+  transform: translateY(-10px) rotateY(-4deg) rotateZ(0.5deg);
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 1 / 1.48;
+  border-radius: 4px 10px 10px 4px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 18px;
+  box-shadow:
+    -8px 4px 16px -2px rgba(0, 0, 0, 0.42),
+    8px 14px 26px rgba(0, 20, 60, 0.22),
+    inset 2px 0 3px rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
+  overflow: hidden;
+}
+
+.book-item-wrapper:hover .book-cover {
+  box-shadow:
+    -12px 8px 24px -2px rgba(0, 0, 0, 0.5),
+    12px 22px 36px rgba(0, 20, 60, 0.3),
+    inset 2px 0 4px rgba(255, 255, 255, 0.25);
+}
+
+/* 書脊活頁溝槽 (French Joint / Hinge Crease) */
+.book-cover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.18) 40%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(0, 0, 0, 0.35) 60%,
+    transparent 100%
+  );
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+  z-index: 3;
+}
+
+/* 右側書頁層疊邊緣厚度 (Fore-edge Paper Depth) */
+.book-cover::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 0;
+  bottom: 5px;
+  width: 6px;
+  background: repeating-linear-gradient(
+    180deg,
+    #FAF6ED,
+    #FAF6ED 2px,
+    #E2D9CC 2px,
+    #E2D9CC 4px
+  );
+  border-radius: 0 4px 4px 0;
+  box-shadow: -1px 0 3px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+
+/* 絲織書籤絲帶 (Grosgrain Silk Ribbon) */
+.book-ribbon {
+  position: absolute;
+  top: 0;
+  right: 26px;
+  width: 14px;
+  height: 42px;
+  box-shadow: 1px 3px 8px rgba(0, 0, 0, 0.45);
+  z-index: 4;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.book-item-wrapper:hover .book-ribbon {
+  height: 52px;
+}
+
+/* 典藏燙金邊框 (Debossed Hot-Stamp Gold Frame) */
+.book-frame {
+  position: absolute;
+  top: 10px;
+  left: 24px;
+  right: 12px;
+  bottom: 10px;
+  border: 1px solid rgba(243, 210, 122, 0.35);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.book-frame-inner {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border: 1px dashed rgba(243, 210, 122, 0.22);
+  border-radius: 2px;
+}
+
+/* 金屬黃銅包角 (Brass Corner Bracket) */
+.book-corner-brass {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.book-corner-tr {
+  top: 2px;
+  right: 2px;
+  border-top: 2px solid rgba(243, 210, 122, 0.7);
+  border-right: 2px solid rgba(243, 210, 122, 0.7);
+  border-radius: 0 8px 0 0;
+}
+
+.book-corner-br {
+  bottom: 2px;
+  right: 2px;
+  border-bottom: 2px solid rgba(243, 210, 122, 0.7);
+  border-right: 2px solid rgba(243, 210, 122, 0.7);
+  border-radius: 0 0 8px 0;
+}
+
+.book-header {
+  position: relative;
+  z-index: 4;
+  padding-left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.book-badge-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(243, 210, 122, 0.4);
+}
+
+.book-mistake-pill {
+  padding: 3px 9px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #FAF6ED;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.book-body {
+  position: relative;
+  z-index: 4;
+  padding-left: 10px;
+  margin-top: auto;
+  margin-bottom: auto;
+  text-align: center;
+}
+
+.book-series-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(243, 210, 122, 0.85);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.book-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #FAF6ED;
+  letter-spacing: 0.06em;
+  text-shadow: 
+    0 -1px 1px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(243, 210, 122, 0.35);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.book-footer {
+  position: relative;
+  z-index: 4;
+  padding-left: 10px;
+}
+
+.book-progress-wrapper {
+  width: 100%;
+}
+
+.book-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.book-progress-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.book-progress-bar {
+  height: 100%;
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(243, 210, 122, 0.4);
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 典藏活頁冊收錄卡片 (Add Book Card - Archive Binder Style) */
+.add-book-cover {
+  width: 100%;
+  aspect-ratio: 1 / 1.48;
+  border-radius: 6px 10px 10px 6px;
+  border: 1.5px dashed var(--glass-border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+.add-book-cover:hover {
+  border-color: var(--pobi-blue);
+  background: var(--glass-highlight);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+.add-book-icon-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.add-book-cover:hover .add-book-icon-circle {
+  transform: scale(1.08);
+  border-color: var(--pobi-blue);
+  color: var(--pobi-blue);
+}
+
+.add-book-text {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.add-book-subtext {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   3. OPEN DOUBLE-PAGE NOTEBOOK (工藝級雙頁展開手帳)
+   -------------------------------------------------------------------------- */
+.notebook-backdrop {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: var(--notebook-desk);
+  padding: 28px 24px 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.notebook-top-bar {
+  max-width: 1340px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  padding: 0 8px;
+}
+
+.notebook-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.notebook-breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.notebook-breadcrumb-back:hover {
+  background: var(--glass-highlight);
+  border-color: var(--text-muted);
+  transform: translateX(-2px);
+}
+
+.notebook-spread-outer {
+  max-width: 1340px;
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+/* 雙頁活頁手帳本體 */
+.notebook-book-body {
+  flex: 1;
+  min-height: 540px;
+  height: calc(100vh - 160px);
+  max-height: 780px;
+  background: var(--notebook-paper);
+  border-radius: 12px;
+  box-shadow: 
+    0 20px 48px rgba(60, 40, 20, 0.16),
+    0 4px 12px rgba(60, 40, 20, 0.08),
+    inset 0 0 0 1px rgba(60, 40, 20, 0.08);
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 精裝皮質底殼邊緣 */
+.notebook-hardcover-edge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 16px;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.28);
+  z-index: 0;
+}
+
+.notebook-book-body {
+  z-index: 1;
+}
+
+/* 中間書脊裝訂凹槽與中縫陰影 (Center Gutter) */
+.notebook-center-seam {
+  width: 38px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.08) 0%,
+    rgba(0, 0, 0, 0.18) 45%,
+    rgba(0, 0, 0, 0.28) 50%,
+    rgba(0, 0, 0, 0.18) 55%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  padding: 36px 0;
+  z-index: 5;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 活頁金屬環 (Polished Steel Binder Rings) */
+.binder-ring {
+  width: 24px;
+  height: 8px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 35%, #64748B 70%, #1E293B 100%);
+  border-radius: 4px;
+  box-shadow: 
+    0 2px 5px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  position: relative;
+}
+
+.binder-ring::before,
+.binder-ring::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0F172A;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+  top: 1px;
+}
+
+.binder-ring::before { left: -5px; }
+.binder-ring::after { right: -5px; }
+
+/* 左頁 (Left Page: Editorial Academic Profile) */
+.notebook-page-left {
+  flex: 1;
+  padding: 40px 42px 44px 48px;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.5), transparent 75%);
+  position: relative;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 右頁 (Right Page: Syllabus & Directory) */
+.notebook-page-right {
+  flex: 1;
+  padding: 40px 48px 44px 42px;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.5), transparent 75%);
+  position: relative;
+}
+
+/* 紙張印刷微橫線淡印底紋 (Fine Printed Rules) */
+.notebook-page-lined {
+  background-image: linear-gradient(var(--notebook-line) 1px, transparent 1px);
+  background-size: 100% 32px;
+}
+
+/* 出版品風格章節目錄點狀引導線 (Dotted Leader Line) */
+.leader-line {
+  flex: 1;
+  margin: 0 10px;
+  border-bottom: 1px dotted var(--text-muted);
+  opacity: 0.35;
+  height: 0.8em;
+}
+
+/* 活頁夾外側實體索引書籤頁籤 (Physical Japanese Index Tabs) */
+.notebook-outer-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-left: 2px;
+  padding-top: 48px;
+  z-index: 2;
+}
+
+.notebook-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 18px 12px 14px;
+  border-radius: 0 10px 10px 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-left: none;
+  cursor: pointer;
+  box-shadow: 2px 4px 12px rgba(60, 40, 20, 0.08);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  white-space: nowrap;
+}
+
+.notebook-tab-item:hover {
+  color: var(--text-primary);
+  transform: translateX(4px);
+  background: var(--glass-highlight);
+}
+
+.notebook-tab-item.active {
+  color: #1C1917;
+  background: #FDE68A;
+  border-color: #D97706;
+  transform: translateX(8px);
+  box-shadow: 4px 6px 16px rgba(180, 83, 9, 0.24);
+}
+
+/* --------------------------------------------------------------------------
+   4. EDITORIAL STATS & TOOL BUTTONS (精緻出版排印與火漆印章感按鈕)
+   -------------------------------------------------------------------------- */
+.editorial-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.editorial-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 16px 0;
+  width: 100%;
+}
+
+.notebook-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.notebook-tool-btn:hover {
+  background: var(--glass-highlight);
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* 抽屜側滑面板 */
+.notebook-sheet-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+.notebook-sheet-content {
+  width: 100%;
+  max-width: 580px;
+  height: 100%;
+  background: var(--bg-secondary);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInRight 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* --------------------------------------------------------------------------
+   5. RESPONSIVE DESIGN (多端自適應)
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .notebook-book-body {
+    min-height: 660px;
+  }
+  .notebook-page-left,
+  .notebook-page-right {
+    padding: 28px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .bookshelf-room {
+    padding: 20px 14px 48px 14px;
+  }
+
+  .shelf-books-row {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 24px 16px;
+    padding: 0 8px;
+  }
+
+  .notebook-spread-outer {
+    flex-direction: column;
+  }
+
+  .notebook-outer-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    margin-left: 0;
+    margin-bottom: 14px;
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+
+  .notebook-tab-item {
+    border-radius: 8px;
+    border-left: 1px solid var(--glass-border);
+    padding: 9px 14px;
+  }
+
+  .notebook-tab-item.active {
+    transform: none;
+  }
+
+  .notebook-book-body {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .notebook-center-seam {
+    display: none;
+  }
+
+  .notebook-page-left,
+  .notebook-page-right {
+    padding: 24px 18px;
+    border-right: none;
+  }
+
+  .notebook-mobile-toggle {
+    display: flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 18px;
+    gap: 4px;
+  }
+
+  .notebook-mobile-toggle-btn {
+    flex: 1;
+    padding: 9px 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .notebook-mobile-toggle-btn.active {
+    background: var(--accent-primary);
+    color: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  }
+}

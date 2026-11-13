@@ -42,8 +42,8 @@ const DIMENSION_META: Array<{
 ];
 
 const COLOR_OPTIONS: Array<{ value: string; label: string; badgeBg: string; badgeText: string }> = [
-  { value: 'default', label: '預設 (POBI藍)', badgeBg: 'rgba(0, 31, 101, 0.14)', badgeText: '#001F65' },
-  { value: 'success', label: '翠綠 (POBI綠/順)', badgeBg: 'rgba(25, 122, 39, 0.15)', badgeText: '#197A27' },
+  { value: 'default', label: '預設 (牛皮棕)', badgeBg: 'rgba(139, 90, 43, 0.14)', badgeText: '#8B5A2B' },
+  { value: 'success', label: '苔綠 (順暢掌握)', badgeBg: 'rgba(77, 124, 15, 0.15)', badgeText: '#4D7C0F' },
   { value: 'warning', label: '琥珀橘 (卡/注意)', badgeBg: 'rgba(217, 119, 6, 0.15)', badgeText: '#D97706' },
   { value: 'danger', label: '珊瑚紅 (重災/不會)', badgeBg: 'rgba(197, 34, 31, 0.15)', badgeText: '#C5221F' }
 ];
@@ -415,8 +415,10 @@ export default function CategoryManager({
                 fontSize: '0.75rem',
                 padding: '2px 8px',
                 borderRadius: '12px',
-                background: isActive ? 'rgba(255,255,255,0.22)' : 'var(--glass-bg)',
-                color: isActive ? '#fff' : 'var(--text-secondary)'
+                background: isActive ? '#FEF3C7' : 'var(--glass-bg)',
+                color: '#1C1917',
+                border: isActive ? '1px solid #D97706' : '1px solid var(--glass-border)',
+                fontWeight: 700
               }}>
                 {count}
               </span>
@@ -513,8 +515,8 @@ export default function CategoryManager({
           <div style={{
             padding: '14px 18px',
             borderRadius: 'var(--radius-md)',
-            background: 'rgba(0, 31, 101, 0.05)',
-            border: '1px solid rgba(0, 31, 101, 0.16)',
+            background: '#FEF3C7',
+            border: '1px solid #D97706',
             display: 'flex',
             alignItems: 'center',
             gap: '12px',

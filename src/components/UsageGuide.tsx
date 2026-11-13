@@ -42,10 +42,11 @@ export default function UsageGuide() {
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
               <div style={{
-                background: 'var(--accent-gradient)',
+                background: '#FEF3C7',
+                border: '1.5px solid #D97706',
                 padding: '10px',
                 borderRadius: 'var(--radius-md)',
-                color: '#fff',
+                color: '#78350F',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -507,18 +508,19 @@ export default function UsageGuide() {
                   padding: '14px 18px',
                   textAlign: 'left',
                   borderRadius: 'var(--radius-md)',
-                  background: isActive ? 'var(--accent-gradient)' : 'var(--glass-bg)',
-                  border: isActive ? 'none' : '1px solid var(--glass-border)',
-                  color: isActive ? '#fff' : 'var(--text-secondary)',
+                  background: isActive ? '#FDE68A' : 'var(--glass-bg)',
+                  border: isActive ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                  color: isActive ? '#1C1917' : 'var(--text-secondary)',
+                  boxShadow: isActive ? '0 2px 8px rgba(217, 119, 6, 0.2)' : 'none'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                  <IconComponent size={18} style={{ flexShrink: 0, color: isActive ? '#fff' : 'var(--accent-primary)' }} />
+                  <IconComponent size={18} style={{ flexShrink: 0, color: isActive ? '#78350F' : 'var(--accent-primary)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
                     <span style={{ 
-                      fontWeight: 600, 
+                      fontWeight: isActive ? 700 : 600, 
                       fontSize: '0.92rem', 
-                      color: isActive ? '#fff' : 'var(--text-primary)',
+                      color: isActive ? '#1C1917' : 'var(--text-primary)',
                       whiteSpace: 'nowrap',
                       textOverflow: 'ellipsis',
                       overflow: 'hidden',
@@ -531,6 +533,7 @@ export default function UsageGuide() {
                 <ChevronRight size={16} style={{ 
                   flexShrink: 0, 
                   opacity: isActive ? 1 : 0.4,
+                  color: isActive ? '#78350F' : 'currentColor',
                   transform: isActive ? 'translateX(2px)' : 'none',
                   transition: 'transform 0.2s'
                 }} />

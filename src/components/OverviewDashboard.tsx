@@ -14,7 +14,9 @@ import {
   Clock,
   FolderTree,
   BarChart3,
-  Plus
+  Plus,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 
 interface OverviewDashboardProps {
@@ -23,6 +25,8 @@ interface OverviewDashboardProps {
   onDrilldownCategory: (dimension: CategoryDimension, id: string) => void;
   onNavigateToView: (view: 'all' | 'categories' | 'analytics' | 'prompt' | 'export') => void;
   onOpenNewMistake: () => void;
+  onOpenBatchImport?: () => void;
+  onOpenFastReview?: () => void;
 }
 
 export default function OverviewDashboard({
@@ -30,7 +34,9 @@ export default function OverviewDashboard({
   categories,
   onDrilldownCategory,
   onNavigateToView,
-  onOpenNewMistake
+  onOpenNewMistake,
+  onOpenBatchImport,
+  onOpenFastReview
 }: OverviewDashboardProps) {
   const stats = useMemo(() => {
     const total = mistakes.length;
@@ -100,7 +106,7 @@ export default function OverviewDashboard({
   return (
     <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }} className="animate-fade-in">
       {/* Header Banner - Physical Notebook Header */}
-      <div className="glass notebook-page washi-tape-strip" style={{ padding: '20px 24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', borderTop: '3px solid var(--accent-secondary)' }}>
+      <div className="glass notebook-page" style={{ padding: '20px 24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', borderTop: '3px solid var(--accent-secondary)' }}>
         <div>
           <h2 style={{ fontSize: '1.35rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <LayoutDashboard size={22} style={{ color: 'var(--accent-primary)' }} />
@@ -112,6 +118,27 @@ export default function OverviewDashboard({
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+          {onOpenBatchImport && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.88rem',
+                backgroundColor: '#FDE68A',
+                borderColor: '#D97706',
+                color: '#1C1917',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(180, 83, 9, 0.2)'
+              }}
+              onClick={onOpenBatchImport}
+            >
+              <Sparkles size={16} className="text-amber-300" /> AI 考卷批次匯入
+            </button>
+          )}
           <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.88rem' }} onClick={onOpenNewMistake}>
             <Plus size={16} /> 剪貼新增錯題
           </button>
@@ -123,6 +150,50 @@ export default function OverviewDashboard({
           </button>
         </div>
       </div>
+
+      {/* Inbox Notification Banner for Unreviewed Mistakes */}
+      {stats.unsetFamCount > 0 && (
+        <div style={{
+          padding: '14px 20px',
+          backgroundColor: '#FFFBEB',
+          border: '1px solid #D97706',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertTriangle size={20} style={{ color: '#B45309' }} />
+            <span style={{ fontSize: '0.9rem', color: '#78350F', fontWeight: 600 }}>
+              收件匣提醒：尚有 <strong style={{ fontVariantNumeric: 'tabular-nums', textDecoration: 'underline' }}>{stats.unsetFamCount} 道新題目</strong> 尚未完成熟悉度標記。
+            </span>
+          </div>
+          {onOpenFastReview && (
+            <button
+              type="button"
+              onClick={onOpenFastReview}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: '#B45309',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Zap size={14} /> 立即接續極速審核
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Top Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px' }}>
@@ -142,7 +213,7 @@ export default function OverviewDashboard({
 
         {categories.familiarities.filter(f => f.is_active === 1).map(f => {
           const count = stats.famCounts[f.id] || 0;
-          const color = f.color === 'success' ? '#197A27' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#001F65';
+          const color = f.color === 'success' ? '#4D7C0F' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#8B5A2B';
           return (
             <div
               key={f.id}
@@ -203,7 +274,7 @@ export default function OverviewDashboard({
                       <span style={{ fontWeight: 600 }}>{s.name}</span>
                       <span><strong>{count} 題</strong> ({formatPct(count, stats.total)})</span>
                     </div>
-                    <div style={{ height: '6px', background: 'rgba(0, 31, 101, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', background: 'rgba(60, 40, 20, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: 'var(--accent-primary)' }} />
                     </div>
                   </div>
@@ -238,7 +309,7 @@ export default function OverviewDashboard({
                       <span style={{ fontWeight: 600 }}>{r.name}</span>
                       <span><strong>{count} 題</strong> (涉及率 {formatPct(count, stats.total)})</span>
                     </div>
-                    <div style={{ height: '6px', background: 'rgba(0, 31, 101, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', background: 'rgba(60, 40, 20, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: 'var(--accent-secondary)' }} />
                     </div>
                   </div>

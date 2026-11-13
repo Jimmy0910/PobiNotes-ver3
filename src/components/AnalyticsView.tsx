@@ -35,14 +35,14 @@ interface AnalyticsViewProps {
 }
 
 const CHART_COLORS = [
-  '#001F65',
-  '#197A27',
+  '#8B5A2B',
+  '#B45309',
+  '#4D7C0F',
   '#D97706',
   '#C5221F',
-  '#0284c7',
-  '#059669',
-  '#7c3aed',
-  '#db2777',
+  '#92400E',
+  '#78350F',
+  '#A16207',
   '#0d9488',
   '#ea580c'
 ];
@@ -594,9 +594,10 @@ export default function AnalyticsView({
                       fontSize: '0.8rem',
                       borderRadius: '14px',
                       cursor: 'pointer',
-                      border: `1px solid ${active ? 'var(--accent-primary)' : 'var(--glass-border)'}`,
-                      background: active ? 'rgba(99, 102, 241, 0.2)' : 'var(--glass-bg)',
-                      color: active ? '#fff' : 'var(--text-secondary)'
+                      border: active ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                      background: active ? '#FDE68A' : 'var(--glass-bg)',
+                      color: active ? '#1C1917' : 'var(--text-secondary)',
+                      fontWeight: active ? 700 : 500
                     }}
                   >
                     #{tag}
@@ -646,7 +647,7 @@ export default function AnalyticsView({
 
         {categories.familiarities.filter(f => f.is_active === 1).map(f => {
           const count = overviewStats.famCounts[f.id] || 0;
-          const borderColor = f.color === 'success' ? '#197A27' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#001F65';
+          const borderColor = f.color === 'success' ? '#4D7C0F' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#8B5A2B';
           return (
             <div
               key={f.id}
@@ -1108,9 +1109,10 @@ function FilterRow({
           fontSize: '0.8rem',
           borderRadius: '14px',
           cursor: 'pointer',
-          border: `1px solid ${selectedIds.length === 0 ? 'var(--accent-primary)' : 'var(--glass-border)'}`,
-          background: selectedIds.length === 0 ? 'rgba(99, 102, 241, 0.2)' : 'var(--glass-bg)',
-          color: selectedIds.length === 0 ? '#fff' : 'var(--text-secondary)'
+          border: selectedIds.length === 0 ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+          background: selectedIds.length === 0 ? '#FDE68A' : 'var(--glass-bg)',
+          color: selectedIds.length === 0 ? '#1C1917' : 'var(--text-secondary)',
+          fontWeight: selectedIds.length === 0 ? 700 : 500
         }}
       >
         全部
@@ -1127,9 +1129,10 @@ function FilterRow({
               fontSize: '0.8rem',
               borderRadius: '14px',
               cursor: 'pointer',
-              border: `1px solid ${active ? 'var(--accent-primary)' : 'var(--glass-border)'}`,
-              background: active ? 'var(--accent-gradient)' : 'var(--glass-bg)',
-              color: active ? '#fff' : 'var(--text-primary)',
+              border: active ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+              background: active ? '#FDE68A' : 'var(--glass-bg)',
+              color: active ? '#1C1917' : 'var(--text-primary)',
+              fontWeight: active ? 700 : 500,
               opacity: item.inactive ? 0.6 : 1
             }}
             data-testid={`filter-pill-${label}-${item.name}`}

@@ -5,6 +5,7 @@ export interface CategoryItem {
   dimension: CategoryDimension;
   parent_id: string | null;
   subject_id?: string | null;
+  chapter_id?: string | null;
   name: string;
   color: 'default' | 'success' | 'warning' | 'danger' | string;
   sort_order: number;
@@ -228,7 +229,19 @@ export const DEFAULT_TEMPLATE_FIELDS: {
   answerFields: [
     { id: 'a_ans', label: '正確答案与詳解文字', type: 'textarea' },
     { id: 'a_img', label: '詳解圖片', type: 'image' },
-    { id: 'a_note', label: '個人筆記 / 破題關鍵', type: 'textarea' }
+    { id: 'a_note', label: '個人筆記 / 破題關鍵', type: 'textarea' },
+    {
+      id: 'a_familiarity',
+      label: '掌握熟悉度',
+      type: 'options',
+      options: [
+        { value: '重點待加強', color: 'danger' },
+        { value: '一般複習', color: 'warning' },
+        { value: '熟練掌握', color: 'success' }
+      ],
+      inline: true,
+      styleType: 'bordered'
+    }
   ]
 };
 

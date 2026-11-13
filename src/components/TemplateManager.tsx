@@ -28,6 +28,89 @@ interface Template {
   created_at: number;
 }
 
+const DEFAULT_PRESET_TEMPLATES: Template[] = [
+  {
+    id: 'tpl_standard',
+    name: '基礎錯題與詳細解析',
+    fields: {
+      questionFields: [
+        { id: 'q_desc', type: 'textarea', label: '題目描述' },
+        { id: 'q_img', type: 'image', label: '題目相片' }
+      ],
+      answerFields: [
+        { id: 'a_ans', type: 'text', label: '標準答案' },
+        { id: 'a_desc', type: 'textarea', label: '核心解析與觀念推導' },
+        {
+          id: 'a_familiarity',
+          type: 'options',
+          label: '掌握熟悉度',
+          options: [
+            { value: '重點待加強', color: 'danger' },
+            { value: '一般複習', color: 'warning' },
+            { value: '熟練掌握', color: 'success' }
+          ],
+          inline: true
+        }
+      ]
+    },
+    created_at: Date.now()
+  },
+  {
+    id: 'tpl_math_science',
+    name: '數理演算與步驟剖析',
+    fields: {
+      questionFields: [
+        { id: 'q_desc', type: 'textarea', label: '題幹與已知條件' },
+        { id: 'q_img', type: 'image', label: '幾何圖形或實驗附圖' }
+      ],
+      answerFields: [
+        { id: 'a_formula', type: 'text', label: '關鍵定理與公式' },
+        { id: 'a_steps', type: 'textarea', label: '詳細計算與推導步驟' },
+        { id: 'a_pitfall', type: 'textarea', label: '計算盲點與陷阱提示' },
+        {
+          id: 'a_familiarity',
+          type: 'options',
+          label: '掌握熟悉度',
+          options: [
+            { value: '重點待加強', color: 'danger' },
+            { value: '一般複習', color: 'warning' },
+            { value: '熟練掌握', color: 'success' }
+          ],
+          inline: true
+        }
+      ]
+    },
+    created_at: Date.now()
+  },
+  {
+    id: 'tpl_language',
+    name: '語文閱讀與字彙文法',
+    fields: {
+      questionFields: [
+        { id: 'q_passage', type: 'textarea', label: '文章節錄 / 題幹' },
+        { id: 'q_options', type: 'options', label: '原題選項', options: [{ value: 'A' }, { value: 'B' }, { value: 'C' }, { value: 'D' }] }
+      ],
+      answerFields: [
+        { id: 'a_vocab', type: 'textarea', label: '生詞難字與片語整理' },
+        { id: 'a_grammar', type: 'textarea', label: '文法結構與句型解析' },
+        { id: 'a_translation', type: 'textarea', label: '全文精譯與答題技巧' },
+        {
+          id: 'a_familiarity',
+          type: 'options',
+          label: '掌握熟悉度',
+          options: [
+            { value: '重點待加強', color: 'danger' },
+            { value: '一般複習', color: 'warning' },
+            { value: '熟練掌握', color: 'success' }
+          ],
+          inline: true
+        }
+      ]
+    },
+    created_at: Date.now()
+  }
+];
+
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   constructor(props: any) {
     super(props);
@@ -110,13 +193,24 @@ function TemplateManager() {
   const fetchTemplates = async () => {
     try {
       const res = await apiRequest('/api/templates');
-      setTemplates(res);
-      if (res.length > 0 && !selectedTemplateId) {
-        // Find the template that matches selectedTemplateId, or load the first one
-        loadTemplate(res[0]);
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.templates) ? res.templates : []);
+      if (list && list.length > 0) {
+        setTemplates(list);
+        if (!selectedTemplateId) {
+          loadTemplate(list[0]);
+        }
+      } else {
+        setTemplates(DEFAULT_PRESET_TEMPLATES);
+        if (!selectedTemplateId) {
+          loadTemplate(DEFAULT_PRESET_TEMPLATES[0]);
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.warn('載入自訂模板失敗，切換為預設手帳模板:', e);
+      setTemplates(DEFAULT_PRESET_TEMPLATES);
+      if (!selectedTemplateId) {
+        loadTemplate(DEFAULT_PRESET_TEMPLATES[0]);
+      }
     }
   };
 
@@ -172,6 +266,37 @@ function TemplateManager() {
     } else {
       setAnswerFields(prev => [...prev, newField]);
     }
+  };
+
+  const addFamiliarityField = () => {
+    const famField: Field = {
+      id: 'a_familiarity_' + Math.random().toString(36).substr(2, 6),
+      type: 'options',
+      label: '掌握熟悉度',
+      options: [
+        { value: '重點待加強', color: 'danger' },
+        { value: '一般複習', color: 'warning' },
+        { value: '熟練掌握', color: 'success' }
+      ],
+      inline: true,
+      styleType: 'bordered'
+    };
+    setAnswerFields(prev => [...prev, famField]);
+  };
+
+  const applyFamiliarityPresetToField = (section: 'question' | 'answer', index: number) => {
+    const list = section === 'question' ? [...questionFields] : [...answerFields];
+    list[index] = {
+      ...list[index],
+      label: '掌握熟悉度',
+      options: [
+        { value: '重點待加強', color: 'danger' },
+        { value: '一般複習', color: 'warning' },
+        { value: '熟練掌握', color: 'success' }
+      ]
+    };
+    if (section === 'question') setQuestionFields(list);
+    else setAnswerFields(list);
   };
 
   const updateFieldProp = (section: 'question' | 'answer', index: number, key: keyof Field, value: any) => {
@@ -311,57 +436,64 @@ function TemplateManager() {
     }
   };
 
+  const safeTemplates = Array.isArray(templates) ? templates : DEFAULT_PRESET_TEMPLATES;
+
   return (
-    <div style={{ display: 'flex', gap: '24px', flex: 1, padding: '24px' }} className="animate-fade-in">
+    <div style={{ display: 'flex', gap: '24px', flex: 1, padding: '24px', minHeight: 'calc(100vh - 80px)' }} className="animate-fade-in">
       {/* Templates List Sidebar */}
-      <div className="glass" style={{ width: '250px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="glass" style={{ width: '280px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', borderRadius: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <List size={16} /> 模板列表
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <List size={18} /> 模板列表
           </h3>
-          <button className="btn btn-primary" style={{ padding: '6px 10px', fontSize: '0.8rem' }} onClick={handleCreateNew}>
-            <Plus size={14} /> 新增
+          <button className="notebook-primary-btn" style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleCreateNew}>
+            <Plus size={15} /> 新增
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1 }}>
-          {templates.filter(t => t && t.id).map(t => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
+          {safeTemplates.filter(t => t && t.id).map(t => (
             <div
               key={t.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-md)',
+                padding: '12px 14px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                background: selectedTemplateId === t.id ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.02)',
-                color: selectedTemplateId === t.id ? '#fff' : 'var(--text-primary)',
-                transition: 'all 0.2s'
+                background: selectedTemplateId === t.id ? '#FDE68A' : 'var(--glass-bg, #FAF7F0)',
+                border: selectedTemplateId === t.id ? '1.5px solid #D97706' : '1px solid var(--glass-border, #D8D0C5)',
+                color: selectedTemplateId === t.id ? '#1C1917' : 'var(--text-primary, #1C1917)',
+                transition: 'all 0.2s',
+                fontWeight: selectedTemplateId === t.id ? 700 : 500,
+                boxShadow: selectedTemplateId === t.id ? '0 2px 8px rgba(217, 119, 6, 0.2)' : 'none'
               }}
               onClick={() => loadTemplate(t)}
             >
-              <span style={{ fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+              <span style={{ fontSize: '0.92rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px', color: selectedTemplateId === t.id ? '#1C1917' : 'inherit' }}>
                 {t.name}
               </span>
               <button
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: selectedTemplateId === t.id ? '#ffffff' : 'var(--text-muted)',
-                  cursor: 'pointer'
+                  color: selectedTemplateId === t.id ? '#78350F' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px'
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeleteTemplate(t.id, t.name);
                 }}
+                title="刪除模板"
               >
-                <Trash2 size={14} />
+                <Trash2 size={15} />
               </button>
             </div>
           ))}
-          {templates.length === 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px', fontSize: '0.85rem' }}>
+          {safeTemplates.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px', fontSize: '0.88rem' }}>
               暫無模板
             </div>
           )}
@@ -369,13 +501,13 @@ function TemplateManager() {
       </div>
 
       {/* Template Editor */}
-      <div className="glass" style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="glass" style={{ flex: 1, padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
           <div>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '4px' }}>自訂模板編輯器</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>分別為題目與答案設計所需的欄位</p>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '6px' }}>自訂模板編輯器</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>自由設計題幹與解析所需的專屬欄位（文字、圖片、選項、計時等）</p>
           </div>
-          <button className="btn btn-primary" onClick={handleSave}>
+          <button className="notebook-primary-btn" style={{ padding: '10px 22px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleSave}>
             <Save size={16} /> 儲存模板
           </button>
         </div>
@@ -436,11 +568,12 @@ function TemplateManager() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--success)' }}>2. 答案與解析區欄位</h3>
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => addField('answer', 'text')}>+單行</button>
                 <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => addField('answer', 'textarea')}>+多行</button>
                 <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => addField('answer', 'image')}>+圖片</button>
                 <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => addField('answer', 'options')}>+選項</button>
+                <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem', borderColor: '#D97706', color: '#D97706', fontWeight: 600 }} onClick={addFamiliarityField}>+掌握熟悉度</button>
               </div>
             </div>
 
@@ -462,6 +595,7 @@ function TemplateManager() {
                   onDeleteOption={(optIndex) => deleteOption('answer', index, optIndex)}
                   onUpdateProp={(key, val) => updateFieldProp('answer', index, key, val)}
                   onUpdateOptionColor={(optIndex, color) => updateOptionColor('answer', index, optIndex, color)}
+                  onApplyFamiliarityPreset={() => applyFamiliarityPresetToField('answer', index)}
                 />
               ))}
               {answerFields.length === 0 && (
@@ -492,6 +626,7 @@ interface FieldCardProps {
   onDeleteOption: (index: number) => void;
   onUpdateProp: (key: keyof Field, val: any) => void;
   onUpdateOptionColor: (optIndex: number, color: FieldOption['color']) => void;
+  onApplyFamiliarityPreset?: () => void;
 }
 
 function FieldCard({
@@ -505,7 +640,8 @@ function FieldCard({
   onAddOption,
   onDeleteOption,
   onUpdateProp,
-  onUpdateOptionColor
+  onUpdateOptionColor,
+  onApplyFamiliarityPreset
 }: FieldCardProps) {
   const getTypeLabel = (type: Field['type']) => {
     switch (type) {
@@ -619,7 +755,27 @@ function FieldCard({
 
       {field.type === 'options' && (
         <div style={{ marginTop: '5px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>選項清單：</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>選項清單：</span>
+            {onApplyFamiliarityPreset && (
+              <button
+                type="button"
+                onClick={onApplyFamiliarityPreset}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  background: 'rgba(217, 119, 6, 0.1)',
+                  border: '1px solid #D97706',
+                  color: '#D97706',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                快速套用紅黃綠熟悉度
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
             {field.options?.map((opt, i) => (
               <span

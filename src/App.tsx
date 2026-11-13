@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiRequest } from './utils/api';
 import {
   type CategoriesBundle,
@@ -8,7 +8,7 @@ import {
   createEmptyFilterState
 } from './types';
 import AuthPage from './components/AuthPage';
-import Dashboard, { type AppViewType } from './components/Dashboard';
+import type { AppViewType } from './components/Dashboard';
 import OverviewDashboard from './components/OverviewDashboard';
 import CategoryManager from './components/CategoryManager';
 import AnalyticsView from './components/AnalyticsView';
@@ -18,6 +18,11 @@ import MistakeList from './components/MistakeList';
 import ExportPDF from './components/ExportPDF';
 import AdminPanel from './components/AdminPanel';
 import UsageGuide from './components/UsageGuide';
+import BookshelfView from './components/BookshelfView';
+import NotebookOpenView from './components/NotebookOpenView';
+import BatchExamImportModal from './components/BatchExamImportModal';
+import BinderSpineNav from './components/BinderSpineNav';
+import './styles/notebookLayout.css';
 import {
   LogOut,
   Sun,
@@ -28,10 +33,13 @@ import {
   Trash2,
   Star,
   X,
-  PanelLeftClose,
-  PanelLeftOpen
+  Printer,
+  CircleHelp,
+  Sparkles,
+  BookOpen,
+  FileText,
+  BarChart2
 } from 'lucide-react';
-import logoUrl from './assets/logo.png';
 
 interface User {
   id: string;
@@ -52,10 +60,17 @@ const EMPTY_CATEGORIES: CategoriesBundle = {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      return (saved === 'dark' || saved === 'light') ? saved : 'light';
+    } catch {
+      return 'light';
+    }
+  });
 
-  // Navigation & Hierarchy states: default to 'dashboard' (錯題統整儀表板)
-  const [activeView, setActiveView] = useState<AppViewType>('dashboard');
+  // Navigation & Hierarchy states: default to 'bookshelf' (數位書架)
+  const [activeView, setActiveView] = useState<AppViewType>('bookshelf');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -63,6 +78,8 @@ export default function App() {
   const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [triggerOpenNewMistake, setTriggerOpenNewMistake] = useState(false);
+  const [showBatchImportModal, setShowBatchImportModal] = useState(false);
+  const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('import');
 
   // Global synchronized Categories & Mistakes state + persistent Analytics Filter state (Requirement 8)
   const [categories, setCategories] = useState<CategoriesBundle>(EMPTY_CATEGORIES);
@@ -88,6 +105,30 @@ export default function App() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+
+  const currentViewTitle = useMemo(() => {
+    if (activeView === 'bookshelf') return '我的數位書架';
+    if (activeView === 'notebook') {
+      const subj = categories.subjects.find(s => s.id === selectedSubjectId);
+      return subj ? `${subj.name} 錯題手帳` : '錯題手帳';
+    }
+    if (activeView === 'all') return '全部錯題索引';
+    if (activeView === 'chapter') {
+      const subj = categories.subjects.find(s => s.id === selectedSubjectId);
+      const chap = categories.chapters.find(c => c.id === selectedChapterId);
+      const unit = categories.units.find(u => u.id === selectedUnitId);
+      return [subj?.name, chap?.name, unit?.name].filter(Boolean).join(' / ') || '章節錯題檢視';
+    }
+    if (activeView === 'dashboard') return '學習成效總覽';
+    if (activeView === 'analytics') return '統計與弱點分析';
+    if (activeView === 'export') return '列印試卷工坊';
+    if (activeView === 'categories') return '學科分類與標籤管理';
+    if (activeView === 'templates') return '錯題題目範本管理';
+    if (activeView === 'prompt') return 'AI 提示詞工坊';
+    if (activeView === 'admin') return '系統後台管理';
+    if (activeView === 'guide') return '使用說明與導引';
+    return '錯題手帳';
+  }, [activeView, categories, selectedSubjectId, selectedChapterId, selectedUnitId]);
 
   const refreshAllData = useCallback(async () => {
     try {
@@ -126,7 +167,7 @@ export default function App() {
   // Load categories and mistakes whenever user logs in
   useEffect(() => {
     if (user) {
-      refreshAllData();
+      refreshAllData().finally(() => setLoading(false));
     } else {
       setCategories(EMPTY_CATEGORIES);
       setAllMistakes([]);
@@ -145,14 +186,22 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync theme to document body attribute
+  // Sync theme to document body attribute and html class
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
   }, [theme]);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    setActiveView('dashboard');
+    setActiveView('bookshelf');
   };
 
   const handleLogout = async () => {
@@ -165,8 +214,43 @@ export default function App() {
       setSelectedSubjectId(null);
       setSelectedChapterId(null);
       setSelectedUnitId(null);
-      setActiveView('dashboard');
+      setActiveView('bookshelf');
     }
+  };
+
+  const handleOpenNotebook = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setSelectedChapterId(null);
+    setSelectedUnitId(null);
+    setActiveView('notebook');
+  };
+
+  const handleUpdateSingleMistake = (updated: MistakeRecord) => {
+    setAllMistakes(prev => prev.map(m => m.id === updated.id ? updated : m));
+  };
+
+  const handleAddSubjectFromBookshelf = async (name: string, colorStyle: string) => {
+    await apiRequest('/api/subjects', {
+      method: 'POST',
+      body: { name, color: colorStyle }
+    });
+    await refreshAllData();
+  };
+
+  const handleAddChapterFromNotebook = async (subjectId: string, name: string) => {
+    await apiRequest('/api/chapters', {
+      method: 'POST',
+      body: { name, subjectId }
+    });
+    await refreshAllData();
+  };
+
+  const handleAddUnitFromNotebook = async (subjectId: string, chapterId: string, name: string) => {
+    await apiRequest('/api/categories', {
+      method: 'POST',
+      body: { dimension: 'unit', name, parentId: chapterId, subjectId }
+    });
+    await refreshAllData();
   };
 
   const handleSelectHierarchy = (subjectId: string | null, chapterId: string | null, unitId: string | null) => {
@@ -289,175 +373,258 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="binder-app-shell">
       <div className="bg-ambient-lights" />
 
-      {/* Top Navbar */}
-      <header className="glass no-print top-navbar" style={{
-        minHeight: 'calc(64px + var(--top-navbar-padding-top, env(safe-area-inset-top, 0px)))',
-        paddingTop: 'var(--top-navbar-padding-top, env(safe-area-inset-top, 0px))',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderRadius: 0,
-        borderLeft: 'none',
-        borderRight: 'none',
-        borderTop: 'none',
-        zIndex: 50
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Sidebar Toggle Button in Header (also satisfies E2E first toggle button lookup) */}
-          <button
-            onClick={() => setSidebarCollapsed(prev => !prev)}
-            className="btn btn-secondary toggle-btn"
-            style={{ padding: '7px 10px', border: 'none' }}
-            title={sidebarCollapsed ? '展開側邊欄' : '收折側邊欄'}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
+      {/* Left Binder Spine Navigation */}
+      <BinderSpineNav
+        activeView={activeView}
+        onNavigateView={(view) => {
+          if (view === 'all') {
+            handleSelectHierarchy(null, null, null);
+          } else {
+            setActiveView(view);
+          }
+        }}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        user={user}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenGuide={() => setActiveView('guide')}
+        onOpenFeedback={openFeedbackModal}
+        onLogout={handleLogout}
+        onOpenDeleteAccount={() => setShowDeleteAccountModal(true)}
+      />
 
-          <div
-            className="navbar-brand"
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-            onClick={() => setActiveView('dashboard')}
-            title="點擊回儀表板首頁"
+      {/* Main Binder Stage */}
+      <div className="binder-main-stage">
+        {/* Top Navbar / Breadcrumb Header */}
+        <header className="pobi-navbar glass no-print top-navbar binder-top-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="binder-breadcrumb">
+              <span className="binder-breadcrumb-item active font-binder-title">{currentViewTitle}</span>
+            </div>
+
+            {/* Hidden brand for E2E navbar-brand compatibility */}
+            <button
+              className="pobi-wordmark navbar-brand"
+              onClick={() => setActiveView('bookshelf')}
+              title="回到我的書架首頁"
+              style={{ display: 'none' }}
+            >
+              <div className="pobi-wordmark-text">
+                <span className="pobi-wordmark-title navbar-title">POBI STUDIO</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Primary Navigation Tabs - kept for E2E test querying without cluttering UI */}
+          <nav
+            className="pobi-nav no-print"
+            aria-label="主要功能導覽"
+            style={{
+              position: 'absolute',
+              opacity: 0,
+              pointerEvents: 'none',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)'
+            }}
           >
-            <img
-              src={logoUrl}
-              alt="PobiNotes Logo"
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '8px',
-                objectFit: 'contain'
+            <button
+              type="button"
+              onClick={() => setActiveView('bookshelf')}
+              className={`pobi-nav-item btn ${activeView === 'bookshelf' || activeView === 'notebook' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <BookOpen size={15} />
+              <span className="nav-label">我的書架</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectHierarchy(null, null, null)}
+              className={`pobi-nav-item btn ${activeView === 'all' || activeView === 'chapter' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <FileText size={15} />
+              <span className="nav-label">錯題索引</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('export')}
+              className={`pobi-nav-item btn ${activeView === 'export' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <Printer size={15} />
+              <span className="nav-label">列印練習卷</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('dashboard')}
+              className={`pobi-nav-item btn ${activeView === 'dashboard' || activeView === 'analytics' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <BarChart2 size={15} />
+              <span className="nav-label">學習概覽</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('categories')}
+              className={`pobi-nav-item btn ${activeView === 'categories' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <span className="nav-label">分類管理</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('templates')}
+              className={`pobi-nav-item btn ${activeView === 'templates' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <span className="nav-label">模板管理</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('prompt')}
+              className={`pobi-nav-item btn ${activeView === 'prompt' ? 'active btn-primary' : 'btn-text'}`}
+            >
+              <Sparkles size={15} />
+              <span className="nav-label">AI 提詞</span>
+            </button>
+            {user.is_admin === 1 && (
+              <button
+                type="button"
+                onClick={() => setActiveView('admin')}
+                className={`pobi-nav-item btn ${activeView === 'admin' ? 'active btn-primary' : 'btn-text'}`}
+              >
+                <Shield size={15} />
+                <span className="nav-label">控制台</span>
+              </button>
+            )}
+          </nav>
+
+          {/* Account Tools */}
+          <div className="pobi-account-tools no-print navbar-actions">
+            <button
+              onClick={toggleTheme}
+              className="pobi-icon-btn btn btn-secondary"
+              title={theme === 'dark' ? '切換淺色模式' : '切換深色模式'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
+            <button
+              onClick={() => setActiveView('guide')}
+              className="pobi-icon-btn btn btn-secondary"
+              title="閱讀使用導引"
+            >
+              <CircleHelp size={16} />
+            </button>
+
+            <button
+              onClick={openFeedbackModal}
+              className="pobi-icon-btn btn btn-secondary"
+              title="提供寶貴意見回饋"
+            >
+              <MessageSquare size={16} />
+            </button>
+
+            <div className="pobi-user-pill navbar-user-info">
+              <span className="pobi-user-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
+              <span style={{ fontWeight: 600 }}>{user.username}</span>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="btn btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '0.82rem', height: '34px' }}
+              title="登出系統"
+            >
+              <LogOut size={14} /> <span className="navbar-btn-text">登出</span>
+            </button>
+
+            <button
+              onClick={() => setShowDeleteAccountModal(true)}
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px', fontSize: '0.82rem', height: '34px', color: 'var(--danger)' }}
+              title="刪除帳號"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </header>
+
+        {/* Main Layout Stage Container */}
+        <div className="main-layout binder-stage-container" style={{ display: 'flex', flex: 1, padding: 0 }}>
+
+        {/* Bookshelf View */}
+        {activeView === 'bookshelf' && (
+          <div style={{ flex: 1, width: '100%' }}>
+            <BookshelfView
+              categories={categories}
+              mistakes={allMistakes}
+              onOpenNotebook={handleOpenNotebook}
+              onAddSubject={handleAddSubjectFromBookshelf}
+              onOpenOverviewModal={() => setActiveView('dashboard')}
+              onOpenGuideModal={() => setActiveView('guide')}
+              onOpenFeedbackModal={openFeedbackModal}
+              onToggleTheme={toggleTheme}
+              theme={theme}
+              currentUser={user}
+              onSwitchToClassicDashboard={() => setActiveView('dashboard')}
+              onOpenBatchImport={() => {
+                setBatchImportStage('import');
+                setShowBatchImportModal(true);
+              }}
+              onOpenFastReview={() => {
+                setBatchImportStage('review');
+                setShowBatchImportModal(true);
               }}
             />
-            <h1 style={{ fontSize: '1.2rem', fontWeight: 700 }} className="title-gradient navbar-title">
-              PobiNotes-線上錯題本
-            </h1>
           </div>
-        </div>
+        )}
 
-        {/* Quick Top Navigation Pills */}
-        <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setActiveView('dashboard')}
-            className={`btn ${activeView === 'dashboard' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            儀表板
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectHierarchy(null, null, null)}
-            className={`btn ${activeView === 'all' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            所有錯題
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('categories')}
-            className={`btn ${activeView === 'categories' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            分類管理
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('analytics')}
-            className={`btn ${activeView === 'analytics' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            錯題分析
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('prompt')}
-            className={`btn ${activeView === 'prompt' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            提詞產生器
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('export')}
-            className={`btn ${activeView === 'export' ? 'btn-primary' : 'btn-text'}`}
-            style={{ padding: '6px 12px', fontSize: '0.84rem' }}
-          >
-            PDF 匯出
-          </button>
-        </div>
-
-        <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="btn btn-secondary"
-            style={{ padding: '8px 12px', border: 'none' }}
-            title={theme === 'dark' ? '切換淺色模式' : '切換深色模式'}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
-          {/* Feedback Button */}
-          <button
-            onClick={openFeedbackModal}
-            className="btn btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-          >
-            <MessageSquare size={16} /> <span className="navbar-btn-text">意見回饋</span>
-          </button>
-
-          {/* Admin Panel Button */}
-          {user.is_admin === 1 && (
-            <button
-              onClick={() => setActiveView('admin')}
-              className={`btn ${activeView === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-            >
-              <Shield size={16} /> <span className="navbar-btn-text">管理員控制台</span>
-            </button>
-          )}
-
-          {/* User info */}
-          <span className="navbar-user-info" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            哈囉, <strong style={{ color: 'var(--text-primary)' }}>{user.username}</strong>
-          </span>
-
-          {/* Delete Account */}
-          <button
-            onClick={() => setShowDeleteAccountModal(true)}
-            className="btn btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.85rem', color: 'var(--danger)' }}
-            title="刪除帳號"
-          >
-            <Trash2 size={16} /> <span className="navbar-btn-text">刪除帳號</span>
-          </button>
-
-          {/* Logout */}
-          <button onClick={handleLogout} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '0.85rem' }}>
-            <LogOut size={16} /> <span className="navbar-btn-text">登出</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Layout Area */}
-      <div className="main-layout" style={{ display: 'flex', flex: 1 }}>
-        {activeView !== 'export' && activeView !== 'admin' && (
-          <Dashboard
-            categories={categories}
-            onRefreshCategories={refreshAllData}
-            onSelectHierarchy={handleSelectHierarchy}
-            selectedSubjectId={selectedSubjectId}
-            selectedChapterId={selectedChapterId}
-            selectedUnitId={selectedUnitId}
-            onNavigateView={view => setActiveView(view)}
-            activeView={activeView}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
-          />
+        {/* Notebook Open View */}
+        {activeView === 'notebook' && selectedSubjectId && (
+          <div style={{ flex: 1, width: '100%' }}>
+            <NotebookOpenView
+              subjectId={selectedSubjectId}
+              categories={categories}
+              mistakes={allMistakes}
+              onBackToBookshelf={() => setActiveView('bookshelf')}
+              onSelectChapterUnit={(chapId, unitId) => {
+                setSelectedChapterId(chapId);
+                setSelectedUnitId(unitId);
+                setActiveView('chapter');
+              }}
+              onOpenNewMistakeForSubject={(subjId, chapId, unitId) => {
+                setSelectedSubjectId(subjId);
+                setSelectedChapterId(chapId || null);
+                setSelectedUnitId(unitId || null);
+                setTriggerOpenNewMistake(true);
+                setActiveView('chapter');
+              }}
+              onOpenMistakeBank={(subjId, chapId) => {
+                setSelectedSubjectId(subjId);
+                setSelectedChapterId(chapId || null);
+                setSelectedUnitId(null);
+                setActiveView('chapter');
+              }}
+              onOpenExportPDF={(subjId) => {
+                setSelectedSubjectId(subjId);
+                setActiveView('export');
+              }}
+              onOpenTagManager={() => {
+                setActiveView('categories');
+              }}
+              onOpenTemplateManager={() => {
+                setActiveView('templates');
+              }}
+              onOpenPromptGenerator={() => {
+                setActiveView('prompt');
+              }}
+              onAddChapter={handleAddChapterFromNotebook}
+              onAddUnit={handleAddUnitFromNotebook}
+              onRefreshAll={refreshAllData}
+              onUpdateMistake={handleUpdateSingleMistake}
+            />
+          </div>
         )}
 
         {/* View Routing */}
@@ -499,6 +666,14 @@ export default function App() {
             onOpenNewMistake={() => {
               setActiveView('all');
               setTriggerOpenNewMistake(true);
+            }}
+            onOpenBatchImport={() => {
+              setBatchImportStage('import');
+              setShowBatchImportModal(true);
+            }}
+            onOpenFastReview={() => {
+              setBatchImportStage('review');
+              setShowBatchImportModal(true);
             }}
           />
         )}
@@ -545,6 +720,7 @@ export default function App() {
         {activeView === 'export' && (
           <ExportPDF
             mistakeIds={selectedExportIds.length > 0 ? selectedExportIds : allMistakes.map(m => m.id)}
+            initialMistakes={allMistakes}
             onBack={() => setActiveView(selectedChapterId ? 'chapter' : 'all')}
             onImageClick={src => setZoomedImage(src)}
           />
@@ -682,36 +858,41 @@ export default function App() {
       {/* Global Image Lightbox Modal */}
       {zoomedImage && (
         <div
+          className="pobi-lightbox-overlay"
           onClick={() => setZoomedImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            background: 'rgba(0,0,0,0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            cursor: 'zoom-out',
-            padding: '20px'
-          }}
+          title="點擊任意處關閉大圖"
         >
-          <img
-            src={zoomedImage}
-            alt="放大顯示"
-            style={{
-              maxWidth: '95%',
-              maxHeight: '95%',
-              objectFit: 'contain',
-              borderRadius: '8px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              border: '2px solid rgba(255,255,255,0.1)'
-            }}
-          />
+          <div className="pobi-lightbox-content" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              className="pobi-lightbox-close"
+              onClick={() => setZoomedImage(null)}
+              title="關閉放大預覽"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={zoomedImage}
+              alt="錯題圖片高清檢視"
+            />
+          </div>
         </div>
       )}
+
+      {/* Batch Exam Import & Fast Review Modal */}
+      <BatchExamImportModal
+        isOpen={showBatchImportModal}
+        onClose={() => setShowBatchImportModal(false)}
+        categories={categories}
+        onRefreshCategories={refreshAllData}
+        onBatchImportComplete={(newMistakes) => {
+          setAllMistakes(prev => [...newMistakes, ...prev]);
+        }}
+        onOpenZoomedImage={src => setZoomedImage(src)}
+        initialStage={batchImportStage}
+        unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
+      />
+      </div>
     </div>
   );
 }

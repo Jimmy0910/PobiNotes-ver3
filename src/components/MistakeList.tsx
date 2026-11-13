@@ -27,6 +27,14 @@ import {
 } from 'lucide-react';
 import MistakeEditor from './MistakeEditor';
 
+function resolveImageUrl(key?: string): string {
+  if (!key) return '';
+  if (key.startsWith('data:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/api/images/')) {
+    return key;
+  }
+  return `/api/images/${key}`;
+}
+
 interface MistakeListProps {
   categories: CategoriesBundle;
   subjectId?: string | null;
@@ -192,6 +200,44 @@ export default function MistakeList({
     }
   };
 
+  const handleCycleFamiliarity = async (mistake: MistakeRecord) => {
+    if (!categories.familiarities || categories.familiarities.length === 0) return;
+    const activeFams = categories.familiarities.filter(f => f.is_active === 1);
+    if (activeFams.length === 0) return;
+
+    const currentIndex = activeFams.findIndex(
+      f => f.id === mistake.familiarity_id || f.name === mistake.familiarity_name
+    );
+    const nextIndex = (currentIndex + 1) % activeFams.length;
+    const nextFam = activeFams[nextIndex];
+
+    setMistakes(prev => prev.map(m => {
+      if (m.id === mistake.id) {
+        return {
+          ...m,
+          familiarity_id: nextFam.id,
+          familiarity_name: nextFam.name,
+          familiarity_color: nextFam.color
+        };
+      }
+      return m;
+    }));
+
+    try {
+      await apiRequest('/api/mistakes', {
+        method: 'PUT',
+        body: {
+          id: mistake.id,
+          familiarity_id: nextFam.id
+        }
+      });
+      await onRefreshAll?.();
+    } catch (e) {
+      console.error('更新掌握度失敗', e);
+      fetchMistakes();
+    }
+  };
+
   const toggleFamiliarityNameExclusion = (name: string, checked: boolean) => {
     setExcludedFamNames(prev => {
       if (checked) {
@@ -287,7 +333,7 @@ export default function MistakeList({
       return {
         id: u.id,
         name: u.name,
-        label: chapName ? `${chapName} ➔ ${u.name}` : u.name
+        label: chapName ? `${chapName} > ${u.name}` : u.name
       };
     });
   }, [categories.units, categories.chapters, filterSubjectId]);
@@ -478,7 +524,8 @@ export default function MistakeList({
   };
 
   return (
-    <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+    <div style={{ flex: 1, padding: '24px 20px', display: 'flex', justifyContent: 'center', overflowY: 'auto', width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Chapter Sub-Units Bar (Requirement 4: 查看該章節下所有單元與錯題) */}
       {chapterId && (
         <div className="glass no-print" style={{ padding: '14px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
@@ -544,7 +591,7 @@ export default function MistakeList({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
-            <div className="memo-note washi-tape-strip" style={{
+            <div className="memo-note" style={{
               padding: '12px 14px',
               borderRadius: '8px',
               background: 'var(--bg-secondary)',
@@ -556,11 +603,11 @@ export default function MistakeList({
                 步驟 1｜建立科目與章節目錄
               </div>
               <div style={{ color: 'var(--text-secondary)' }}>
-                在畫面左側「<strong>1. 學科 / 章節 / 單元目錄</strong>」點選「+ 新增科目」，再展開科目點選「+」建立章節與單元。
+                在書架或手帳目錄中點選「新增大章節」，建立章節與細部單元。
               </div>
             </div>
 
-            <div className="memo-note washi-tape-amber" style={{
+            <div className="memo-note" style={{
               padding: '12px 14px',
               borderRadius: '8px',
               background: 'var(--bg-secondary)',
@@ -569,14 +616,14 @@ export default function MistakeList({
               lineHeight: 1.5
             }}>
               <div style={{ fontWeight: 700, color: 'var(--warning)', marginBottom: '4px' }}>
-                步驟 2｜在左側設定錯因標籤
+                步驟 2｜設定專屬錯因標籤
               </div>
               <div style={{ color: 'var(--text-secondary)' }}>
-                在左側獨立的「<strong>2. 錯因標籤設定</strong>」面板中，可切換「全科通用 / 特定科目 / 特定章節」自由新增或刪除錯因。
+                在左側「<strong>分類管理</strong>」中，可切換「全科通用 / 特定科目 / 特定章節」自由新增或維護錯因。
               </div>
             </div>
 
-            <div className="memo-note washi-tape-strip" style={{
+            <div className="memo-note" style={{
               padding: '12px 14px',
               borderRadius: '8px',
               background: 'var(--bg-secondary)',
@@ -596,6 +643,26 @@ export default function MistakeList({
       )}
 
       {/* Search and Advanced Multi-Dimensional Filter Card */}
+      {subjectId && categories.chapters.some(c => c.parent_id === subjectId || c.subject_id === subjectId) && (
+        <div className="binder-index-tabs-rail no-print" aria-label="章節活頁標籤">
+          {categories.chapters
+            .filter(c => c.parent_id === subjectId || c.subject_id === subjectId)
+            .map(chap => {
+              const isChapActive = chapterId === chap.id;
+              const count = mistakes.filter(m => m.chapter_id === chap.id).length;
+              return (
+                <div
+                  key={chap.id}
+                  className={`binder-index-tab ${isChapActive ? 'active' : ''}`}
+                >
+                  <span>{chap.name}</span>
+                  <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>({count})</span>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
       <div className="glass no-print" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px', borderRadius: 'var(--radius-md)' }}>
         {/* Row 1: Search Input & Global Action Buttons */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', width: '100%' }}>
@@ -794,7 +861,7 @@ export default function MistakeList({
             {deduplicatedFamiliarities.map(fam => {
               const isChecked = !excludedFamNames.includes(fam.name);
               const displayLabel = fam.name === '順' ? '順 (會)' : fam.name;
-              const color = fam.color === 'success' ? '#197A27' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--text-primary)';
+              const color = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--text-primary)';
               return (
                 <label
                   key={fam.name}
@@ -838,7 +905,7 @@ export default function MistakeList({
             const count = filteredMistakes.filter(
               m => getEffectiveFamiliarityName(m, categories.familiarities) === fam.name
             ).length;
-            const color = fam.color === 'success' ? '#197A27' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : '#001F65';
+            const color = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : '#8B5A2B';
             return (
               <div
                 key={fam.name}
@@ -871,7 +938,7 @@ export default function MistakeList({
               </h3>
             </div>
             <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              順暢掌握度：<strong style={{ color: '#197A27', fontSize: '0.95rem' }}>{chapterFamiliarityStats.masteryRate}%</strong>
+              順暢掌握度：<strong style={{ color: '#4D7C0F', fontSize: '0.95rem' }}>{chapterFamiliarityStats.masteryRate}%</strong>
               （{chapterFamiliarityStats.famCounts['順'] || 0} / {chapterFamiliarityStats.total} 題）
             </div>
           </div>
@@ -889,7 +956,7 @@ export default function MistakeList({
               const count = chapterFamiliarityStats.famCounts[fam.name] || 0;
               if (count === 0) return null;
               const pct = (count / chapterFamiliarityStats.total) * 100;
-              const bg = fam.color === 'success' ? '#197A27' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--accent-primary)';
+              const bg = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--accent-primary)';
               return (
                 <div
                   key={fam.name}
@@ -931,7 +998,7 @@ export default function MistakeList({
                     style={{
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      background: isSelected ? 'rgba(0, 31, 101, 0.12)' : 'var(--bg-secondary)',
+                      background: isSelected ? 'rgba(180, 83, 9, 0.15)' : 'var(--bg-secondary)',
                       border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid var(--glass-border)',
                       cursor: isUntagged ? 'default' : 'pointer',
                       transition: 'all 0.15s ease',
@@ -979,7 +1046,7 @@ export default function MistakeList({
 
       {/* Multi-select Action Bar (Export PDF or Generate AI Prompt) */}
       {selectedIds.length > 0 && (
-        <div className="glass animate-fade-in no-print" style={{ padding: '14px 24px', background: 'rgba(0, 31, 101, 0.08)', border: '1px solid rgba(0, 31, 101, 0.22)', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+        <div className="glass animate-fade-in no-print" style={{ padding: '14px 24px', background: '#FEF3C7', border: '1px solid #D97706', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
             已勾選 {selectedIds.length} 題錯題
           </span>
@@ -1026,13 +1093,9 @@ export default function MistakeList({
             return (
               <div
                 key={m.id}
-                className="glass-card scrapbook-card"
+                className={`binder-mistake-card glass-card scrapbook-card ${isSelected ? 'selected' : ''}`}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  borderLeft: isSelected ? '4px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
-                  position: 'relative'
+                  borderLeft: isSelected ? '4px solid var(--binder-accent)' : undefined
                 }}
               >
                 {/* Header row (selection checkbox + Title) */}
@@ -1041,68 +1104,66 @@ export default function MistakeList({
                     onClick={() => handleSelectToggle(m.id)}
                     style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', paddingTop: '2px' }}
                     className="no-print"
+                    title={isSelected ? '取消勾選' : '勾選此題'}
                   >
-                    {isSelected ? <CheckSquare size={18} style={{ color: 'var(--accent-primary)' }} /> : <Square size={18} />}
+                    {isSelected ? <CheckSquare size={18} style={{ color: 'var(--binder-accent)' }} /> : <Square size={18} />}
                   </button>
 
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{m.title}</h3>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>
+                      {m.title}
+                    </h3>
 
                     {/* Metadata tags (5 Dimensions + Custom Tags + Date) */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
-                      <span style={{
-                        fontSize: '0.75rem',
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
+                      <span className="binder-pill-tag" style={{
                         color: m.subject_name ? 'var(--text-secondary)' : '#f59e0b',
                         background: 'var(--glass-bg)',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
                         border: '1px solid var(--glass-border)'
                       }}>
                         {m.subject_name || '未分類科目'}
                       </span>
 
-                      <span style={{
-                        fontSize: '0.75rem',
+                      <span className="binder-pill-tag" style={{
                         color: m.chapter_name ? 'var(--text-secondary)' : '#f59e0b',
                         background: 'var(--glass-bg)',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
                         border: '1px solid var(--glass-border)'
                       }}>
                         {m.chapter_name || '未分類章節'}
                       </span>
 
                       {m.unit_name && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          color: '#2dd4bf',
+                        <span className="binder-pill-tag" style={{
+                          color: '#0d9488',
                           background: 'rgba(20, 184, 166, 0.12)',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
                           border: '1px solid rgba(20, 184, 166, 0.3)'
                         }}>
                           {m.unit_name}
                         </span>
                       )}
 
-                      {famName && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          color: '#10b981',
-                          background: 'rgba(16, 185, 129, 0.12)',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(16, 185, 129, 0.3)'
-                        }}>
-                          熟悉度：{famName}
-                        </span>
-                      )}
+                      {/* Quick One-Click Familiarity Cycle Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCycleFamiliarity(m);
+                        }}
+                        className={`binder-fam-cycle-btn ${
+                          m.familiarity_color === 'success' || (famName && famName.includes('順')) ? 'fam-success' :
+                          m.familiarity_color === 'warning' || (famName && famName.includes('卡')) ? 'fam-warning' :
+                          'fam-danger'
+                        }`}
+                        title="點擊直接循環切換掌握度狀態"
+                      >
+                        <span>掌握度：{famName || '未標註'}</span>
+                        <RefreshCw size={10} className="no-print opacity-70" />
+                      </button>
 
                       {(m.error_reason_names || []).map(rn => (
                         <span
                           key={rn}
-                          className="badge-warning-contrast"
-                          style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                          className="binder-pill-tag badge-warning-contrast"
                         >
                           錯因：{rn}
                         </span>
@@ -1111,12 +1172,11 @@ export default function MistakeList({
                       {(m.tags || []).map(tag => (
                         <span
                           key={tag}
+                          className="binder-pill-tag"
                           style={{
-                            fontSize: '0.73rem',
-                            color: '#818cf8',
+                            color: '#6366f1',
                             background: 'rgba(99, 102, 241, 0.12)',
-                            padding: '2px 7px',
-                            borderRadius: '4px'
+                            border: '1px solid rgba(99, 102, 241, 0.25)'
                           }}
                         >
                           #{tag}
@@ -1137,7 +1197,7 @@ export default function MistakeList({
                         setEditingMistake(m);
                         setShowEditor(true);
                       }}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', position: 'relative', zIndex: 11 }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
                       title="編輯錯題與分類"
                     >
                       <Edit2 size={14} />
@@ -1147,7 +1207,7 @@ export default function MistakeList({
                         e.stopPropagation();
                         handleDelete(m.id, m.title);
                       }}
-                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px', position: 'relative', zIndex: 11 }}
+                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}
                       title="刪除錯題"
                     >
                       <Trash2 size={14} />
@@ -1167,21 +1227,25 @@ export default function MistakeList({
                   ))}
                 </div>
 
-                {/* 2. Collapsible Answer & Solution block */}
+                {/* 2. Collapsible Answer & Solution block (主動回想拉開解析) */}
                 {m.template_fields.answerFields && m.template_fields.answerFields.length > 0 && (
-                  <div className="collapsible-container">
+                  <div className="collapsible-container" style={{ marginTop: '2px' }}>
                     <div
-                      className="collapsible-trigger no-print"
+                      className={`binder-reveal-bar collapsible-trigger no-print ${isExpanded ? 'is-expanded' : ''}`}
                       onClick={() => handleToggleExpand(m.id)}
+                      title="點擊手動拉開解答與詳解，進入主動回想自測"
                     >
-                      <span style={{ fontSize: '0.85rem', color: isExpanded ? 'var(--success)' : 'var(--text-secondary)' }}>
-                        {isExpanded ? '隱藏答案與解析' : '顯示答案與解析'}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {isExpanded ? <EyeOff size={14} /> : <Eye size={14} />}
+                        <span>{isExpanded ? '已展開詳解（點擊收合回自測模式）' : '手動拉開解答與詳解'}</span>
                       </span>
-                      {isExpanded ? <EyeOff size={14} /> : <Eye size={14} />}
+                      <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>
+                        {isExpanded ? '收合' : '主動自測'}
+                      </span>
                     </div>
 
                     {isExpanded && (
-                      <div className="collapsible-content" style={{ display: 'block' }}>
+                      <div className="binder-answer-dossier collapsible-content" style={{ display: 'block', marginTop: '6px' }}>
                         {m.template_fields.answerFields.map(field => (
                           <DynamicValueRenderer
                             key={field.id}
@@ -1246,6 +1310,7 @@ export default function MistakeList({
           onImageClick={onImageClick}
         />
       )}
+      </div>
     </div>
   );
 }
@@ -1396,12 +1461,12 @@ function DynamicValueRenderer({ field, value, onImageClick }: DynamicValueRender
       )}
 
       {field.type === 'image' && (
-        <div style={{ width: '100%', maxWidth: '300px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--glass-border)', marginTop: '4px' }}>
+        <div style={{ width: '100%', maxWidth: '320px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--glass-border)', marginTop: '6px', background: 'var(--pobi-surface)' }}>
           <img
-            src={`/api/images/${value}`}
+            src={resolveImageUrl(value)}
             alt={field.label}
-            onClick={() => onImageClick?.(`/api/images/${value}`)}
-            style={{ width: '100%', maxHeight: '220px', objectFit: 'contain', display: 'block', background: 'rgba(0,0,0,0.2)', cursor: onImageClick ? 'zoom-in' : 'default' }}
+            onClick={() => onImageClick?.(resolveImageUrl(value))}
+            style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: onImageClick ? 'zoom-in' : 'default', transition: 'transform 0.2s' }}
           />
         </div>
       )}

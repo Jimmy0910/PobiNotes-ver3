@@ -8,6 +8,12 @@ const outDir = isWindows ? 'C:/Users/jimmy/AppData/Local/Temp/mistake-notebook-d
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    allowedHosts: true,
+    cors: true
+  },
   build: {
     outDir: outDir,
     emptyOutDir: true,

@@ -5,6 +5,14 @@ import type { CategoriesBundle, Field, FieldOption, MistakeRecord } from '../typ
 import { getEffectiveFamiliarityId, isLegacyMasteryField } from '../types';
 import { Save, X, Image as ImageIcon, Loader2, Tag, Plus } from 'lucide-react';
 
+function resolveImageUrl(key?: string): string {
+  if (!key) return '';
+  if (key.startsWith('data:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/api/images/')) {
+    return key;
+  }
+  return `/api/images/${key}`;
+}
+
 interface Template {
   id: string;
   name: string;
@@ -302,21 +310,32 @@ export default function MistakeEditor({
 
     try {
       const compressedBlob = await compressImage(file, 1200, 0.8);
-      const res = await apiRequest('/api/images/upload', {
-        method: 'POST',
-        body: compressedBlob,
-        headers: {
-          'Content-Type': 'image/jpeg'
-        }
-      });
+      let savedKey = '';
+      try {
+        const res = await apiRequest('/api/images/upload', {
+          method: 'POST',
+          body: compressedBlob,
+          headers: {
+            'Content-Type': 'image/jpeg'
+          }
+        });
+        if (res && res.key) savedKey = res.key;
+      } catch {
+        // 離線或 Demo 模式自動轉為 base64 本地預覽
+        savedKey = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(compressedBlob);
+        });
+      }
 
       if (section === 'question') {
-        setQuestionData(prev => ({ ...prev, [fieldId]: res.key }));
+        setQuestionData(prev => ({ ...prev, [fieldId]: savedKey }));
       } else {
-        setAnswerData(prev => ({ ...prev, [fieldId]: res.key }));
+        setAnswerData(prev => ({ ...prev, [fieldId]: savedKey }));
       }
     } catch (e) {
-      alert('圖片上傳失敗：' + (e instanceof Error ? e.message : String(e)));
+      alert('圖片處理失敗：' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setUploadingFields(prev => ({ ...prev, [fieldId]: false }));
     }
@@ -589,21 +608,37 @@ export default function MistakeEditor({
                     .filter(f => f.is_active === 1 || f.id === familiarityId)
                     .map(f => {
                       const active = familiarityId === f.id;
-                      const color = f.color === 'success' ? '#197A27' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#001F65';
+                      const isDark = typeof document !== 'undefined' && (
+                        document.documentElement.classList.contains('dark') ||
+                        document.documentElement.getAttribute('data-theme') === 'dark'
+                      );
+                      const color = f.color === 'success'
+                        ? (isDark ? '#4ade80' : '#15803d')
+                        : f.color === 'warning'
+                        ? (isDark ? '#fbbf24' : '#b45309')
+                        : f.color === 'danger'
+                        ? (isDark ? '#f87171' : '#b91c1c')
+                        : (isDark ? '#cbd5e1' : '#475569');
                       return (
                         <button
                           key={f.id}
                           type="button"
                           onClick={() => handleFamiliaritySelect(active ? '' : f.id)}
                           style={{
-                            padding: '5px 12px',
-                            borderRadius: '14px',
-                            fontSize: '0.82rem',
+                            padding: '6px 14px',
+                            borderRadius: '16px',
+                            fontSize: '0.84rem',
+                            lineHeight: 1.4,
                             cursor: 'pointer',
-                            border: `1px solid ${active ? color : 'var(--glass-border)'}`,
-                            background: active ? `${color}28` : 'var(--glass-bg)',
-                            color: active ? color : 'var(--text-secondary)',
-                            fontWeight: active ? 700 : 400
+                            border: `1.5px solid ${active ? color : 'var(--glass-border)'}`,
+                            background: active ? (isDark ? `${color}30` : `${color}18`) : 'var(--glass-bg)',
+                            color: active ? color : 'var(--text-primary)',
+                            fontWeight: active ? 700 : 500,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease'
                           }}
                           data-testid={`editor-familiarity-${f.name}`}
                         >
@@ -1072,9 +1107,9 @@ function DynamicFieldInput({
               justifyContent: 'center'
             }}>
               <img
-                src={`/api/images/${imageKey}`}
+                src={resolveImageUrl(imageKey)}
                 alt={field.label}
-                onClick={() => onImageClick?.(`/api/images/${imageKey}`)}
+                onClick={() => onImageClick?.(resolveImageUrl(imageKey))}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: onImageClick ? 'zoom-in' : 'default' }}
               />
               <button
