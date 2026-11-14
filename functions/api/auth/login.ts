@@ -1,4 +1,5 @@
 import { verifyPassword, signJWT } from './_utils';
+import { ensureSchemaAndUserDefaults } from '../_dbInit';
 
 interface Env {
   DB: D1Database;
@@ -17,10 +18,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
+    await ensureSchemaAndUserDefaults(env.DB);
+
     const trimmedUsername = username.trim();
 
     // Query user
-    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin FROM users WHERE username = ?')
+    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin FROM users WHERE LOWER(username) = LOWER(?)')
       .bind(trimmedUsername)
       .first() as any;
 

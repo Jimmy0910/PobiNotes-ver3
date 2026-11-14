@@ -39,11 +39,160 @@ import {
 } from 'lucide-react';
 
 function resolveImg(key?: string): string {
-  if (!key) return '';
-  if (key.startsWith('data:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/api/images/')) {
+  if (!key || typeof key !== 'string') return '';
+  if (
+    key.startsWith('data:') ||
+    key.startsWith('blob:') ||
+    key.startsWith('http://') ||
+    key.startsWith('https://') ||
+    key.startsWith('/api/images/')
+  ) {
     return key;
   }
   return `/api/images/${key}`;
+}
+
+function isLikelyImageValue(val: unknown): boolean {
+  if (typeof val !== 'string' || !val.trim()) return false;
+  return (
+    val.startsWith('data:image/') ||
+    val.startsWith('blob:') ||
+    val.startsWith('http://') ||
+    val.startsWith('https://') ||
+    val.startsWith('/api/images/') ||
+    /\.(png|jpe?g|webp|gif|svg)$/i.test(val) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(val)
+  );
+}
+
+function extractMistakeMediaAndText(m: MistakeRecord): {
+  qDesc: string;
+  qImages: string[];
+  aDesc: string;
+  aImages: string[];
+} {
+  const qData = m.data?.questionData || {};
+  const aData = m.data?.answerData || {};
+
+  // Extract Question Text
+  const qTextParts: string[] = [];
+  const primaryQText = qData.q_desc || qData.desc || qData.q_text || qData.text || '';
+  if (typeof primaryQText === 'string' && primaryQText.trim()) {
+    qTextParts.push(primaryQText.trim());
+  }
+  if (m.template_fields?.questionFields) {
+    for (const f of m.template_fields.questionFields) {
+      if (f.type === 'text') {
+        const val = qData[f.id];
+        if (typeof val === 'string' && val.trim() && !qTextParts.includes(val.trim())) {
+          qTextParts.push(val.trim());
+        }
+      }
+    }
+  }
+  if (qTextParts.length === 0) {
+    for (const [k, v] of Object.entries(qData)) {
+      if (
+        typeof v === 'string' &&
+        v.trim() &&
+        !isLikelyImageValue(v) &&
+        !k.includes('img') &&
+        !k.includes('image')
+      ) {
+        qTextParts.push(v.trim());
+      }
+    }
+  }
+
+  // Extract Question Images
+  const rawQImages: string[] = [];
+  if (Array.isArray(qData.q_images)) {
+    qData.q_images.forEach((img: unknown) => {
+      if (typeof img === 'string' && img.trim()) rawQImages.push(img.trim());
+    });
+  }
+  for (const key of ['q_image', 'q_img', 'image', 'image_url']) {
+    const val = qData[key];
+    if (typeof val === 'string' && val.trim()) rawQImages.push(val.trim());
+  }
+  if (m.template_fields?.questionFields) {
+    for (const f of m.template_fields.questionFields) {
+      if (f.type === 'image') {
+        const val = qData[f.id];
+        if (typeof val === 'string' && val.trim()) rawQImages.push(val.trim());
+      }
+    }
+  }
+  for (const [k, v] of Object.entries(qData)) {
+    if ((k.includes('img') || k.includes('image') || isLikelyImageValue(v)) && typeof v === 'string' && v.trim()) {
+      rawQImages.push(v.trim());
+    }
+  }
+  const qImages = Array.from(new Set(rawQImages.map(resolveImg).filter(Boolean)));
+
+  // Extract Answer Text
+  const aTextParts: string[] = [];
+  const primaryAText =
+    aData.a_desc || aData.desc || aData.a_text || aData.text || aData.key_concept || aData.explanation || '';
+  if (typeof primaryAText === 'string' && primaryAText.trim()) {
+    aTextParts.push(primaryAText.trim());
+  }
+  if (m.template_fields?.answerFields) {
+    for (const f of m.template_fields.answerFields) {
+      if (f.type === 'text') {
+        const val = aData[f.id];
+        if (typeof val === 'string' && val.trim() && !aTextParts.includes(val.trim())) {
+          aTextParts.push(val.trim());
+        }
+      }
+    }
+  }
+  if (aTextParts.length === 0) {
+    for (const [k, v] of Object.entries(aData)) {
+      if (
+        typeof v === 'string' &&
+        v.trim() &&
+        !isLikelyImageValue(v) &&
+        !k.includes('img') &&
+        !k.includes('image')
+      ) {
+        aTextParts.push(v.trim());
+      }
+    }
+  }
+
+  // Extract Answer Images (supports multiple images per answer)
+  const rawAImages: string[] = [];
+  if (Array.isArray(aData.a_images)) {
+    aData.a_images.forEach((img: unknown) => {
+      if (typeof img === 'string' && img.trim()) rawAImages.push(img.trim());
+    });
+  }
+  for (const key of ['a_image', 'a_img', 'image', 'image_url']) {
+    const val = aData[key];
+    if (typeof val === 'string' && val.trim()) rawAImages.push(val.trim());
+  }
+  if (m.template_fields?.answerFields) {
+    for (const f of m.template_fields.answerFields) {
+      if (f.type === 'image') {
+        const val = aData[f.id];
+        if (typeof val === 'string' && val.trim()) rawAImages.push(val.trim());
+      }
+    }
+  }
+  for (const [k, v] of Object.entries(aData)) {
+    if ((k.includes('img') || k.includes('image') || isLikelyImageValue(v)) && typeof v === 'string' && v.trim()) {
+      rawAImages.push(v.trim());
+    }
+  }
+  const aImages = Array.from(new Set(rawAImages.map(resolveImg).filter(Boolean)));
+
+  return {
+    qDesc: qTextParts.join('\n\n'),
+    qImages,
+    aDesc: aTextParts.join('\n\n'),
+    aImages
+  };
 }
 
 interface NotebookOpenViewProps {
@@ -106,7 +255,7 @@ export default function NotebookOpenView({
   const [editorQuestionText, setEditorQuestionText] = useState('');
   const [editorQuestionImage, setEditorQuestionImage] = useState('');
   const [editorAnswerText, setEditorAnswerText] = useState('');
-  const [editorAnswerImage, setEditorAnswerImage] = useState('');
+  const [editorAnswerImages, setEditorAnswerImages] = useState<string[]>([]);
   const [editorFamiliarityId, setEditorFamiliarityId] = useState('');
   const [editorErrorReasonIds, setEditorErrorReasonIds] = useState<string[]>([]);
   const [isUploadingQImg, setIsUploadingQImg] = useState(false);
@@ -122,22 +271,35 @@ export default function NotebookOpenView({
     fieldKey: string;
     isQuestion: boolean;
     imageUrl: string;
+    answerIndex?: number;
   } | null>(null);
 
-  const handleOpenAnnotator = (m: MistakeRecord, fieldKey: string, isQuestion: boolean, imgUrl: string) => {
-    setAnnotatingData({ mistake: m, fieldKey, isQuestion, imageUrl: imgUrl });
+  const handleOpenAnnotator = (m: MistakeRecord, fieldKey: string, isQuestion: boolean, imgUrl: string, answerIndex?: number) => {
+    setAnnotatingData({ mistake: m, fieldKey, isQuestion, imageUrl: imgUrl, answerIndex });
   };
 
   const handleSaveAnnotatedImage = async (newImgKey: string) => {
     if (!annotatingData) return;
-    const { mistake, fieldKey, isQuestion } = annotatingData;
+    const { mistake, fieldKey, isQuestion, answerIndex } = annotatingData;
     const currentQData = { ...(mistake.data?.questionData || {}) };
     const currentAData = { ...(mistake.data?.answerData || {}) };
 
     if (isQuestion) {
       currentQData[fieldKey] = newImgKey;
+      currentQData.q_image = newImgKey;
+      currentQData.q_img = newImgKey;
     } else {
-      currentAData[fieldKey] = newImgKey;
+      const existingList = Array.isArray(currentAData.a_images)
+        ? [...currentAData.a_images]
+        : [currentAData.a_image || currentAData.a_img].filter(Boolean);
+      if (typeof answerIndex === 'number' && answerIndex >= 0 && answerIndex < existingList.length) {
+        existingList[answerIndex] = newImgKey;
+      } else {
+        existingList[0] = newImgKey;
+      }
+      currentAData.a_images = existingList;
+      currentAData.a_image = existingList[0] || newImgKey;
+      currentAData.a_img = existingList[0] || newImgKey;
     }
 
     const updatedMistake: MistakeRecord = {
@@ -299,7 +461,7 @@ export default function NotebookOpenView({
     setEditorQuestionText('');
     setEditorQuestionImage('');
     setEditorAnswerText('');
-    setEditorAnswerImage('');
+    setEditorAnswerImages([]);
     setEditorFamiliarityId(categories.familiarities[0]?.id || '');
     setEditorErrorReasonIds([]);
     setRightPageView('editor');
@@ -308,14 +470,24 @@ export default function NotebookOpenView({
 
   // Open in-book editor to edit an existing mistake
   const handleStartEditMistake = (m: MistakeRecord) => {
+    const extracted = extractMistakeMediaAndText(m);
     setEditingMistakeId(m.id);
     setEditorTitle(m.title);
     setEditorChapterId(m.chapter_id || '');
     setEditorUnitId(m.unit_id || '');
-    setEditorQuestionText(m.data?.questionData?.q_desc || m.data?.questionData?.desc || '');
-    setEditorQuestionImage(m.data?.questionData?.q_image || m.data?.questionData?.image || '');
-    setEditorAnswerText(m.data?.answerData?.a_desc || m.data?.answerData?.desc || '');
-    setEditorAnswerImage(m.data?.answerData?.a_image || m.data?.answerData?.image || '');
+    setEditorQuestionText(extracted.qDesc);
+    setEditorQuestionImage(
+      m.data?.questionData?.q_image ||
+        m.data?.questionData?.q_img ||
+        m.data?.questionData?.image ||
+        extracted.qImages[0] ||
+        ''
+    );
+    setEditorAnswerText(extracted.aDesc);
+    const rawAnsImgs = Array.isArray(m.data?.answerData?.a_images) && m.data.answerData.a_images.length > 0
+      ? m.data.answerData.a_images
+      : [m.data?.answerData?.a_image || m.data?.answerData?.a_img || m.data?.answerData?.image || extracted.aImages[0]].filter(Boolean);
+    setEditorAnswerImages(rawAnsImgs);
     setEditorFamiliarityId(m.familiarity_id || '');
     setEditorErrorReasonIds(m.error_reason_ids || []);
     setRightPageView('editor');
@@ -337,8 +509,11 @@ export default function NotebookOpenView({
         }
       });
       if (res?.key) {
-        if (type === 'question') setEditorQuestionImage(res.key);
-        else setEditorAnswerImage(res.key);
+        if (type === 'question') {
+          setEditorQuestionImage(res.key);
+        } else {
+          setEditorAnswerImages(prev => [...prev, res.key]);
+        }
       }
     } catch (err: any) {
       alert('圖片上傳失敗：' + (err.message || String(err)));
@@ -374,6 +549,7 @@ export default function NotebookOpenView({
 
     setIsSavingMistake(true);
     try {
+      const primaryAnsImg = editorAnswerImages[0] || '';
       const payload = {
         title: editorTitle.trim(),
         subjectId,
@@ -385,11 +561,14 @@ export default function NotebookOpenView({
         data: {
           questionData: {
             q_desc: editorQuestionText,
-            q_image: editorQuestionImage
+            q_image: editorQuestionImage,
+            q_img: editorQuestionImage
           },
           answerData: {
             a_desc: editorAnswerText,
-            a_image: editorAnswerImage
+            a_image: primaryAnsImg,
+            a_img: primaryAnsImg,
+            a_images: editorAnswerImages
           }
         }
       };
@@ -1035,10 +1214,7 @@ export default function NotebookOpenView({
                   {readerMistakes.length > 0 ? (
                     readerMistakes.map(m => {
                       const isExpanded = revealAllAnswers || !!expandedMistakeIds[m.id];
-                      const qImg = resolveImg(m.data?.questionData?.q_image || m.data?.questionData?.image || m.data?.questionData?.image_url);
-                      const aImg = resolveImg(m.data?.answerData?.a_image || m.data?.answerData?.image || m.data?.answerData?.image_url);
-                      const qDesc = m.data?.questionData?.q_desc || m.data?.questionData?.desc || m.data?.questionData?.q_text || m.data?.questionData?.text;
-                      const aDesc = m.data?.answerData?.a_desc || m.data?.answerData?.desc || m.data?.answerData?.a_text || m.data?.answerData?.text;
+                      const { qDesc, qImages, aDesc, aImages } = extractMistakeMediaAndText(m);
                       const famName = m.familiarity_name || '';
 
                       return (
@@ -1112,12 +1288,12 @@ export default function NotebookOpenView({
                             </div>
                           )}
 
-                          {/* Full Question Image */}
-                          {qImg && (
-                            <div className="binder-full-image-wrapper">
+                          {/* Full Question Images */}
+                          {qImages.map((qImg, qIdx) => (
+                            <div key={qIdx} className="binder-full-image-wrapper">
                               <img
                                 src={qImg}
-                                alt="題目圖片"
+                                alt={`題目圖片 ${qIdx + 1}`}
                                 className="binder-full-image cursor-pointer"
                                 onClick={() => setLightboxImageUrl(qImg)}
                               />
@@ -1145,7 +1321,7 @@ export default function NotebookOpenView({
                                 </button>
                               </div>
                             </div>
-                          )}
+                          ))}
 
                           {/* Answer & Explanation Section */}
                           <div className="mt-3 pt-2 border-t border-glass-border">
@@ -1164,22 +1340,36 @@ export default function NotebookOpenView({
                             {isExpanded && (
                               <div className="binder-answer-dossier mt-2 space-y-2">
                                 <div className="text-xs font-bold text-success uppercase tracking-wider">
-                                  解答與完整解析
+                                  解答與完整解析 {aImages.length > 1 ? `(共 ${aImages.length} 張解析圖)` : ''}
                                 </div>
                                 {aDesc ? (
                                   <div className="text-sm text-text-body whitespace-pre-wrap leading-relaxed">
                                     {aDesc}
                                   </div>
-                                ) : (
-                                  <div className="text-xs text-text-muted">尚無解析文字</div>
-                                )}
+                                ) : aImages.length === 0 ? (
+                                  <div className="text-xs text-text-muted flex items-center justify-between gap-2">
+                                    <span>尚無解析文字與圖片</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditMistake(m)}
+                                      className="text-amber-800 dark:text-amber-400 font-semibold hover:underline"
+                                    >
+                                      點擊補充題目圖或詳解
+                                    </button>
+                                  </div>
+                                ) : null}
 
-                                {/* Full Answer Image */}
-                                {aImg && (
-                                  <div className="binder-full-image-wrapper">
+                                {/* Full Answer Images (Supports Multiple Images per Answer) */}
+                                {aImages.map((aImg, aIdx) => (
+                                  <div key={aIdx} className="binder-full-image-wrapper">
+                                    {aImages.length > 1 && (
+                                      <div className="text-[11px] font-bold text-text-muted px-2 py-1 border-b border-glass-border bg-glass-highlight/60">
+                                        解析圖片 ({aIdx + 1} / {aImages.length})
+                                      </div>
+                                    )}
                                     <img
                                       src={aImg}
-                                      alt="解析圖片"
+                                      alt={`解析圖片 ${aIdx + 1}`}
                                       className="binder-full-image cursor-pointer"
                                       onClick={() => setLightboxImageUrl(aImg)}
                                     />
@@ -1188,7 +1378,7 @@ export default function NotebookOpenView({
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleOpenAnnotator(m, 'a_image', false, aImg);
+                                          handleOpenAnnotator(m, 'a_image', false, aImg, aIdx);
                                         }}
                                         className="binder-image-annotate-btn"
                                         title="使用手帳紅筆、螢光筆標記解析重點"
@@ -1207,7 +1397,7 @@ export default function NotebookOpenView({
                                       </button>
                                     </div>
                                   </div>
-                                )}
+                                ))}
                               </div>
                             )}
                           </div>
@@ -1389,7 +1579,34 @@ export default function NotebookOpenView({
                 </div>
 
                 <div className="binder-form-group">
-                  <label className="binder-form-label">解析圖片 (支援點擊上傳或鍵盤 Ctrl+V 貼上)</label>
+                  <label className="binder-form-label">解析圖片 (支援上傳多張解析圖片，可點擊選取多檔或鍵盤 Ctrl+V 連續貼上)</label>
+                  {editorAnswerImages.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mb-2">
+                      {editorAnswerImages.map((imgKey, idx) => (
+                        <div key={idx} className="relative inline-block border border-glass-border rounded-lg p-1 bg-bg-secondary">
+                          <div className="text-[10px] font-bold text-text-muted mb-1 text-center">
+                            解析圖 #{idx + 1}
+                          </div>
+                          <img
+                            src={resolveImg(imgKey)}
+                            alt={`解析預覽 ${idx + 1}`}
+                            className="max-h-32 rounded mx-auto object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditorAnswerImages(prev => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1"
+                            title="移除此張解析圖片"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div
                     className="binder-paste-zone"
                     tabIndex={0}
@@ -1400,10 +1617,14 @@ export default function NotebookOpenView({
                       id="a-img-input"
                       type="file"
                       accept="image/*"
+                      multiple
                       className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUploadImageFile(file, 'answer');
+                      onChange={async e => {
+                        const files = Array.from(e.target.files || []);
+                        for (const file of files) {
+                          await handleUploadImageFile(file, 'answer');
+                        }
+                        e.target.value = '';
                       }}
                     />
                     {isUploadingAImg ? (
@@ -1411,29 +1632,10 @@ export default function NotebookOpenView({
                         <RefreshCw size={14} className="animate-spin" />
                         <span>圖片壓縮上傳中...</span>
                       </div>
-                    ) : editorAnswerImage ? (
-                      <div className="relative inline-block">
-                        <img
-                          src={resolveImg(editorAnswerImage)}
-                          alt="解析預覽"
-                          className="max-h-40 rounded border mx-auto"
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditorAnswerImage('');
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1"
-                          title="移除解析圖片"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
                     ) : (
                       <div className="text-xs text-text-muted py-2 flex flex-col items-center gap-1">
                         <ImageIcon size={18} className="text-amber-800 dark:text-amber-400" />
-                        <span>點擊上傳詳解步驟圖片，或在此處貼上 (Ctrl+V)</span>
+                        <span>點擊新增詳解圖片（可多選），或在此處貼上 (Ctrl+V)</span>
                       </div>
                     )}
                   </div>

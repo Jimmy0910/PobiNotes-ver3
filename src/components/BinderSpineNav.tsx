@@ -51,64 +51,56 @@ export default function BinderSpineNav({
       label: '我的書架',
       testId: 'nav-bookshelf',
       icon: <BookOpen size={18} strokeWidth={1.8} />,
-      active: activeView === 'bookshelf' || activeView === 'notebook',
-      hideOnMobile: false
+      active: activeView === 'bookshelf' || activeView === 'notebook'
     },
     {
       id: 'all' as AppViewType,
       label: '錯題索引',
       testId: 'nav-mistakes',
       icon: <FileText size={18} strokeWidth={1.8} />,
-      active: activeView === 'all' || activeView === 'chapter',
-      hideOnMobile: false
+      active: activeView === 'all' || activeView === 'chapter'
     },
     {
       id: 'dashboard' as AppViewType,
       label: '學習概覽',
       testId: 'nav-dashboard',
       icon: <BarChart2 size={18} strokeWidth={1.8} />,
-      active: activeView === 'dashboard' || activeView === 'analytics',
-      hideOnMobile: false
+      active: activeView === 'dashboard' || activeView === 'analytics'
     },
     {
       id: 'export' as AppViewType,
       label: '列印試卷',
       testId: 'nav-export',
       icon: <Printer size={18} strokeWidth={1.8} />,
-      active: activeView === 'export',
-      hideOnMobile: false
+      active: activeView === 'export'
     },
     {
       id: 'guide' as AppViewType,
       label: '使用導引',
       testId: 'nav-guide',
       icon: <CircleHelp size={18} strokeWidth={1.8} />,
-      active: activeView === 'guide',
-      hideOnMobile: false
+      active: activeView === 'guide'
     },
     {
       id: 'categories' as AppViewType,
       label: '分類管理',
       testId: 'nav-categories',
       icon: <FolderTree size={18} strokeWidth={1.8} />,
-      active: activeView === 'categories',
-      hideOnMobile: true
+      active: activeView === 'categories'
     },
     {
       id: 'templates' as AppViewType,
       label: '模板管理',
       testId: 'nav-templates',
       icon: <FileCode size={18} strokeWidth={1.8} />,
-      active: activeView === 'templates',
-      hideOnMobile: true
+      active: activeView === 'templates'
     },
     {
       id: 'prompt' as AppViewType,
       label: 'AI 提詞',
       testId: 'nav-prompt',
       icon: <Sparkles size={18} strokeWidth={1.8} />,
-      active: activeView === 'prompt',
-      hideOnMobile: true
+      active: activeView === 'prompt'
     }
   ];
 
@@ -118,8 +110,7 @@ export default function BinderSpineNav({
       label: '控制台',
       testId: 'nav-admin',
       icon: <Shield size={18} strokeWidth={1.8} />,
-      active: activeView === 'admin',
-      hideOnMobile: true
+      active: activeView === 'admin'
     });
   }
 
@@ -190,50 +181,22 @@ export default function BinderSpineNav({
               type="button"
               data-testid={item.testId}
               onClick={() => onNavigateView(item.id)}
-              className={`binder-nav-item ${item.active ? 'active' : ''} ${item.hideOnMobile ? 'spine-nav-desktop-only' : ''}`}
-              title={collapsed ? item.label : undefined}
+              className={`binder-nav-item ${item.active ? 'active' : ''}`}
+              title={item.label}
+              style={{
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '6px 0' : '6px 8px'
+              }}
             >
               <span className="binder-nav-icon">{item.icon}</span>
-              <span className="binder-nav-label">{item.label}</span>
+              {!collapsed && <span className="binder-nav-label">{item.label}</span>}
             </button>
           ))}
         </nav>
 
-        {/* 獨立的使用教學與常見問題專屬區塊 - 緊湊高質感編排 (桌機專屬) */}
-        <div className="spine-nav-desktop-only" style={{ padding: collapsed ? '4px' : '4px 6px', marginTop: '4px', borderTop: '1px solid var(--binder-spine-border)' }}>
-          <button
-            type="button"
-            data-testid="nav-guide-section"
-            onClick={() => onNavigateView('guide')}
-            className={`binder-nav-item ${activeView === 'guide' ? 'active' : ''}`}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: collapsed ? '0' : '9px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              padding: collapsed ? '6px 0' : '5px 8px',
-              borderRadius: '6px',
-              background: activeView === 'guide' ? 'var(--binder-spine-active-bg)' : 'rgba(217, 119, 6, 0.08)',
-              border: activeView === 'guide' ? '1px solid var(--binder-spine-active-border)' : '1px dashed rgba(217, 119, 6, 0.28)',
-              color: activeView === 'guide' ? 'var(--binder-spine-active-text)' : 'inherit',
-              transition: 'all 0.15s ease',
-              cursor: 'pointer'
-            }}
-            title="使用教學手冊"
-          >
-            <span className="binder-nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CircleHelp size={16} strokeWidth={2} style={{ color: activeView === 'guide' ? 'inherit' : '#d97706' }} />
-            </span>
-            {!collapsed && (
-              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>使用導引手冊</span>
-            )}
-          </button>
-        </div>
-
-        {/* 手帳筆記狀態小卡 - 緊緻填充空白避免過度空曠 (桌機專屬) */}
+        {/* 手帳筆記狀態小卡 - 展開時顯示 */}
         {!collapsed && (
-          <div className="spine-nav-desktop-only" style={{
+          <div style={{
             margin: '10px 8px 6px 8px',
             padding: '8px 10px',
             borderRadius: '6px',
@@ -252,15 +215,16 @@ export default function BinderSpineNav({
       </div>
 
       {/* Footer System Tools & User Profile */}
-      <div className="binder-spine-footer navbar-actions" style={{ padding: '8px 6px 10px 6px', gap: '5px' }}>
+      <div className="binder-spine-footer navbar-actions" style={{ padding: collapsed ? '8px 4px 10px 4px' : '8px 6px 10px 6px', gap: '6px' }}>
         {/* User Card */}
         <div
           className="binder-spine-user-card navbar-user-info"
           title={`目前使用者：${user.username}`}
           style={{
             justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: '5px 8px',
-            borderRadius: '5px'
+            padding: collapsed ? '4px' : '5px 8px',
+            borderRadius: '5px',
+            display: 'flex'
           }}
         >
           <span className="binder-spine-avatar" style={{ width: '22px', height: '22px', fontSize: '0.7rem' }}>
@@ -274,7 +238,13 @@ export default function BinderSpineNav({
         </div>
 
         {/* Quick Tools Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: '3px', flexWrap: 'wrap' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: collapsed ? 'column' : 'row',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          gap: '4px'
+        }}>
           {/* Guide */}
           <button
             type="button"

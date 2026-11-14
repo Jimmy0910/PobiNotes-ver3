@@ -376,6 +376,15 @@ export default function App() {
     <div className="binder-app-shell">
       <div className="bg-ambient-lights" />
 
+      {/* Mobile Backdrop when Left Spine is Expanded */}
+      {!sidebarCollapsed && (
+        <div
+          className="binder-mobile-backdrop no-print"
+          onClick={() => setSidebarCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Left Binder Spine Navigation */}
       <BinderSpineNav
         activeView={activeView}
@@ -385,16 +394,28 @@ export default function App() {
           } else {
             setActiveView(view);
           }
+          if (window.innerWidth <= 768) {
+            setSidebarCollapsed(true);
+          }
         }}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         user={user}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onOpenGuide={() => setActiveView('guide')}
-        onOpenFeedback={openFeedbackModal}
+        onOpenGuide={() => {
+          setActiveView('guide');
+          if (window.innerWidth <= 768) setSidebarCollapsed(true);
+        }}
+        onOpenFeedback={() => {
+          openFeedbackModal();
+          if (window.innerWidth <= 768) setSidebarCollapsed(true);
+        }}
         onLogout={handleLogout}
-        onOpenDeleteAccount={() => setShowDeleteAccountModal(true)}
+        onOpenDeleteAccount={() => {
+          setShowDeleteAccountModal(true);
+          if (window.innerWidth <= 768) setSidebarCollapsed(true);
+        }}
       />
 
       {/* Main Binder Stage */}
@@ -886,7 +907,11 @@ export default function App() {
         categories={categories}
         onRefreshCategories={refreshAllData}
         onBatchImportComplete={(newMistakes) => {
-          setAllMistakes(prev => [...newMistakes, ...prev]);
+          setAllMistakes(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const uniqueNew = newMistakes.filter(m => !existingIds.has(m.id));
+            return [...uniqueNew, ...prev];
+          });
         }}
         onOpenZoomedImage={src => setZoomedImage(src)}
         initialStage={batchImportStage}

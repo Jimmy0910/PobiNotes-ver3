@@ -28,8 +28,14 @@ import {
 import MistakeEditor from './MistakeEditor';
 
 function resolveImageUrl(key?: string): string {
-  if (!key) return '';
-  if (key.startsWith('data:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/api/images/')) {
+  if (!key || typeof key !== 'string') return '';
+  if (
+    key.startsWith('data:') ||
+    key.startsWith('blob:') ||
+    key.startsWith('http://') ||
+    key.startsWith('https://') ||
+    key.startsWith('/api/images/')
+  ) {
     return key;
   }
   return `/api/images/${key}`;
@@ -1217,14 +1223,23 @@ export default function MistakeList({
 
                 {/* 1. Render Question fields */}
                 <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '10px', display: 'block' }}>
-                  {m.template_fields.questionFields?.map(field => (
-                    <DynamicValueRenderer
-                      key={field.id}
-                      field={field}
-                      value={m.data.questionData?.[field.id]}
-                      onImageClick={onImageClick}
-                    />
-                  ))}
+                  {m.template_fields.questionFields?.map(field => {
+                    let val = m.data.questionData?.[field.id];
+                    if ((val === undefined || val === '') && field.type === 'image') {
+                      val = m.data.questionData?.q_image || m.data.questionData?.q_img || m.data.questionData?.image;
+                    }
+                    if ((val === undefined || val === '') && field.type === 'text') {
+                      val = m.data.questionData?.q_desc || m.data.questionData?.desc;
+                    }
+                    return (
+                      <DynamicValueRenderer
+                        key={field.id}
+                        field={field}
+                        value={val}
+                        onImageClick={onImageClick}
+                      />
+                    );
+                  })}
                 </div>
 
                 {/* 2. Collapsible Answer & Solution block (主動回想拉開解析) */}
@@ -1246,14 +1261,51 @@ export default function MistakeList({
 
                     {isExpanded && (
                       <div className="binder-answer-dossier collapsible-content" style={{ display: 'block', marginTop: '6px' }}>
-                        {m.template_fields.answerFields.map(field => (
-                          <DynamicValueRenderer
-                            key={field.id}
-                            field={field}
-                            value={m.data.answerData?.[field.id]}
-                            onImageClick={onImageClick}
-                          />
-                        ))}
+                        {m.template_fields.answerFields.map(field => {
+                          let val = m.data.answerData?.[field.id];
+                          if ((val === undefined || val === '') && field.type === 'image') {
+                            val = m.data.answerData?.a_image || m.data.answerData?.a_img || m.data.answerData?.image;
+                          }
+                          if ((val === undefined || val === '') && field.type === 'text') {
+                            val = m.data.answerData?.a_desc || m.data.answerData?.desc || m.data.answerData?.key_concept;
+                          }
+                          return (
+                            <DynamicValueRenderer
+                              key={field.id}
+                              field={field}
+                              value={val}
+                              onImageClick={onImageClick}
+                            />
+                          );
+                        })}
+                        {/* 支援單題多張解析圖片 (a_images) */}
+                        {Array.isArray(m.data.answerData?.a_images) && m.data.answerData.a_images.length > 1 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
+                            {m.data.answerData.a_images.slice(1).map((extraImg: string, idx: number) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  width: '100%',
+                                  maxWidth: '320px',
+                                  borderRadius: 'var(--radius-md)',
+                                  overflow: 'hidden',
+                                  border: '1px solid var(--glass-border)',
+                                  background: 'var(--pobi-surface)'
+                                }}
+                              >
+                                <div style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '1px solid var(--glass-border)' }}>
+                                  解析圖片 #{idx + 2}
+                                </div>
+                                <img
+                                  src={resolveImageUrl(extraImg)}
+                                  alt={`解析圖片 ${idx + 2}`}
+                                  onClick={() => onImageClick?.(resolveImageUrl(extraImg))}
+                                  style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: onImageClick ? 'zoom-in' : 'default' }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

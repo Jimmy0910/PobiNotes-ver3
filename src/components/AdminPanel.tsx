@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
-import { Users, MessageSquare, Trash2, Star, Loader2 } from 'lucide-react';
+import { Users, MessageSquare, Trash2, Star, Loader2, RefreshCw } from 'lucide-react';
 
 interface AdminUser {
   id: string;
@@ -118,18 +118,30 @@ export default function AdminPanel() {
         </h2>
 
         {/* Tab Buttons */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('users')}
+            >
+              <Users size={16} /> 用戶管理 ({users.length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${activeTab === 'feedback' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('feedback')}
+            >
+              <MessageSquare size={16} /> 用戶回饋
+            </button>
+          </div>
           <button
-            className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('users')}
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => activeTab === 'users' ? fetchUsers() : fetchFeedback()}
+            disabled={loading}
           >
-            <Users size={16} /> 用戶管理
-          </button>
-          <button
-            className={`btn ${activeTab === 'feedback' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('feedback')}
-          >
-            <MessageSquare size={16} /> 用戶回饋
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> 重新整理列表
           </button>
         </div>
 

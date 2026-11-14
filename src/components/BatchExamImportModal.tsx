@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { CategoriesBundle, MistakeRecord } from '../types';
+import { apiRequest } from '../utils/api';
+import { compressImage } from '../utils/compress';
 import {
   Sparkles,
   Copy,
@@ -17,7 +19,13 @@ import {
   Maximize2,
   RotateCcw,
   Zap,
-  FolderPlus
+  FolderPlus,
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Layers
 } from 'lucide-react';
 
 interface BatchExamImportModalProps {
@@ -31,23 +39,73 @@ interface BatchExamImportModalProps {
   unreviewedMistakes?: MistakeRecord[];
 }
 
+interface UploadedImageItem {
+  id: string;
+  name: string;
+  key: string; // Persistent storage key or data URL
+  url: string; // Displayable URL
+}
+
 interface ParsedExamQuestion {
+  id: string;
   index: number;
   title: string;
   subject_name: string;
   chapter_name: string;
   unit_name?: string;
-  question_image_index: number;
-  answer_image_index: number;
+  question_text?: string;
+  question_image_index: number; // 1-based index into questionImages (0 = none)
+  answer_image_indices: number[]; // 1-based indices into answerImages (supports multiple images per answer)
   key_concept?: string;
   is_new_subject?: boolean;
   is_new_chapter?: boolean;
 }
 
-// Sample SVG placeholder data for zero-friction 1-click test in localhost
+interface ReviewItem {
+  id: string;
+  title: string;
+  subject_id: string | null;
+  subject_name: string;
+  chapter_id: string | null;
+  chapter_name: string;
+  question_text?: string;
+  question_image_key: string;
+  question_image_url: string;
+  answer_image_keys: string[];
+  answer_image_urls: string[];
+  familiarity_id: string | null;
+  error_reason_ids: string[];
+  is_new_chapter?: boolean;
+  key_concept?: string;
+}
+
+function resolveDisplayUrl(key?: string): string {
+  if (!key || typeof key !== 'string') return '';
+  if (
+    key.startsWith('data:') ||
+    key.startsWith('blob:') ||
+    key.startsWith('http://') ||
+    key.startsWith('https://') ||
+    key.startsWith('/api/images/')
+  ) {
+    return key;
+  }
+  return `/api/images/${key}`;
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Sample SVG placeholder data for zero-friction 1-click test
 const SAMPLE_QUESTION_IMG_1 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340"><rect width="100%" height="100%" fill="%23FAF7F0"/><rect x="20" y="20" width="560" height="300" fill="%23FFFFFF" stroke="%23D4C9BA" stroke-width="2" rx="8"/><text x="40" y="60" font-family="sans-serif" font-size="18" font-weight="bold" fill="%238B5A2B">第 1 題 [單選題]</text><text x="40" y="96" font-family="sans-serif" font-size="15" fill="%231E293B">設 f(x) 為三次實係數多項式，已知 f(1)=2, f(2)=5, f(3)=10，</text><text x="40" y="126" font-family="sans-serif" font-size="15" fill="%231E293B">且 f(x) 除以 (x-4) 之餘式為 23。試求 f(0) 之值為何？</text><text x="40" y="170" font-family="sans-serif" font-size="14" fill="%23526178">(A) -1   (B) 1   (C) 3   (D) 5   (E) 7</text><line x1="40" y1="210" x2="560" y2="210" stroke="%23E2D9CC" stroke-dasharray="4"/><text x="40" y="245" font-family="sans-serif" font-size="13" fill="%23B91C1C">作答紀錄：學生選 (A) [錯誤]</text></svg>`;
 
-const SAMPLE_ANSWER_IMG_1 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340"><rect width="100%" height="100%" fill="%23FAF7F0"/><rect x="20" y="20" width="560" height="300" fill="%23FFFFFF" stroke="%234D7C0F" stroke-width="2" rx="8"/><text x="40" y="60" font-family="sans-serif" font-size="18" font-weight="bold" fill="%234D7C0F">第 1 題 詳解與評析</text><text x="40" y="96" font-family="sans-serif" font-size="15" fill="%231E293B">正確答案：(B) 1</text><text x="40" y="130" font-family="sans-serif" font-size="14" fill="%231E293B">核心考點：牛頓插值法或差分設式。</text><text x="40" y="160" font-family="sans-serif" font-size="14" fill="%23526178">設 g(x) = f(x) - (x^2 + 1)，則 g(1)=g(2)=g(3)=0。</text><text x="40" y="190" font-family="sans-serif" font-size="14" fill="%23526178">得 g(x) = k(x-1)(x-2)(x-3)，代入 x=4 得 k=1，</text><text x="40" y="220" font-family="sans-serif" font-size="14" fill="%234D7C0F">故 f(0) = 1*(-1)*(-2)*(-3) + 1 = -6 + 1 ... [計算修正: 1]</text></svg>`;
+const SAMPLE_ANSWER_IMG_1 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340"><rect width="100%" height="100%" fill="%23FAF7F0"/><rect x="20" y="20" width="560" height="300" fill="%23FFFFFF" stroke="%234D7C0F" stroke-width="2" rx="8"/><text x="40" y="60" font-family="sans-serif" font-size="18" font-weight="bold" fill="%234D7C0F">第 1 題 詳解與評析 (步驟一)</text><text x="40" y="96" font-family="sans-serif" font-size="15" fill="%231E293B">正確答案：(B) 1</text><text x="40" y="130" font-family="sans-serif" font-size="14" fill="%231E293B">核心考點：牛頓插值法或差分設式。</text><text x="40" y="160" font-family="sans-serif" font-size="14" fill="%23526178">設 g(x) = f(x) - (x^2 + 1)，則 g(1)=g(2)=g(3)=0。</text><text x="40" y="190" font-family="sans-serif" font-size="14" fill="%23526178">得 g(x) = k(x-1)(x-2)(x-3)，代入 x=4 得 k=1，</text><text x="40" y="220" font-family="sans-serif" font-size="14" fill="%234D7C0F">故 f(0) = 1*(-1)*(-2)*(-3) + 1 = -5 ... [見下頁補充]</text></svg>`;
 
 const SAMPLE_QUESTION_IMG_2 = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340"><rect width="100%" height="100%" fill="%23FAF7F0"/><rect x="20" y="20" width="560" height="300" fill="%23FFFFFF" stroke="%23D4C9BA" stroke-width="2" rx="8"/><text x="40" y="60" font-family="sans-serif" font-size="18" font-weight="bold" fill="%238B5A2B">第 2 題 [多選題]</text><text x="40" y="96" font-family="sans-serif" font-size="15" fill="%231E293B">一質量為 m 之質點在光滑水平面上作簡諧運動，其週期為 T。</text><text x="40" y="126" font-family="sans-serif" font-size="15" fill="%231E293B">若將振幅加倍，則下列敘述何者正確？</text><text x="40" y="170" font-family="sans-serif" font-size="14" fill="%23526178">(A) 週期變為 2T   (B) 最大速率加倍   (C) 最大加速度加倍</text><text x="40" y="200" font-family="sans-serif" font-size="14" fill="%23526178">(D) 力學能變為 4 倍   (E) 最大動能維持不變</text><line x1="40" y1="230" x2="560" y2="230" stroke="%23E2D9CC" stroke-dasharray="4"/><text x="40" y="260" font-family="sans-serif" font-size="13" fill="%23B91C1C">作答紀錄：學生選 (A)(B) [錯誤：誤以為週期與振幅有關]</text></svg>`;
 
@@ -64,17 +122,17 @@ const SAMPLE_AI_JSON = `[
     "subject_name": "數學",
     "chapter_name": "多項式函數",
     "question_image_index": 1,
-    "answer_image_index": 1,
-    "key_concept": "牛頓插值法與多項式餘式條件"
+    "answer_image_indices": [1],
+    "key_concept": "牛頓插值法與多項式餘式條件：設 g(x)=f(x)-(x^2+1)，利用因式定理求餘式。"
   },
   {
     "index": 2,
     "title": "簡諧運動振幅加倍之週期與能量變化",
     "subject_name": "物理",
-    "chapter_name": "波動與簡諧運動",
+    "chapter_name": "運動&力",
     "question_image_index": 2,
-    "answer_image_index": 2,
-    "key_concept": "簡諧運動週期等時性與力學能守恆"
+    "answer_image_indices": [2],
+    "key_concept": "簡諧運動週期 T=2π√(m/k) 具等時性與振幅無關；力學能 E=1/2 kR^2 與振幅平方成正比。"
   },
   {
     "index": 3,
@@ -82,8 +140,8 @@ const SAMPLE_AI_JSON = `[
     "subject_name": "化學",
     "chapter_name": "酸鹼反應與滴定",
     "question_image_index": 3,
-    "answer_image_index": 3,
-    "key_concept": "容量分析與實驗儀器潤洗誤差"
+    "answer_image_indices": [3],
+    "key_concept": "容量分析與實驗儀器潤洗誤差：未潤洗導致滴定液被稀釋，消耗體積偏大，計算濃度偏高。"
   }
 ]`;
 
@@ -98,43 +156,52 @@ export default function BatchExamImportModal({
   unreviewedMistakes = []
 }: BatchExamImportModalProps) {
   const [activeTab, setActiveTab] = useState<'prompt' | 'import' | 'review' | 'completed'>(initialStage);
-  
+
   // Sync tab with initialStage when modal is reopened
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialStage);
     }
   }, [isOpen, initialStage]);
-  
-  // Step 1: Prompt Generator State
+
+  // Step 1: Prompt Generator State (Supports 2 Prompt Modes)
+  const [promptMode, setPromptMode] = useState<'auto' | 'target'>('auto');
+  const [targetSubjectName, setTargetSubjectName] = useState<string>(() => categories.subjects[0]?.name || '');
+  const [targetChapterName, setTargetChapterName] = useState<string>('');
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
+  // Keep default targetSubjectName synced if empty when subjects load
+  useEffect(() => {
+    if (!targetSubjectName && categories.subjects.length > 0) {
+      setTargetSubjectName(categories.subjects[0].name);
+    }
+  }, [categories.subjects, targetSubjectName]);
+
+  // Chapters belonging to currently selected targetSubjectName
+  const targetSubjectChapters = useMemo(() => {
+    const matchedSubj = categories.subjects.find(
+      s => s.name.trim().toLowerCase() === targetSubjectName.trim().toLowerCase()
+    );
+    if (!matchedSubj) return [];
+    return categories.chapters.filter(c => c.subject_id === matchedSubj.id || c.parent_id === matchedSubj.id);
+  }, [categories.subjects, categories.chapters, targetSubjectName]);
+
   // Step 2: Dropzone & Upload State
-  const [questionImages, setQuestionImages] = useState<Array<{ id: string; name: string; url: string }>>([]);
-  const [answerImages, setAnswerImages] = useState<Array<{ id: string; name: string; url: string }>>([]);
+  const [questionImages, setQuestionImages] = useState<UploadedImageItem[]>([]);
+  const [answerImages, setAnswerImages] = useState<UploadedImageItem[]>([]);
+  const [uploadingQ, setUploadingQ] = useState(false);
+  const [uploadingA, setUploadingA] = useState(false);
   const [aiJsonInput, setAiJsonInput] = useState('');
   const [parseError, setParseError] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<ParsedExamQuestion[]>([]);
 
   // Step 3: Fast Review Wizard State
-  const [reviewItems, setReviewItems] = useState<Array<{
-    id: string;
-    title: string;
-    subject_id: string | null;
-    subject_name: string;
-    chapter_id: string | null;
-    chapter_name: string;
-    question_image_url: string;
-    answer_image_url: string;
-    familiarity_id: string | null;
-    error_reason_ids: string[];
-    is_new_chapter?: boolean;
-    key_concept?: string;
-  }>>([]);
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [isErrorDrawerOpen, setIsErrorDrawerOpen] = useState(false);
   const [selectedErrorReasons, setSelectedErrorReasons] = useState<string[]>([]);
   const [submittingBatch, setSubmittingBatch] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
   const questionInputRef = useRef<HTMLInputElement>(null);
   const answerInputRef = useRef<HTMLInputElement>(null);
@@ -142,18 +209,27 @@ export default function BatchExamImportModal({
   // Initialize review items from unreviewed mistakes if launching in review stage
   useEffect(() => {
     if (initialStage === 'review' && unreviewedMistakes.length > 0 && reviewItems.length === 0) {
-      const items = unreviewedMistakes.map(m => ({
-        id: m.id,
-        title: m.title,
-        subject_id: m.subject_id,
-        subject_name: m.subject_name || '未分類科目',
-        chapter_id: m.chapter_id,
-        chapter_name: m.chapter_name || '一般章節',
-        question_image_url: (m.data?.questionData?.q_img as string) || '',
-        answer_image_url: (m.data?.answerData?.a_img as string) || '',
-        familiarity_id: m.familiarity_id,
-        error_reason_ids: m.error_reason_ids || []
-      }));
+      const items: ReviewItem[] = unreviewedMistakes.map(m => {
+        const qKey = (m.data?.questionData?.q_image || m.data?.questionData?.q_img || '') as string;
+        const aKeys: string[] = Array.isArray(m.data?.answerData?.a_images) && m.data.answerData.a_images.length > 0
+          ? m.data.answerData.a_images
+          : [(m.data?.answerData?.a_image || m.data?.answerData?.a_img || '') as string].filter(Boolean);
+        return {
+          id: m.id,
+          title: m.title,
+          subject_id: m.subject_id,
+          subject_name: m.subject_name || '未分類科目',
+          chapter_id: m.chapter_id,
+          chapter_name: m.chapter_name || '一般章節',
+          question_image_key: qKey,
+          question_image_url: resolveDisplayUrl(qKey),
+          answer_image_keys: aKeys,
+          answer_image_urls: aKeys.map(resolveDisplayUrl),
+          familiarity_id: m.familiarity_id,
+          error_reason_ids: m.error_reason_ids || [],
+          key_concept: (m.data?.answerData?.a_desc || m.data?.answerData?.key_concept || '') as string
+        };
+      });
       setReviewItems(items);
       setCurrentReviewIndex(0);
       setActiveTab('review');
@@ -164,7 +240,7 @@ export default function BatchExamImportModal({
   const currentStructureText = useMemo(() => {
     const lines: string[] = [];
     categories.subjects.forEach(subj => {
-      const chaps = categories.chapters.filter(c => c.subject_id === subj.id);
+      const chaps = categories.chapters.filter(c => c.subject_id === subj.id || c.parent_id === subj.id);
       if (chaps.length > 0) {
         lines.push(`- 科目【${subj.name}】：章節包含 [${chaps.map(c => c.name).join('、')}]`);
       } else {
@@ -174,23 +250,58 @@ export default function BatchExamImportModal({
     return lines.length > 0 ? lines.join('\n') : '- 尚未建立科目（請自由建議合適的學科與章節名稱）';
   }, [categories]);
 
-  // Generate the specialized Exam Batch Import Prompt
+  // Generate the specialized Exam Batch Import Prompt (Mode A: Auto Categorize vs Mode B: Fixed Target Subject/Chapter)
   const generatedPrompt = useMemo(() => {
-    return `你是一位專業的升學考試解題分析家。我將上傳一整份考卷的所有題目照片與解析照片。
-請協助我逐題進行「題目與解析配對」以及「科目章節精準分類」。
+    const subjTarget = targetSubjectName.trim() || '[某科目]';
+    const chapTarget = targetChapterName.trim() || '[某章節]';
+
+    if (promptMode === 'target') {
+      return `你是一位專業的升學考試解題分析家。我將上傳多張錯題的「題目照片」與「解析照片」。
+請幫我把這些錯題全部放在科目【${subjTarget}】的章節【${chapTarget}】底下，並完成題目與解析圖片配對及重點解析整理。
+
+請嚴格遵守以下指令：
+1. 固定科目與章節：
+   - 請把這些錯題全部放在【${subjTarget}】【${chapTarget}】！
+   - 每一題輸出的 "subject_name" 欄位請固定填寫 "${subjTarget}"，"chapter_name" 欄位請固定填寫 "${chapTarget}"。
+2. 題目與解析圖片配對（支援單題對應多張解析圖片）：
+   - 使用者上傳的題目照片依序編號為 1, 2, 3...，填入 "question_image_index"（整數）。
+   - 使用者上傳的解析照片依序編號為 1, 2, 3...，填入 "answer_image_indices"（整數陣列，例如 [1] 或若同一題解析跨多張圖片則填 [1, 2]）。
+3. 題目名稱與解析重點說明：
+   - "title"：提取 10 至 20 字以內的簡明核心題旨（例如：「力學能守恆與彈簧張力分析」）。
+   - "key_concept"：請根據解析照片或題目內容，整理出清晰的解答與破題關鍵步驟說明（將直接顯示於錯題本的解析文字區）。
+4. 輸出格式限制：
+   - 嚴格只回傳 JSON 陣列代碼區塊，不要輸出任何額外寒暄文字。
+
+回傳 JSON 結構範例如下：
+[
+  {
+    "index": 1,
+    "title": "題目核心觀念題旨摘要",
+    "subject_name": "${subjTarget}",
+    "chapter_name": "${chapTarget}",
+    "question_image_index": 1,
+    "answer_image_indices": [1],
+    "key_concept": "正確答案與關鍵破題步驟說明"
+  }
+]`;
+    }
+
+    return `你是一位專業的升學考試解題分析家。我將上傳一整份考卷或多道錯題的「題目照片」與「解析照片」。
+請協助我逐題進行「題目與解析配對」（支援一題對應多張解析圖）以及「科目章節精準分類」。
 
 目前我的錯題本中已存在的科目與章節架構如下：
 ${currentStructureText}
 
 請依據下列原則進行分析：
-1. 圖片配對順序：
-   - 使用者將依序上傳多張「題目照片」與「解析照片」。
-   - 請辨識並建立索引：例如第 1 題題目對應到題目照片清單中的第 1 張 (question_image_index: 1)，其解析對應到解析照片清單中的第 1 張 (answer_image_index: 1)。
+1. 圖片配對順序（支援一個解析對應多張圖片）：
+   - 題目照片依序編號為 1, 2, 3...，請填入 "question_image_index"（例如第 1 張題目圖填 1）。
+   - 解析照片依序編號為 1, 2, 3...，請填入 "answer_image_indices"（陣列格式，例如對應第 1 張解析圖填 [1]；若該題詳解跨第 1、2 張解析圖，請填 [1, 2]）。
 2. 科目與章節對齊：
-   - 請優先配對上述現有的科目與章節。
-   - 若考卷題目的考點完全不屬於上述現有章節，請依高中課程標準自行給定簡明規範的科目與章節名稱。
-3. 題目核心題旨摘要：
-   - 提取 10 至 20 字以內的簡要觀念核心題旨（例如：「三次多項式插值與餘式定理」），不需要逐字謄打完整冗長題目或複雜數學公式。
+   - 請優先配對上述現有的科目與章節（若使用者在對話中有特別指定「把這些錯題全部放在 [某科目] [某章節]」，請優先遵照使用者指定的科目與章節）。
+   - 若考卷題目的考點不屬於現有章節，請依課程標準給定簡明規範的科目與章節名稱。
+3. 題目核心題旨與解析說明：
+   - "title"：提取 10 至 20 字以內的簡要觀念核心題旨（例如：「三次多項式插值與餘式定理」）。
+   - "key_concept"：整理該題的正確答案、核心考點與破題步驟說明（將直接存入錯題本的解析說明文字）。
 4. 輸出格式限制：
    - 嚴格只回傳 JSON 陣列代碼區塊，不要輸出任何額外寒暄或開場白。
 
@@ -202,11 +313,11 @@ ${currentStructureText}
     "subject_name": "數學",
     "chapter_name": "多項式函數",
     "question_image_index": 1,
-    "answer_image_index": 1,
-    "key_concept": "核心考點"
+    "answer_image_indices": [1],
+    "key_concept": "正確答案與核心破題觀念說明"
   }
 ]`;
-  }, [currentStructureText]);
+  }, [promptMode, targetSubjectName, targetChapterName, currentStructureText]);
 
   // Handle Copy Prompt
   const handleCopyPrompt = async () => {
@@ -219,43 +330,86 @@ ${currentStructureText}
     }
   };
 
-  // Handle File additions for Question & Answer zones
-  const handleAddFiles = (files: FileList | null, type: 'question' | 'answer') => {
-    if (!files || files.length === 0) return;
-    const newItems: Array<{ id: string; name: string; url: string }> = [];
-    Array.from(files).forEach((file, idx) => {
-      const url = URL.createObjectURL(file);
-      newItems.push({
-        id: `${type}_${Date.now()}_${idx}`,
-        name: file.name || `${type === 'question' ? '題目圖' : '解析圖'}_${idx + 1}`,
-        url
-      });
-    });
+  // Helper to check if subject/chapter is new
+  const computeNewFlags = (sName: string, cName: string) => {
+    const existingSubj = categories.subjects.find(
+      s => s.name.trim().toLowerCase() === sName.trim().toLowerCase()
+    );
+    const existingChap = categories.chapters.find(
+      c =>
+        c.name.trim().toLowerCase() === cName.trim().toLowerCase() &&
+        (!existingSubj || c.subject_id === existingSubj.id || c.parent_id === existingSubj.id)
+    );
+    return {
+      is_new_subject: !existingSubj,
+      is_new_chapter: !existingChap
+    };
+  };
 
-    if (type === 'question') {
-      setQuestionImages(prev => [...prev, ...newItems]);
-    } else {
-      setAnswerImages(prev => [...prev, ...newItems]);
+  // Handle File additions for Question & Answer zones (compresses and uploads for persistence!)
+  const handleAddFiles = async (files: FileList | null, type: 'question' | 'answer') => {
+    if (!files || files.length === 0) return;
+    if (type === 'question') setUploadingQ(true);
+    else setUploadingA(true);
+
+    try {
+      const newItems: UploadedImageItem[] = [];
+      const fileArray = Array.from(files);
+      for (let idx = 0; idx < fileArray.length; idx++) {
+        const file = fileArray[idx];
+        let persistentKey = '';
+        try {
+          const compressedBlob = await compressImage(file, 1400, 0.85);
+          const res = await apiRequest('/api/images/upload', {
+            method: 'POST',
+            body: compressedBlob,
+            headers: { 'Content-Type': 'image/jpeg' }
+          });
+          if (res?.key) {
+            persistentKey = res.key;
+          } else {
+            persistentKey = await blobToDataUrl(compressedBlob);
+          }
+        } catch {
+          persistentKey = await blobToDataUrl(file);
+        }
+
+        newItems.push({
+          id: `${type}_${Date.now()}_${idx}`,
+          name: file.name || `${type === 'question' ? '題目圖' : '解析圖'}_${idx + 1}`,
+          key: persistentKey,
+          url: resolveDisplayUrl(persistentKey)
+        });
+      }
+
+      if (type === 'question') {
+        setQuestionImages(prev => [...prev, ...newItems]);
+      } else {
+        setAnswerImages(prev => [...prev, ...newItems]);
+      }
+    } finally {
+      if (type === 'question') setUploadingQ(false);
+      else setUploadingA(false);
     }
   };
 
   // 1-Click Load Sample Demo Data
   const handleLoadSampleData = () => {
     setQuestionImages([
-      { id: 'q_1', name: '數學考卷_第1題.png', url: SAMPLE_QUESTION_IMG_1 },
-      { id: 'q_2', name: '物理考卷_第2題.png', url: SAMPLE_QUESTION_IMG_2 },
-      { id: 'q_3', name: '化學考卷_第3題.png', url: SAMPLE_QUESTION_IMG_3 }
+      { id: 'q_1', name: '數學考卷_第1題.png', key: SAMPLE_QUESTION_IMG_1, url: SAMPLE_QUESTION_IMG_1 },
+      { id: 'q_2', name: '物理考卷_第2題.png', key: SAMPLE_QUESTION_IMG_2, url: SAMPLE_QUESTION_IMG_2 },
+      { id: 'q_3', name: '化學考卷_第3題.png', key: SAMPLE_QUESTION_IMG_3, url: SAMPLE_QUESTION_IMG_3 }
     ]);
     setAnswerImages([
-      { id: 'a_1', name: '數學詳解_第1題.png', url: SAMPLE_ANSWER_IMG_1 },
-      { id: 'a_2', name: '物理詳解_第2題.png', url: SAMPLE_ANSWER_IMG_2 },
-      { id: 'a_3', name: '化學詳解_第3題.png', url: SAMPLE_ANSWER_IMG_3 }
+      { id: 'a_1', name: '數學詳解_第1題.png', key: SAMPLE_ANSWER_IMG_1, url: SAMPLE_ANSWER_IMG_1 },
+      { id: 'a_2', name: '物理詳解_第2題.png', key: SAMPLE_ANSWER_IMG_2, url: SAMPLE_ANSWER_IMG_2 },
+      { id: 'a_3', name: '化學詳解_第3題.png', key: SAMPLE_ANSWER_IMG_3, url: SAMPLE_ANSWER_IMG_3 }
     ]);
     setAiJsonInput(SAMPLE_AI_JSON);
     setParseError('');
   };
 
-  // Real-time Parse JSON whenever input changes
+  // Parse AI JSON whenever aiJsonInput changes
   useEffect(() => {
     if (!aiJsonInput.trim()) {
       setParsedQuestions([]);
@@ -264,7 +418,6 @@ ${currentStructureText}
     }
 
     try {
-      // Strip markdown code fences if present
       let cleaned = aiJsonInput.trim();
       if (cleaned.startsWith('```json')) {
         cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
@@ -278,63 +431,197 @@ ${currentStructureText}
         return;
       }
 
-      // Check existing subjects & chapters
-      const existingSubjNames = new Set(categories.subjects.map(s => s.name.trim().toLowerCase()));
-      const existingChapNames = new Set(categories.chapters.map(c => c.name.trim().toLowerCase()));
-
       const enriched: ParsedExamQuestion[] = parsed.map((item, i) => {
-        const sName = (item.subject_name || '未分類科目').trim();
-        const cName = (item.chapter_name || '一般章節').trim();
+        const sName = (
+          item.subject_name ||
+          item.subject ||
+          (promptMode === 'target' && targetSubjectName ? targetSubjectName : '未分類科目')
+        ).trim();
+        const cName = (
+          item.chapter_name ||
+          item.chapter ||
+          (promptMode === 'target' && targetChapterName ? targetChapterName : '一般章節')
+        ).trim();
+
+        const qIdx =
+          typeof item.question_image_index === 'number'
+            ? item.question_image_index
+            : i + 1;
+
+        let aIndices: number[] = [];
+        if (Array.isArray(item.answer_image_indices)) {
+          aIndices = item.answer_image_indices
+            .map((n: any) => Number(n))
+            .filter((n: number) => !isNaN(n) && n > 0);
+        } else if (typeof item.answer_image_index === 'number' && item.answer_image_index > 0) {
+          aIndices = [item.answer_image_index];
+        } else {
+          aIndices = [i + 1];
+        }
+
+        const flags = computeNewFlags(sName, cName);
         return {
-          index: item.index || i + 1,
-          title: item.title || `考卷第 ${i + 1} 題`,
+          id: `pq_${Date.now()}_${i}`,
+          index: i + 1,
+          title: item.title || item.unit || item.unit_name || item.question_title || `考卷第 ${i + 1} 題`,
           subject_name: sName,
           chapter_name: cName,
-          unit_name: item.unit_name,
-          question_image_index: item.question_image_index || i + 1,
-          answer_image_index: item.answer_image_index || i + 1,
-          key_concept: item.key_concept,
-          is_new_subject: !existingSubjNames.has(sName.toLowerCase()),
-          is_new_chapter: !existingChapNames.has(cName.toLowerCase())
+          unit_name: item.unit_name || item.unit,
+          question_text: item.question_text || item.q_desc || item.question_desc || '',
+          question_image_index: qIdx,
+          answer_image_indices: aIndices,
+          key_concept: item.key_concept || item.answer_text || item.explanation || item.a_desc || item.solution || '',
+          ...flags
         };
       });
 
       setParsedQuestions(enriched);
       setParseError('');
-    } catch (err: any) {
+    } catch {
       setParseError('JSON 語法解析錯誤，請確認 AI 產出格式正確');
     }
-  }, [aiJsonInput, categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiJsonInput]);
+
+  // Manual Adjustment Helpers for Parsed Questions (Order & Pairing & Subject/Chapter)
+  const handleMoveQuestion = (idx: number, direction: -1 | 1) => {
+    setParsedQuestions(prev => {
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy.map((q, i) => ({ ...q, index: i + 1 }));
+    });
+  };
+
+  const handleDeleteParsedQuestion = (idx: number) => {
+    setParsedQuestions(prev =>
+      prev.filter((_, i) => i !== idx).map((q, i) => ({ ...q, index: i + 1 }))
+    );
+  };
+
+  const handleAddManualQuestion = () => {
+    setParsedQuestions(prev => {
+      const nextIdx = prev.length + 1;
+      const defaultSubj = targetSubjectName.trim() || categories.subjects[0]?.name || '未分類科目';
+      const defaultChap = targetChapterName.trim() || '一般章節';
+      const flags = computeNewFlags(defaultSubj, defaultChap);
+      return [
+        ...prev,
+        {
+          id: `pq_manual_${Date.now()}_${nextIdx}`,
+          index: nextIdx,
+          title: `第 ${nextIdx} 題`,
+          subject_name: defaultSubj,
+          chapter_name: defaultChap,
+          question_image_index: Math.min(nextIdx, Math.max(questionImages.length, 1)),
+          answer_image_indices: answerImages.length >= nextIdx ? [nextIdx] : answerImages.length > 0 ? [1] : [],
+          key_concept: '',
+          ...flags
+        }
+      ];
+    });
+  };
+
+  const handleUpdateParsedQuestion = (idx: number, patch: Partial<ParsedExamQuestion>) => {
+    setParsedQuestions(prev =>
+      prev.map((q, i) => {
+        if (i !== idx) return q;
+        const nextSubj = patch.subject_name !== undefined ? patch.subject_name : q.subject_name;
+        const nextChap = patch.chapter_name !== undefined ? patch.chapter_name : q.chapter_name;
+        const flags = computeNewFlags(nextSubj, nextChap);
+        return {
+          ...q,
+          ...patch,
+          ...flags
+        };
+      })
+    );
+  };
+
+  const handleToggleAnswerImageForQuestion = (qIdx: number, ansImgNumber: number) => {
+    setParsedQuestions(prev =>
+      prev.map((q, i) => {
+        if (i !== qIdx) return q;
+        const exists = q.answer_image_indices.includes(ansImgNumber);
+        const nextIndices = exists
+          ? q.answer_image_indices.filter(n => n !== ansImgNumber)
+          : [...q.answer_image_indices, ansImgNumber];
+        return {
+          ...q,
+          answer_image_indices: nextIndices
+        };
+      })
+    );
+  };
+
+  // Apply target subject & chapter to ALL parsed questions in 1 click
+  const handleApplyTargetToAll = () => {
+    const sName = targetSubjectName.trim();
+    const cName = targetChapterName.trim();
+    if (!sName) {
+      alert('請先輸入或選擇要套用的科目名稱');
+      return;
+    }
+    const finalChap = cName || '一般章節';
+    const flags = computeNewFlags(sName, finalChap);
+    setParsedQuestions(prev =>
+      prev.map(q => ({
+        ...q,
+        subject_name: sName,
+        chapter_name: finalChap,
+        ...flags
+      }))
+    );
+  };
 
   // Proceed from Step 2 to Step 3: Launch Fast Review Wizard
   const handleStartReview = () => {
     if (parsedQuestions.length === 0) {
-      setParseError('請先貼上 AI 分析結果或點選載入測試範例');
+      setParseError('請先貼上 AI 分析結果、新增配對題目或點選載入測試範例');
       return;
     }
 
-    // Build review items pairing with actual loaded images
-    const items = parsedQuestions.map((q, idx) => {
-      // Find matching question image by index (1-based)
-      const qImg = questionImages[q.question_image_index - 1]?.url || questionImages[idx]?.url || '';
-      const aImg = answerImages[q.answer_image_index - 1]?.url || answerImages[idx]?.url || '';
+    const items: ReviewItem[] = parsedQuestions.map((q, idx) => {
+      const qImgItem =
+        q.question_image_index > 0 ? questionImages[q.question_image_index - 1] : undefined;
+      const qKey = qImgItem?.key || '';
+      const qUrl = qImgItem?.url || '';
 
-      const matchedSubj = categories.subjects.find(s => s.name.trim().toLowerCase() === q.subject_name.trim().toLowerCase());
-      const matchedChap = categories.chapters.find(c => c.name.trim().toLowerCase() === q.chapter_name.trim().toLowerCase());
+      const matchedAnsItems = (q.answer_image_indices || [])
+        .map(aNum => answerImages[aNum - 1])
+        .filter((item): item is UploadedImageItem => !!item);
+
+      const aKeys = matchedAnsItems.map(item => item.key);
+      const aUrls = matchedAnsItems.map(item => item.url);
+
+      const matchedSubj = categories.subjects.find(
+        s => s.name.trim().toLowerCase() === q.subject_name.trim().toLowerCase()
+      );
+      const matchedChap = categories.chapters.find(
+        c =>
+          c.name.trim().toLowerCase() === q.chapter_name.trim().toLowerCase() &&
+          (!matchedSubj || c.subject_id === matchedSubj.id || c.parent_id === matchedSubj.id)
+      );
 
       return {
         id: `draft_${Date.now()}_${idx}`,
-        title: q.title,
+        title: q.title.trim() || `第 ${idx + 1} 題`,
         subject_id: matchedSubj?.id || null,
-        subject_name: q.subject_name,
+        subject_name: q.subject_name.trim() || '未分類科目',
         chapter_id: matchedChap?.id || null,
-        chapter_name: q.chapter_name,
-        question_image_url: qImg,
-        answer_image_url: aImg,
+        chapter_name: q.chapter_name.trim() || '一般章節',
+        question_text: q.question_text || '',
+        question_image_key: qKey,
+        question_image_url: qUrl,
+        answer_image_keys: aKeys,
+        answer_image_urls: aUrls,
         familiarity_id: null,
         error_reason_ids: [],
         is_new_chapter: q.is_new_chapter,
-        key_concept: q.key_concept
+        key_concept: q.key_concept || ''
       };
     });
 
@@ -345,45 +632,63 @@ ${currentStructureText}
     setActiveTab('review');
   };
 
-  // Review Action: Choose Familiarity for current question (1-click fast advance)
-  const handleAssignFamiliarity = (famId: string) => {
-    setReviewItems(prev => {
-      const updated = [...prev];
-      if (updated[currentReviewIndex]) {
-        updated[currentReviewIndex] = {
-          ...updated[currentReviewIndex],
-          familiarity_id: famId,
-          error_reason_ids: selectedErrorReasons
-        };
-      }
-      return updated;
-    });
+  // Resolve virtual familiarity code ('fam_danger' | 'fam_warning' | 'fam_success') to real category ID
+  const resolveRealFamiliarityId = (codeOrId: string | null): string | null => {
+    if (!codeOrId) return categories.familiarities[0]?.id || null;
+    const direct = categories.familiarities.find(f => f.id === codeOrId);
+    if (direct) return direct.id;
+    if (codeOrId === 'fam_danger') {
+      const f =
+        categories.familiarities.find(item => item.color === 'danger' || item.name.includes('不會') || item.name.includes('生疏')) ||
+        categories.familiarities[0];
+      return f?.id || null;
+    }
+    if (codeOrId === 'fam_warning') {
+      const f =
+        categories.familiarities.find(item => item.color === 'warning' || item.name.includes('卡') || item.name.includes('稍微')) ||
+        categories.familiarities[1] ||
+        categories.familiarities[0];
+      return f?.id || null;
+    }
+    if (codeOrId === 'fam_success') {
+      const f =
+        categories.familiarities.find(item => item.color === 'success' || item.name.includes('順') || item.name.includes('熟練') || item.name.includes('精熟')) ||
+        categories.familiarities[categories.familiarities.length - 1];
+      return f?.id || null;
+    }
+    return categories.familiarities[0]?.id || null;
+  };
 
-    // Reset error drawer for next question
+  // Review Action: Choose Familiarity for current question (1-click fast advance)
+  const handleAssignFamiliarity = (famCode: string) => {
+    if (submittingBatch) return;
+    const resolvedFamId = resolveRealFamiliarityId(famCode);
+
+    const updatedItems = reviewItems.map((item, idx) =>
+      idx === currentReviewIndex
+        ? { ...item, familiarity_id: resolvedFamId, error_reason_ids: selectedErrorReasons }
+        : item
+    );
+    setReviewItems(updatedItems);
+
     setIsErrorDrawerOpen(false);
     setSelectedErrorReasons([]);
 
-    // Advance to next or complete
     if (currentReviewIndex + 1 < reviewItems.length) {
       setCurrentReviewIndex(prev => prev + 1);
     } else {
-      finishAllReviews(reviewItems.map((item, idx) => 
-        idx === currentReviewIndex 
-          ? { ...item, familiarity_id: famId, error_reason_ids: selectedErrorReasons } 
-          : item
-      ));
+      finishAllReviews(updatedItems);
     }
   };
 
   // Omnipresent Action: Mark all remaining as unfamiliar & finish immediately
   const handleMarkAllAsUnfamiliar = () => {
-    // Find lowest familiarity (default: '完全生疏' or first familiarity)
-    const lowestFam = categories.familiarities.find(f => f.color === 'danger') || categories.familiarities[0];
-    const lowestId = lowestFam ? lowestFam.id : 'fam_unfamiliar';
+    if (submittingBatch) return;
+    const lowestId = resolveRealFamiliarityId('fam_danger');
 
     const completed = reviewItems.map((item, idx) => {
       if (idx < currentReviewIndex && item.familiarity_id) {
-        return item; // Keep already marked
+        return item;
       }
       return {
         ...item,
@@ -395,41 +700,156 @@ ${currentStructureText}
     finishAllReviews(completed);
   };
 
-  // Finish review and persist to notebook
-  const finishAllReviews = async (finalItems: typeof reviewItems) => {
+  // Finish review and ACTUALLY persist to D1 / LocalStorage via API
+  const finishAllReviews = async (finalItems: ReviewItem[]) => {
     setSubmittingBatch(true);
-    
-    // Simulate D1 write / creation of new chapters
     try {
+      // 1. Ensure all subjects and chapters exist in DB / LocalStorage
+      const subjectMap = new Map<string, string>();
+      categories.subjects.forEach(s => {
+        subjectMap.set(s.name.trim().toLowerCase(), s.id);
+      });
+
+      const chapterMap = new Map<string, string>();
+      categories.chapters.forEach(c => {
+        const sId = c.subject_id || c.parent_id || '';
+        chapterMap.set(`${sId}::${c.name.trim().toLowerCase()}`, c.id);
+      });
+
+      const persistedMistakes: MistakeRecord[] = [];
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      for (let idx = 0; idx < finalItems.length; idx++) {
+        const item = finalItems[idx];
+        const sName = (item.subject_name || '未分類科目').trim();
+        const cName = (item.chapter_name || '一般章節').trim();
+
+        // Resolve or create Subject
+        let resolvedSubjectId = item.subject_id || subjectMap.get(sName.toLowerCase()) || null;
+        if (!resolvedSubjectId) {
+          try {
+            const createdSubj = await apiRequest('/api/subjects', {
+              method: 'POST',
+              body: { name: sName, color: 'kraft_camel|BookOpen' }
+            });
+            const newSubjId = createdSubj?.id || createdSubj?.subject?.id || createdSubj?.item?.id;
+            if (newSubjId) {
+              resolvedSubjectId = newSubjId;
+              subjectMap.set(sName.toLowerCase(), newSubjId);
+            }
+          } catch (e) {
+            console.warn('自動建立科目失敗:', e);
+          }
+        }
+
+        // Resolve or create Chapter under Subject
+        let resolvedChapterId =
+          item.chapter_id ||
+          (resolvedSubjectId ? chapterMap.get(`${resolvedSubjectId}::${cName.toLowerCase()}`) : null) ||
+          null;
+        if (resolvedSubjectId && !resolvedChapterId && cName) {
+          try {
+            const createdChap = await apiRequest('/api/chapters', {
+              method: 'POST',
+              body: { subjectId: resolvedSubjectId, name: cName }
+            });
+            const newChapId = createdChap?.id || createdChap?.chapter?.id || createdChap?.item?.id;
+            if (newChapId) {
+              resolvedChapterId = newChapId;
+              chapterMap.set(`${resolvedSubjectId}::${cName.toLowerCase()}`, newChapId);
+            }
+          } catch (e) {
+            console.warn('自動建立章節失敗:', e);
+          }
+        }
+
+        const resolvedFamId = resolveRealFamiliarityId(item.familiarity_id);
+        const primaryQKey = item.question_image_key || '';
+        const allAKeys = item.answer_image_keys || [];
+        const primaryAKey = allAKeys[0] || '';
+        const explanationText = item.key_concept || '';
+        const questionText = item.question_text || '';
+
+        const payload = {
+          title: item.title,
+          subjectId: resolvedSubjectId,
+          chapterId: resolvedChapterId,
+          unitId: null,
+          familiarityId: resolvedFamId,
+          errorReasonIds: item.error_reason_ids || [],
+          tags: ['考卷批次匯入'],
+          mistakeDate: todayStr,
+          templateId: 'default_template',
+          data: {
+            questionData: {
+              q_desc: questionText,
+              q_image: primaryQKey,
+              q_img: primaryQKey
+            },
+            answerData: {
+              a_desc: explanationText,
+              key_concept: explanationText,
+              a_image: primaryAKey,
+              a_img: primaryAKey,
+              a_images: allAKeys
+            }
+          }
+        };
+
+        // If the item already existed in DB (e.g., from unreviewed inbox), PUT it; otherwise POST new
+        const isExistingRecord = !item.id.startsWith('draft_');
+        if (isExistingRecord) {
+          await apiRequest('/api/mistakes', {
+            method: 'PUT',
+            body: {
+              id: item.id,
+              familiarityId: resolvedFamId,
+              errorReasonIds: item.error_reason_ids || [],
+              data: payload.data
+            }
+          });
+        } else {
+          const created = await apiRequest('/api/mistakes', {
+            method: 'POST',
+            body: payload
+          });
+          persistedMistakes.push({
+            id: created?.id || `mistake_batch_${Date.now()}_${idx}`,
+            title: item.title,
+            subject_id: resolvedSubjectId,
+            subject_name: sName,
+            chapter_id: resolvedChapterId,
+            chapter_name: cName,
+            unit_id: null,
+            familiarity_id: resolvedFamId,
+            error_reason_ids: item.error_reason_ids || [],
+            tags: ['考卷批次匯入'],
+            mistake_date: todayStr,
+            template_id: 'default_template',
+            template_fields: {
+              questionFields: [
+                { id: 'q_desc', type: 'text', label: '題目說明' },
+                { id: 'q_img', type: 'image', label: '題目相片' }
+              ],
+              answerFields: [
+                { id: 'a_desc', type: 'text', label: '解析說明' },
+                { id: 'a_img', type: 'image', label: '解析相片' }
+              ]
+            },
+            data: payload.data,
+            created_at: Date.now() + idx
+          });
+        }
+      }
+
+      setSavedCount(finalItems.length);
       if (onRefreshCategories) {
         await onRefreshCategories();
       }
-      const newMistakes: MistakeRecord[] = finalItems.map((item, idx) => ({
-        id: `mistake_batch_${Date.now()}_${idx}`,
-        title: item.title,
-        subject_id: item.subject_id,
-        subject_name: item.subject_name,
-        chapter_id: item.chapter_id,
-        chapter_name: item.chapter_name,
-        unit_id: null,
-        familiarity_id: item.familiarity_id,
-        error_reason_ids: item.error_reason_ids,
-        tags: ['考卷批次匯入'],
-        mistake_date: new Date().toISOString().split('T')[0],
-        template_id: 'default_template',
-        template_fields: {
-          questionFields: [{ id: 'q_img', type: 'image', label: '題目截圖' }],
-          answerFields: [{ id: 'a_img', type: 'image', label: '解析截圖' }]
-        },
-        data: {
-          questionData: { q_img: item.question_image_url },
-          answerData: { a_img: item.answer_image_url }
-        },
-        created_at: Date.now() + idx
-      }));
-
-      onBatchImportComplete(newMistakes);
+      onBatchImportComplete(persistedMistakes);
       setActiveTab('completed');
+    } catch (err: any) {
+      alert('批次寫入錯題本時發生錯誤：' + (err.message || String(err)));
     } finally {
       setSubmittingBatch(false);
     }
@@ -442,79 +862,93 @@ ${currentStructureText}
   const relevantErrorReasons = useMemo(() => {
     if (!currentItem) return categories.errorReasons;
     return categories.errorReasons.filter(r => {
-      if (!r.parent_id) return true; // Universal
-      return r.parent_id === currentItem.subject_id;
+      if (!r.parent_id && !r.subject_id) return true;
+      return r.parent_id === currentItem.subject_id || r.subject_id === currentItem.subject_id;
     });
   }, [categories.errorReasons, currentItem]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop animate-fade-in" style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.72)',
-      backdropFilter: 'blur(3px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '16px'
-    }}>
-      <div className="notebook-page washi-tape-strip" style={{
-        width: '100%',
-        maxWidth: '1080px',
-        maxHeight: '92vh',
-        backgroundColor: 'var(--notebook-paper)',
-        borderRadius: '16px',
-        border: '1px solid var(--glass-border)',
-        boxShadow: '0 20px 48px rgba(60, 40, 20, 0.22)',
+    <div
+      className="modal-backdrop animate-fade-in"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+        backdropFilter: 'blur(3px)',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        {/* Modal Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid var(--glass-border)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '12px'
+      }}
+    >
+      <div
+        className="notebook-page washi-tape-strip"
+        style={{
+          width: '100%',
+          maxWidth: '1120px',
+          maxHeight: '92vh',
+          backgroundColor: 'var(--notebook-paper)',
+          borderRadius: '16px',
+          border: '1px solid var(--glass-border)',
+          boxShadow: '0 20px 48px rgba(60, 40, 20, 0.22)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: 'var(--bg-secondary)',
-          borderTop: '3px solid var(--accent-secondary)'
-        }}>
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Modal Header */}
+        <div
+          style={{
+            padding: '16px 22px',
+            borderBottom: '1px solid var(--glass-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            backgroundColor: 'var(--bg-secondary)',
+            borderTop: '3px solid var(--accent-secondary)'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(180, 83, 9, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent-primary)'
-            }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-primary)'
+              }}
+            >
               <Sparkles size={20} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                AI 考卷批次匯入與極速審核
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                AI 考卷批次歸納與極速審核
               </h2>
-              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                免付費 AI 智慧辨識分類 ➔ 雙區圖檔秒配對 ➔ 1-Click 極速熟悉度卡片審核
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                支援自動分類或指定章節 ➔ 自由調整順序與多張解析圖配對 ➔ 實際寫入錯題索引與手帳
               </p>
             </div>
           </div>
 
           {/* Workflow Tabs Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              display: 'flex',
-              padding: '3px',
-              backgroundColor: 'rgba(180, 83, 9, 0.08)',
-              borderRadius: '8px',
-              border: '1px solid var(--glass-border)'
-            }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                padding: '3px',
+                backgroundColor: 'rgba(180, 83, 9, 0.08)',
+                borderRadius: '8px',
+                border: '1px solid var(--glass-border)'
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setActiveTab('prompt')}
@@ -547,7 +981,7 @@ ${currentStructureText}
                   cursor: 'pointer'
                 }}
               >
-                2. 雙區選圖與匯入
+                2. 選圖與調整配對
               </button>
               <button
                 type="button"
@@ -592,48 +1026,210 @@ ${currentStructureText}
         </div>
 
         {/* Modal Body Area */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-          {/* TAB 1: 專屬提詞產生器 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          {/* TAB 1: 專屬提詞產生器 (支援兩種提詞模式) */}
           {activeTab === 'prompt' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{
-                padding: '16px 20px',
-                backgroundColor: 'rgba(180, 83, 9, 0.04)',
-                border: '1px dashed var(--glass-border)',
-                borderRadius: '10px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '14px'
-              }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div
+                style={{
+                  padding: '14px 18px',
+                  backgroundColor: 'rgba(180, 83, 9, 0.04)',
+                  border: '1px dashed var(--glass-border)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px'
+                }}
+              >
                 <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}>
                   <HelpCircle size={20} />
                 </div>
-                <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  <strong>三步驟輕鬆完成：</strong><br />
-                  1. 點擊下方按鈕複製專用提詞。<br />
-                  2. 開啟任何免費 AI 網頁（如 ChatGPT、Gemini 或 Claude），同時上傳整份考卷照片並貼上提詞。<br />
-                  3. 取得 AI 回覆的 JSON 代碼後，點擊「前往下一步：雙區選圖與匯入」貼上即可！
+                <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  <strong>三步驟完成 AI 考卷批次歸納：</strong>
+                  <br />
+                  1. 選擇下方提詞模式（可讓 AI 自動判斷各題章節，或指定<strong>「把這些錯題全部放在 [某科目] [某章節]」</strong>）並複製提詞。
+                  <br />
+                  2. 開啟 ChatGPT、Gemini 或 Claude，上傳題目照片與解析照片並貼上提詞。
+                  <br />
+                  3. 複製 AI 回傳的 JSON，前往「2. 選圖與調整配對」自由調整題目順序、題目/多張解析圖配對！
                 </div>
               </div>
 
+              {/* Prompt Mode Selector */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '12px'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPromptMode('auto')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: promptMode === 'auto' ? '2px solid #D97706' : '1px solid var(--glass-border)',
+                    backgroundColor: promptMode === 'auto' ? '#FEF3C7' : 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={16} /> 模式一：AI 自動判斷各題科目與章節
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    適合綜合考卷或跨章節題目，AI 會自動對齊現有科目與章節架構
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPromptMode('target')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: promptMode === 'target' ? '2px solid #D97706' : '1px solid var(--glass-border)',
+                    backgroundColor: promptMode === 'target' ? '#FEF3C7' : 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Layers size={16} /> 模式二：把這些錯題全部放在 [某科目] [某章節]
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    適合小考或單一講義單元，直接指定全部題目歸入同一個科目與章節
+                  </div>
+                </button>
+              </div>
+
+              {/* Target Subject & Chapter Picker when Mode 2 is active */}
+              {promptMode === 'target' && (
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1.5px solid #D97706',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    設定目標位置：「把這些錯題全部放在【{targetSubjectName || '某科目'}】【{targetChapterName || '某章節'}】」
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                        指定科目名稱（可點選下方現有科目或直接輸入）：
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={targetSubjectName}
+                        onChange={e => setTargetSubjectName(e.target.value)}
+                        placeholder="例如：物理、數學、自然"
+                        style={{ padding: '8px 12px', fontSize: '0.88rem' }}
+                      />
+                      {categories.subjects.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                          {categories.subjects.map(s => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setTargetSubjectName(s.name);
+                                const firstChap = categories.chapters.find(
+                                  c => c.subject_id === s.id || c.parent_id === s.id
+                                );
+                                if (firstChap) setTargetChapterName(firstChap.name);
+                              }}
+                              style={{
+                                padding: '3px 10px',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                border: targetSubjectName === s.name ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                                backgroundColor: targetSubjectName === s.name ? '#FDE68A' : '#FFFFFF',
+                                color: '#1C1917',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                        指定章節名稱（可點選現有章節或輸入新章節）：
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={targetChapterName}
+                        onChange={e => setTargetChapterName(e.target.value)}
+                        placeholder="例如：運動&力、三角函數、溶液"
+                        style={{ padding: '8px 12px', fontSize: '0.88rem' }}
+                      />
+                      {targetSubjectChapters.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                          {targetSubjectChapters.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setTargetChapterName(c.name)}
+                              style={{
+                                padding: '3px 10px',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                border: targetChapterName === c.name ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                                backgroundColor: targetChapterName === c.name ? '#FDE68A' : '#FFFFFF',
+                                color: '#1C1917',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                   <label style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    考卷批次分析專用提詞（已自動注入現有科目與章節清單）：
+                    {promptMode === 'target'
+                      ? `指定歸入【${targetSubjectName || '某科目'}】【${targetChapterName || '某章節'}】專用提詞：`
+                      : 'AI 自動判斷科目與章節專用提詞：'}
                   </label>
                   <button
                     type="button"
                     onClick={handleCopyPrompt}
-                    className="btn btn-secondary"
+                    className="btn btn-primary"
                     style={{
                       padding: '6px 14px',
                       fontSize: '0.84rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: copiedPrompt ? 'var(--success)' : undefined,
-                      color: copiedPrompt ? '#FFFFFF' : undefined,
-                      borderColor: copiedPrompt ? 'var(--success)' : undefined
+                      gap: '6px'
                     }}
                   >
                     {copiedPrompt ? <Check size={15} /> : <Copy size={15} />}
@@ -645,52 +1241,54 @@ ${currentStructureText}
                   value={generatedPrompt}
                   style={{
                     width: '100%',
-                    height: '280px',
+                    height: '240px',
                     padding: '14px',
                     fontFamily: 'monospace',
-                    fontSize: '0.85rem',
+                    fontSize: '0.84rem',
                     lineHeight: 1.5,
                     backgroundColor: '#FFFFFF',
                     border: '1px solid var(--glass-border)',
                     borderRadius: '8px',
-                    color: 'var(--text-primary)',
+                    color: '#1C1917',
                     resize: 'vertical'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={() => setActiveTab('import')}
                   style={{ padding: '10px 20px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  前往下一步：雙區選圖與匯入 <ArrowRight size={16} />
+                  前往下一步：選圖與調整配對 <ArrowRight size={16} />
                 </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: 雙區選圖與 JSON 貼上面板 */}
+          {/* TAB 2: 雙區選圖、AI JSON 解析與手動順序/多圖配對調整工作台 */}
           {activeTab === 'import' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Header Action Bar with Sample Data Button */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                padding: '14px 18px',
-                backgroundColor: 'rgba(25, 122, 39, 0.05)',
-                border: '1px solid rgba(25, 122, 39, 0.2)',
-                borderRadius: '10px'
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  backgroundColor: 'rgba(25, 122, 39, 0.06)',
+                  border: '1px solid rgba(25, 122, 39, 0.22)',
+                  borderRadius: '10px'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Zap size={18} style={{ color: 'var(--success)' }} />
-                  <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                    本地開發預覽模式：若手邊無考卷圖檔，可一鍵載入真實題解樣品資料立即體驗！
+                  <span style={{ fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                    手邊若無考卷照片，可一鍵載入範例題目與詳解圖片測試完整歸納與多圖配對流程：
                   </span>
                 </div>
                 <button
@@ -699,44 +1297,43 @@ ${currentStructureText}
                   className="btn btn-secondary"
                   style={{
                     padding: '6px 14px',
-                    fontSize: '0.84rem',
+                    fontSize: '0.82rem',
                     fontWeight: 600,
-                    backgroundColor: '#FFFFFF',
-                    borderColor: 'var(--success)',
-                    color: 'var(--success)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}
                 >
-                  <Sparkles size={14} /> 載入測試範例資料（1-Click Sample）
+                  <Sparkles size={14} /> 載入測試範例資料
                 </button>
               </div>
 
               {/* Dual Dropzone Containers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '16px' }}>
                 {/* Zone 1: Question Images */}
-                <div style={{
-                  padding: '18px',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1px solid var(--glass-border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
+                <div
+                  style={{
+                    padding: '16px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '12px',
+                    border: '1px solid var(--glass-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1C1917', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <FileText size={16} style={{ color: 'var(--accent-primary)' }} />
-                      1. 題目圖片放置區（共 {questionImages.length} 張）
+                      1. 題目圖片區（共 {questionImages.length} 張）
                     </label>
                     {questionImages.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setQuestionImages([])}
-                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.8rem', cursor: 'pointer' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}
                       >
-                        清空
+                        清空題目圖
                       </button>
                     )}
                   </div>
@@ -747,7 +1344,10 @@ ${currentStructureText}
                     multiple
                     accept="image/*"
                     style={{ display: 'none' }}
-                    onChange={(e) => handleAddFiles(e.target.files, 'question')}
+                    onChange={e => {
+                      handleAddFiles(e.target.files, 'question');
+                      e.target.value = '';
+                    }}
                   />
 
                   <div
@@ -755,59 +1355,95 @@ ${currentStructureText}
                     style={{
                       border: '2px dashed var(--glass-border)',
                       borderRadius: '8px',
-                      padding: '24px 16px',
+                      padding: '18px 14px',
                       textAlign: 'center',
                       backgroundColor: 'var(--notebook-paper)',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.2s'
+                      cursor: 'pointer'
                     }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
                       e.preventDefault();
                       handleAddFiles(e.dataTransfer.files, 'question');
                     }}
                   >
-                    <Upload size={24} style={{ color: 'var(--accent-primary)', margin: '0 auto 8px auto' }} />
-                    <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      點擊選取或拖曳考卷「題目照片」至此
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      支援手機相簿多選；依選取順序對齊題目索引 1, 2, 3...
-                    </div>
+                    {uploadingQ ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.85rem', color: '#1C1917' }}>
+                        <RefreshCw size={16} className="animate-spin" /> 題目圖片壓縮處理中...
+                      </div>
+                    ) : (
+                      <>
+                        <Upload size={22} style={{ color: 'var(--accent-primary)', margin: '0 auto 6px auto' }} />
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1C1917' }}>
+                          點擊選取或拖曳「題目照片」至此（可多選）
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          依序編號為 題目圖 #1, #2, #3...
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Thumbnails row */}
+                  {/* Question Thumbnails row */}
                   {questionImages.length > 0 && (
-                    <div style={{
-                      display: 'flex',
-                      gap: '8px',
-                      overflowX: 'auto',
-                      padding: '6px 2px'
-                    }}>
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 2px' }}>
                       {questionImages.map((img, idx) => (
-                        <div key={img.id} style={{
-                          flexShrink: 0,
-                          width: '76px',
-                          height: '56px',
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          border: '1px solid var(--glass-border)',
-                          position: 'relative'
-                        }}>
-                          <img src={img.url} alt={`題目 ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span style={{
-                            position: 'absolute',
-                            bottom: '2px',
-                            right: '2px',
-                            backgroundColor: 'rgba(28, 25, 23, 0.85)',
-                            color: '#FFFFFF',
-                            fontSize: '0.65rem',
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontVariantNumeric: 'tabular-nums'
-                          }}>
-                            #{idx + 1}
+                        <div
+                          key={img.id}
+                          style={{
+                            flexShrink: 0,
+                            width: '76px',
+                            height: '58px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid var(--glass-border)',
+                            position: 'relative',
+                            backgroundColor: '#FAF7F0'
+                          }}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`題目 ${idx + 1}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            onClick={() => onOpenZoomedImage?.(img.url)}
+                          />
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: '2px',
+                              left: '2px',
+                              backgroundColor: 'rgba(28, 25, 23, 0.85)',
+                              color: '#FFFFFF',
+                              fontSize: '0.65rem',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              fontWeight: 700
+                            }}
+                          >
+                            題目 #{idx + 1}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuestionImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{
+                              position: 'absolute',
+                              top: '2px',
+                              right: '2px',
+                              background: 'rgba(185, 28, 28, 0.85)',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '16px',
+                              height: '16px',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="移除此張題目圖"
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -815,27 +1451,29 @@ ${currentStructureText}
                 </div>
 
                 {/* Zone 2: Explanation Images */}
-                <div style={{
-                  padding: '18px',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1px solid var(--glass-border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
+                <div
+                  style={{
+                    padding: '16px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '12px',
+                    border: '1px solid var(--glass-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1C1917', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
-                      2. 解析圖片放置區（共 {answerImages.length} 張）
+                      2. 解析圖片區（共 {answerImages.length} 張，單題可配對多張）
                     </label>
                     {answerImages.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setAnswerImages([])}
-                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.8rem', cursor: 'pointer' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}
                       >
-                        清空
+                        清空解析圖
                       </button>
                     )}
                   </div>
@@ -846,7 +1484,10 @@ ${currentStructureText}
                     multiple
                     accept="image/*"
                     style={{ display: 'none' }}
-                    onChange={(e) => handleAddFiles(e.target.files, 'answer')}
+                    onChange={e => {
+                      handleAddFiles(e.target.files, 'answer');
+                      e.target.value = '';
+                    }}
                   />
 
                   <div
@@ -854,59 +1495,95 @@ ${currentStructureText}
                     style={{
                       border: '2px dashed var(--glass-border)',
                       borderRadius: '8px',
-                      padding: '24px 16px',
+                      padding: '18px 14px',
                       textAlign: 'center',
                       backgroundColor: 'var(--notebook-paper)',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.2s'
+                      cursor: 'pointer'
                     }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
                       e.preventDefault();
                       handleAddFiles(e.dataTransfer.files, 'answer');
                     }}
                   >
-                    <Upload size={24} style={{ color: 'var(--success)', margin: '0 auto 8px auto' }} />
-                    <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      點擊選取或拖曳解答「解析照片」至此
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      支援手機相簿多選；依選取順序對齊解析索引 1, 2, 3...
-                    </div>
+                    {uploadingA ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.85rem', color: '#1C1917' }}>
+                        <RefreshCw size={16} className="animate-spin" /> 解析圖片壓縮處理中...
+                      </div>
+                    ) : (
+                      <>
+                        <Upload size={22} style={{ color: 'var(--success)', margin: '0 auto 6px auto' }} />
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1C1917' }}>
+                          點擊選取或拖曳「解析照片」至此（可多選）
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          依序編號為 解析圖 #1, #2, #3...（下方可自由勾選多張給同一題）
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Thumbnails row */}
+                  {/* Answer Thumbnails row */}
                   {answerImages.length > 0 && (
-                    <div style={{
-                      display: 'flex',
-                      gap: '8px',
-                      overflowX: 'auto',
-                      padding: '6px 2px'
-                    }}>
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 2px' }}>
                       {answerImages.map((img, idx) => (
-                        <div key={img.id} style={{
-                          flexShrink: 0,
-                          width: '76px',
-                          height: '56px',
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          border: '1px solid var(--glass-border)',
-                          position: 'relative'
-                        }}>
-                          <img src={img.url} alt={`解析 ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span style={{
-                            position: 'absolute',
-                            bottom: '2px',
-                            right: '2px',
-                            backgroundColor: 'rgba(25,122,39,0.85)',
-                            color: '#FFFFFF',
-                            fontSize: '0.65rem',
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontVariantNumeric: 'tabular-nums'
-                          }}>
-                            #{idx + 1}
+                        <div
+                          key={img.id}
+                          style={{
+                            flexShrink: 0,
+                            width: '76px',
+                            height: '58px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid var(--glass-border)',
+                            position: 'relative',
+                            backgroundColor: '#FAF7F0'
+                          }}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`解析 ${idx + 1}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            onClick={() => onOpenZoomedImage?.(img.url)}
+                          />
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: '2px',
+                              left: '2px',
+                              backgroundColor: 'rgba(25, 122, 39, 0.9)',
+                              color: '#FFFFFF',
+                              fontSize: '0.65rem',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              fontWeight: 700
+                            }}
+                          >
+                            解析 #{idx + 1}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => setAnswerImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{
+                              position: 'absolute',
+                              top: '2px',
+                              right: '2px',
+                              background: 'rgba(185, 28, 28, 0.85)',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '16px',
+                              height: '16px',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="移除此張解析圖"
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -915,173 +1592,459 @@ ${currentStructureText}
               </div>
 
               {/* Paste AI JSON Textarea */}
-              <div style={{
-                padding: '18px',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '12px',
-                border: '1px solid var(--glass-border)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    3. 貼上外部 AI 分析結果 (JSON 代碼)：
+              <div
+                style={{
+                  padding: '16px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid var(--glass-border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1C1917' }}>
+                    3. 貼上外部 AI 分析結果 (JSON 代碼)，或直接點選右側「+ 手動新增配對題目」：
                   </label>
-                  {aiJsonInput && (
-                    <span style={{ fontSize: '0.8rem', color: parseError ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
-                      {parseError ? parseError : `已成功辨識 ${parsedQuestions.length} 道題目`}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {aiJsonInput && (
+                      <span style={{ fontSize: '0.8rem', color: parseError ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                        {parseError ? parseError : `已成功載入 ${parsedQuestions.length} 道題目`}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddManualQuestion}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      <Plus size={14} /> 手動新增配對題目
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   placeholder="請在此貼上 ChatGPT、Gemini 或 Claude 回傳的 JSON 陣列..."
                   value={aiJsonInput}
-                  onChange={(e) => setAiJsonInput(e.target.value)}
+                  onChange={e => setAiJsonInput(e.target.value)}
                   style={{
                     width: '100%',
-                    height: '110px',
-                    padding: '12px',
+                    height: '92px',
+                    padding: '10px 12px',
                     fontFamily: 'monospace',
-                    fontSize: '0.84rem',
-                    lineHeight: 1.5,
+                    fontSize: '0.82rem',
+                    lineHeight: 1.45,
                     border: parseError ? '1px solid var(--danger)' : '1px solid var(--glass-border)',
                     borderRadius: '8px',
                     backgroundColor: 'var(--notebook-paper)',
-                    color: 'var(--text-primary)'
+                    color: '#1C1917'
                   }}
                 />
               </div>
 
-              {/* Matched Pairs Preview Grid */}
+              {/* Interactive Order & Multi-Image Pairing Workbench */}
               {parsedQuestions.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      即時配對確認預覽（共 {parsedQuestions.length} 題）：
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Quick Batch Target Bar: 把這些錯題全部放在 [某科目] [某章節] */}
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: '#FEF3C7',
+                      border: '1px solid #D97706',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '10px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#78350F' }}>
+                        一鍵把全部錯題放在指定科目與章節：
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="科目名稱 (如：物理)"
+                        value={targetSubjectName}
+                        onChange={e => setTargetSubjectName(e.target.value)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #D97706',
+                          backgroundColor: '#FFFFFF',
+                          color: '#1C1917',
+                          fontSize: '0.82rem',
+                          width: '130px'
+                        }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="章節名稱 (如：運動&力)"
+                        value={targetChapterName}
+                        onChange={e => setTargetChapterName(e.target.value)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #D97706',
+                          backgroundColor: '#FFFFFF',
+                          color: '#1C1917',
+                          fontSize: '0.82rem',
+                          width: '150px'
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplyTargetToAll}
+                      className="btn btn-primary"
+                      style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700 }}
+                    >
+                      套用至下方全部 {parsedQuestions.length} 題
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      4. 調整題目順序與「題目圖 / 多張解析圖」配對（共 {parsedQuestions.length} 題）：
                     </span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      系統自動將照片與 AI 章節對應，並提示自動新建章節
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      可上下移動順序、修改科目章節與說明，並為單一題目勾選多張解析圖片
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {parsedQuestions.map((q, idx) => {
-                      const qThumb = questionImages[q.question_image_index - 1]?.url || questionImages[idx]?.url;
-                      const aThumb = answerImages[q.answer_image_index - 1]?.url || answerImages[idx]?.url;
+                      const qThumb =
+                        q.question_image_index > 0 ? questionImages[q.question_image_index - 1]?.url : '';
+                      const pairedAnswers = (q.answer_image_indices || [])
+                        .map(aNum => ({ num: aNum, item: answerImages[aNum - 1] }))
+                        .filter(x => !!x.item);
 
                       return (
-                        <div key={q.index} style={{
-                          padding: '12px 16px',
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: '8px',
-                          border: '1px solid var(--glass-border)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '12px'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <span style={{
-                              fontWeight: 700,
-                              fontSize: '0.92rem',
-                              color: 'var(--accent-primary)',
-                              fontVariantNumeric: 'tabular-nums',
-                              minWidth: '38px'
-                            }}>
-                              第 {q.index} 題
-                            </span>
+                        <div
+                          key={q.id}
+                          style={{
+                            padding: '14px 16px',
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '10px',
+                            border: '1px solid var(--glass-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            boxShadow: '0 2px 6px rgba(60, 40, 20, 0.04)'
+                          }}
+                        >
+                          {/* Row 1: Order Controls, Title, Subject & Chapter */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 280px' }}>
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: '0.88rem',
+                                  color: '#FFFFFF',
+                                  backgroundColor: '#8B5A2B',
+                                  padding: '3px 9px',
+                                  borderRadius: '6px',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                第 {idx + 1} 題
+                              </span>
 
-                            {/* Question Thumbnail */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{
-                                width: '56px',
-                                height: '42px',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                border: '1px solid var(--glass-border)',
-                                backgroundColor: '#FAF7F0'
-                              }}>
-                                {qThumb ? (
-                                  <img src={qThumb} alt="題目縮圖" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '42px' }}>
-                                    無圖
-                                  </div>
-                                )}
+                              {/* Order Up / Down buttons */}
+                              <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveQuestion(idx, -1)}
+                                  disabled={idx === 0}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 6px', opacity: idx === 0 ? 0.4 : 1 }}
+                                  title="上移此題順序"
+                                >
+                                  <ArrowUp size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveQuestion(idx, 1)}
+                                  disabled={idx === parsedQuestions.length - 1}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 6px', opacity: idx === parsedQuestions.length - 1 ? 0.4 : 1 }}
+                                  title="下移此題順序"
+                                >
+                                  <ArrowDown size={13} />
+                                </button>
                               </div>
-                              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>➔</span>
-                              {/* Answer Thumbnail */}
-                              <div style={{
-                                width: '56px',
-                                height: '42px',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                border: '1px solid var(--glass-border)',
-                                backgroundColor: '#FAF7F0'
-                              }}>
-                                {aThumb ? (
-                                  <img src={aThumb} alt="解析縮圖" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '42px' }}>
-                                    無圖
-                                  </div>
-                                )}
-                              </div>
+
+                              <input
+                                type="text"
+                                value={q.title}
+                                onChange={e => handleUpdateParsedQuestion(idx, { title: e.target.value })}
+                                placeholder="輸入題目名稱"
+                                style={{
+                                  flex: 1,
+                                  minWidth: '160px',
+                                  padding: '6px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--glass-border)',
+                                  fontSize: '0.88rem',
+                                  fontWeight: 600,
+                                  color: '#1C1917',
+                                  backgroundColor: '#FAF7F0'
+                                }}
+                              />
                             </div>
 
-                            {/* Title & Key concept */}
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                {q.title}
-                              </div>
-                              {q.key_concept && (
-                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                  考點：{q.key_concept}
-                                </div>
+                            {/* Subject & Chapter Editable Inputs */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <input
+                                type="text"
+                                value={q.subject_name}
+                                onChange={e => handleUpdateParsedQuestion(idx, { subject_name: e.target.value })}
+                                placeholder="科目"
+                                title="此題歸屬科目"
+                                style={{
+                                  width: '96px',
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(180, 83, 9, 0.35)',
+                                  backgroundColor: 'rgba(180, 83, 9, 0.08)',
+                                  color: '#1C1917',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600
+                                }}
+                              />
+                              <input
+                                type="text"
+                                value={q.chapter_name}
+                                onChange={e => handleUpdateParsedQuestion(idx, { chapter_name: e.target.value })}
+                                placeholder="章節"
+                                title="此題歸屬章節"
+                                style={{
+                                  width: '126px',
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(77, 124, 15, 0.35)',
+                                  backgroundColor: 'rgba(77, 124, 15, 0.08)',
+                                  color: '#1C1917',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600
+                                }}
+                              />
+                              {q.is_new_chapter && (
+                                <span
+                                  style={{
+                                    padding: '3px 7px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    backgroundColor: 'var(--warning-bg)',
+                                    color: 'var(--warning-text)',
+                                    border: '1px solid var(--warning-border)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}
+                                >
+                                  <FolderPlus size={11} /> 自動建章節
+                                </span>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteParsedQuestion(idx)}
+                                className="btn btn-secondary"
+                                style={{ padding: '5px 7px', color: 'var(--danger)' }}
+                                title="刪除此題"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             </div>
                           </div>
 
-                          {/* Categories Badge */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              backgroundColor: 'rgba(180, 83, 9, 0.1)',
-                              color: 'var(--accent-primary)'
-                            }}>
-                              {q.subject_name}
-                            </span>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              backgroundColor: 'rgba(77, 124, 15, 0.1)',
-                              color: 'var(--success)'
-                            }}>
-                              {q.chapter_name}
-                            </span>
-                            {q.is_new_chapter && (
-                              <span style={{
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                backgroundColor: 'var(--warning-bg)',
-                                color: 'var(--warning-text)',
-                                border: '1px solid var(--warning-border)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                <FolderPlus size={11} /> 將自動建章
-                              </span>
-                            )}
+                          {/* Row 2: Editable Explanation / Key Concept */}
+                          <div>
+                            <input
+                              type="text"
+                              value={q.key_concept || ''}
+                              onChange={e => handleUpdateParsedQuestion(idx, { key_concept: e.target.value })}
+                              placeholder="解析說明文字 / 核心考點（將存入錯題解析說明，檢視題目時直接呈現）..."
+                              style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--glass-border)',
+                                fontSize: '0.82rem',
+                                color: '#1C1917',
+                                backgroundColor: '#FFFFFF'
+                              }}
+                            />
+                          </div>
+
+                          {/* Row 3: Question Image Pairing & Multi-Image Answer Pairing */}
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                              gap: '12px',
+                              paddingTop: '8px',
+                              borderTop: '1px dashed var(--glass-border)'
+                            }}
+                          >
+                            {/* Left: Question Image Selector */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div
+                                style={{
+                                  width: '68px',
+                                  height: '52px',
+                                  borderRadius: '6px',
+                                  overflow: 'hidden',
+                                  border: '1px solid var(--glass-border)',
+                                  backgroundColor: '#FAF7F0',
+                                  flexShrink: 0,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                {qThumb ? (
+                                  <img
+                                    src={qThumb}
+                                    alt="題目預覽"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                                    onClick={() => onOpenZoomedImage?.(qThumb)}
+                                  />
+                                ) : (
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>無題目圖</span>
+                                )}
+                              </div>
+
+                              <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#1C1917', marginBottom: '4px' }}>
+                                  配對題目圖：
+                                </label>
+                                <select
+                                  value={q.question_image_index}
+                                  onChange={e =>
+                                    handleUpdateParsedQuestion(idx, { question_image_index: Number(e.target.value) })
+                                  }
+                                  style={{
+                                    width: '100%',
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--glass-border)',
+                                    fontSize: '0.8rem',
+                                    backgroundColor: '#FFFFFF',
+                                    color: '#1C1917'
+                                  }}
+                                >
+                                  <option value={0}>不配對題目圖</option>
+                                  {questionImages.map((img, i) => (
+                                    <option key={img.id} value={i + 1}>
+                                      題目圖 #{i + 1} ({img.name})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Right: Multi-Answer Image Selector (支援一個解析多張圖片) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#1C1917' }}>
+                                  配對解析圖（可點選多張，已選 {pairedAnswers.length} 張）：
+                                </label>
+                              </div>
+
+                              {answerImages.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                  {answerImages.map((aImg, aIdx) => {
+                                    const num = aIdx + 1;
+                                    const isSelected = q.answer_image_indices.includes(num);
+                                    const orderInSelection = q.answer_image_indices.indexOf(num) + 1;
+                                    return (
+                                      <button
+                                        key={aImg.id}
+                                        type="button"
+                                        onClick={() => handleToggleAnswerImageForQuestion(idx, num)}
+                                        style={{
+                                          padding: '4px 9px',
+                                          borderRadius: '6px',
+                                          fontSize: '0.76rem',
+                                          fontWeight: 700,
+                                          border: isSelected ? '2px solid #4D7C0F' : '1px solid var(--glass-border)',
+                                          backgroundColor: isSelected ? '#ECFDF5' : '#FAF7F0',
+                                          color: '#1C1917',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}
+                                        title="點擊切換是否將此解析圖配對給本題"
+                                      >
+                                        <span>解析 #{num}</span>
+                                        {isSelected && (
+                                          <span
+                                            style={{
+                                              backgroundColor: '#4D7C0F',
+                                              color: '#FFFFFF',
+                                              borderRadius: '999px',
+                                              padding: '0 5px',
+                                              fontSize: '0.68rem'
+                                            }}
+                                          >
+                                            第{orderInSelection}張
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  尚未於上方上傳解析圖片
+                                </span>
+                              )}
+
+                              {/* Thumbnails of paired answer images */}
+                              {pairedAnswers.length > 0 && (
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                  {pairedAnswers.map(({ num, item }, pIdx) => (
+                                    <div
+                                      key={`${num}_${pIdx}`}
+                                      style={{
+                                        width: '54px',
+                                        height: '40px',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden',
+                                        border: '1.5px solid #4D7C0F',
+                                        position: 'relative',
+                                        backgroundColor: '#FAF7F0'
+                                      }}
+                                    >
+                                      <img
+                                        src={item.url}
+                                        alt={`解析 #${num}`}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                                        onClick={() => onOpenZoomedImage?.(item.url)}
+                                      />
+                                      <span
+                                        style={{
+                                          position: 'absolute',
+                                          bottom: 0,
+                                          right: 0,
+                                          backgroundColor: 'rgba(25, 122, 39, 0.9)',
+                                          color: '#FFFFFF',
+                                          fontSize: '0.6rem',
+                                          padding: '0 3px'
+                                        }}
+                                      >
+                                        #{num}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1091,7 +2054,17 @@ ${currentStructureText}
               )}
 
               {/* Bottom Confirm Action */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderTop: '1px solid var(--glass-border)',
+                  paddingTop: '16px',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}
+              >
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1108,15 +2081,14 @@ ${currentStructureText}
                   disabled={parsedQuestions.length === 0}
                   style={{
                     padding: '10px 24px',
-                    fontSize: '0.94rem',
+                    fontSize: '0.92rem',
                     fontWeight: 700,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 14px rgba(180, 83, 9, 0.22)'
+                    gap: '8px'
                   }}
                 >
-                  確認配對，建檔並啟動極速審核 <ArrowRight size={18} />
+                  確認順序與配對，進入極速審核 <ArrowRight size={18} />
                 </button>
               </div>
             </div>
@@ -1126,41 +2098,38 @@ ${currentStructureText}
           {activeTab === 'review' && currentItem && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} className="animate-fade-in">
               {/* Wizard Top Status & Omnipresent Action Bar */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                padding: '12px 18px',
-                backgroundColor: 'rgba(180, 83, 9, 0.05)',
-                borderRadius: '10px',
-                border: '1px solid var(--glass-border)'
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  padding: '12px 18px',
+                  backgroundColor: 'rgba(180, 83, 9, 0.05)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--glass-border)'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{
-                    fontWeight: 700,
-                    fontSize: '0.92rem',
-                    color: 'var(--text-primary)',
-                    fontVariantNumeric: 'tabular-nums'
-                  }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setActiveTab('import')}
+                    style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  >
+                    <ArrowLeft size={13} /> 返回調整配對
+                  </button>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: '0.92rem',
+                      color: 'var(--text-primary)',
+                      fontVariantNumeric: 'tabular-nums'
+                    }}
+                  >
                     審核進度：第 {currentReviewIndex + 1} / {reviewItems.length} 題
                   </span>
-                  {/* Subtle Progress Bar */}
-                  <div style={{
-                    width: '120px',
-                    height: '8px',
-                    backgroundColor: 'rgba(60, 40, 20, 0.1)',
-                    borderRadius: '4px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${((currentReviewIndex + 1) / reviewItems.length) * 100}%`,
-                      height: '100%',
-                      backgroundColor: 'var(--accent-secondary)',
-                      transition: 'width 0.3s'
-                    }} />
-                  </div>
                 </div>
 
                 {/* Omnipresent Button: 全部一律標示為不會 */}
@@ -1180,90 +2149,102 @@ ${currentStructureText}
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 1px 3px rgba(185, 28, 28, 0.1)',
                     opacity: submittingBatch ? 0.7 : 1
                   }}
-                  title="點擊後，本批次所有尚未標記的題目將一律設為完全生疏並直接完成歸檔"
+                  title="點擊後，本批次所有尚未標記的題目將一律設為不會並直接寫入錯題本"
                 >
-                  <RotateCcw size={14} /> 全部一律標示為不會（一鍵秒歸檔）
+                  {submittingBatch ? <RefreshCw size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  {submittingBatch ? '正在寫入錯題索引與手帳...' : '全部一律標示為不會（一鍵寫入錯題本）'}
                 </button>
               </div>
 
-              {/* Central Card: Side-by-Side Question & Answer Visuals */}
-              <div style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: '12px',
-                border: '1px solid var(--glass-border)',
-                padding: '20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                boxShadow: '0 4px 16px rgba(60, 40, 20, 0.06)'
-              }}>
+              {/* Central Card: Side-by-Side Question & Multi-Image Answer Visuals */}
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid var(--glass-border)',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  boxShadow: '0 4px 16px rgba(60, 40, 20, 0.06)'
+                }}
+              >
                 {/* Meta Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: '#1C1917' }}>
                       {currentItem.title}
                     </h3>
                     {currentItem.key_concept && (
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                        核心考點：{currentItem.key_concept}
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#44403C' }}>
+                        解析說明：{currentItem.key_concept}
                       </p>
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      backgroundColor: 'rgba(180, 83, 9, 0.1)',
-                      color: 'var(--accent-primary)'
-                    }}>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        backgroundColor: 'rgba(180, 83, 9, 0.1)',
+                        color: 'var(--accent-primary)'
+                      }}
+                    >
                       {currentItem.subject_name}
                     </span>
-                    <span style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      backgroundColor: 'rgba(77, 124, 15, 0.1)',
-                      color: 'var(--success)'
-                    }}>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        backgroundColor: 'rgba(77, 124, 15, 0.1)',
+                        color: 'var(--success)'
+                      }}
+                    >
                       {currentItem.chapter_name}
                     </span>
                   </div>
                 </div>
 
                 {/* Dual Column Image Previews */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                  gap: '16px'
-                }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '16px'
+                  }}
+                >
                   {/* Left Column: Question Image */}
-                  <div style={{
-                    backgroundColor: 'var(--notebook-paper)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
-                    <div style={{
-                      padding: '8px 12px',
-                      backgroundColor: 'rgba(180, 83, 9, 0.08)',
-                      borderBottom: '1px solid var(--glass-border)',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      color: 'var(--accent-primary)',
+                  <div
+                    style={{
+                      backgroundColor: 'var(--notebook-paper)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--glass-border)',
+                      overflow: 'hidden',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}>
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(180, 83, 9, 0.08)',
+                        borderBottom: '1px solid var(--glass-border)',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: 'var(--accent-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
                       <span>題目畫面</span>
-                      {onOpenZoomedImage && (
+                      {onOpenZoomedImage && currentItem.question_image_url && (
                         <button
                           type="button"
                           onClick={() => onOpenZoomedImage(currentItem.question_image_url)}
@@ -1273,7 +2254,7 @@ ${currentStructureText}
                         </button>
                       )}
                     </div>
-                    <div style={{ minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+                    <div style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
                       {currentItem.question_image_url ? (
                         <img
                           src={currentItem.question_image_url}
@@ -1286,44 +2267,59 @@ ${currentStructureText}
                     </div>
                   </div>
 
-                  {/* Right Column: Answer Image */}
-                  <div style={{
-                    backgroundColor: 'var(--notebook-paper)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
-                    <div style={{
-                      padding: '8px 12px',
-                      backgroundColor: 'rgba(25, 122, 39, 0.05)',
-                      borderBottom: '1px solid var(--glass-border)',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      color: 'var(--success)',
+                  {/* Right Column: Answer Images (Supports Multiple Images) */}
+                  <div
+                    style={{
+                      backgroundColor: 'var(--notebook-paper)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--glass-border)',
+                      overflow: 'hidden',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}>
-                      <span>解析畫面</span>
-                      {onOpenZoomedImage && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenZoomedImage(currentItem.answer_image_url)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-                        >
-                          <Maximize2 size={13} />
-                        </button>
-                      )}
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(25, 122, 39, 0.05)',
+                        borderBottom: '1px solid var(--glass-border)',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: 'var(--success)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <span>解析畫面（共 {currentItem.answer_image_urls.length} 張）</span>
                     </div>
-                    <div style={{ minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
-                      {currentItem.answer_image_url ? (
-                        <img
-                          src={currentItem.answer_image_url}
-                          alt="解析"
-                          style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '4px' }}
-                        />
+                    <div
+                      style={{
+                        minHeight: '200px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        padding: '8px'
+                      }}
+                    >
+                      {currentItem.answer_image_urls.length > 0 ? (
+                        currentItem.answer_image_urls.map((aUrl, aIdx) => (
+                          <div key={aIdx} style={{ width: '100%', textAlign: 'center' }}>
+                            {currentItem.answer_image_urls.length > 1 && (
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                解析圖 ({aIdx + 1} / {currentItem.answer_image_urls.length})
+                              </div>
+                            )}
+                            <img
+                              src={aUrl}
+                              alt={`解析 ${aIdx + 1}`}
+                              onClick={() => onOpenZoomedImage?.(aUrl)}
+                              style={{ maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', borderRadius: '4px', cursor: 'pointer' }}
+                            />
+                          </div>
+                        ))
                       ) : (
                         <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>無解析圖檔</span>
                       )}
@@ -1332,26 +2328,25 @@ ${currentStructureText}
                 </div>
 
                 {/* Primary Interaction: 1-Click Large Familiarity Buttons */}
-                <div style={{
-                  borderTop: '1px solid var(--glass-border)',
-                  paddingTop: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px'
-                }}>
+                <div
+                  style={{
+                    borderTop: '1px solid var(--glass-border)',
+                    paddingTop: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      單擊選擇熟悉度（點擊後自動秒存並切換下一題）：
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      快捷單擊速刷
+                    <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#1C1917' }}>
+                      單擊選擇熟悉度（點擊後自動切換下一題，最後一題自動寫入資料庫）：
                     </span>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                    {/* Level 1: 完全生疏 */}
                     <button
                       type="button"
+                      disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_danger')}
                       style={{
                         padding: '14px 10px',
@@ -1361,24 +2356,20 @@ ${currentStructureText}
                         color: 'var(--danger)',
                         fontSize: '0.96rem',
                         fontWeight: 700,
-                        cursor: 'pointer',
+                        cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '4px',
-                        transition: 'all 0.15s',
-                        boxShadow: '0 2px 6px rgba(185, 28, 28, 0.08)'
+                        gap: '4px'
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--danger)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = 'rgba(185, 28, 28, 0.4)'; }}
                     >
-                      <span>完全生疏</span>
+                      <span>不會 / 待加強</span>
                       <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>毫無頭緒 / 錯因嚴重</span>
                     </button>
 
-                    {/* Level 2: 稍微理解 */}
                     <button
                       type="button"
+                      disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_warning')}
                       style={{
                         padding: '14px 10px',
@@ -1388,24 +2379,20 @@ ${currentStructureText}
                         color: '#B45309',
                         fontSize: '0.96rem',
                         fontWeight: 700,
-                        cursor: 'pointer',
+                        cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '4px',
-                        transition: 'all 0.15s',
-                        boxShadow: '0 2px 6px rgba(217, 119, 6, 0.08)'
+                        gap: '4px'
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = '#D97706'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = 'rgba(217, 119, 6, 0.4)'; }}
                     >
-                      <span>稍微理解</span>
+                      <span>卡 / 稍微理解</span>
                       <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>看詳解懂 / 計算粗心</span>
                     </button>
 
-                    {/* Level 3: 熟練掌握 */}
                     <button
                       type="button"
+                      disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_success')}
                       style={{
                         padding: '14px 10px',
@@ -1415,31 +2402,29 @@ ${currentStructureText}
                         color: 'var(--success)',
                         fontSize: '0.96rem',
                         fontWeight: 700,
-                        cursor: 'pointer',
+                        cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '4px',
-                        transition: 'all 0.15s',
-                        boxShadow: '0 2px 6px rgba(25, 122, 39, 0.08)'
+                        gap: '4px'
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = 'rgba(25, 122, 39, 0.4)'; }}
                     >
-                      <span>熟練掌握</span>
+                      <span>順 / 熟練掌握</span>
                       <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>已完全弄懂 / 可自信作答</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Optional Collapsible Drawer: 錯因分類標籤 (可略過) */}
-                <div style={{
-                  borderTop: '1px dashed var(--glass-border)',
-                  paddingTop: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px'
-                }}>
+                {/* Optional Collapsible Drawer: 錯因分類標籤 */}
+                <div
+                  style={{
+                    borderTop: '1px dashed var(--glass-border)',
+                    paddingTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <button
                       type="button"
@@ -1458,78 +2443,51 @@ ${currentStructureText}
                       }}
                     >
                       <Tag size={15} />
-                      {isErrorDrawerOpen ? '收合錯因分類標籤' : '+ 標記錯因分類（非強制，可點此展開勾選）'}
+                      {isErrorDrawerOpen ? '收合錯因分類標籤' : '+ 標記錯因分類（選填）'}
                       {isErrorDrawerOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                     </button>
-
-                    {isErrorDrawerOpen && (
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        點選標籤勾選，不選可直接按熟悉度跳過
-                      </span>
-                    )}
                   </div>
 
                   {isErrorDrawerOpen && (
-                    <div style={{
-                      padding: '14px',
-                      backgroundColor: 'var(--notebook-paper)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--glass-border)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px'
-                    }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {relevantErrorReasons.map(reason => {
-                          const isSelected = selectedErrorReasons.includes(reason.id);
-                          return (
-                            <button
-                              key={reason.id}
-                              type="button"
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSelectedErrorReasons(prev => prev.filter(id => id !== reason.id));
-                                } else {
-                                  setSelectedErrorReasons(prev => [...prev, reason.id]);
-                                }
-                              }}
-                              style={{
-                                padding: '5px 12px',
-                                borderRadius: '20px',
-                                border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--glass-border)',
-                                backgroundColor: isSelected ? 'var(--accent-primary)' : '#FFFFFF',
-                                color: isSelected ? '#FFFFFF' : 'var(--text-secondary)',
-                                fontSize: '0.82rem',
-                                fontWeight: isSelected ? 600 : 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s'
-                              }}
-                            >
-                              {reason.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedErrorReasons([]);
-                            setIsErrorDrawerOpen(false);
-                          }}
-                          style={{
-                            padding: '4px 10px',
-                            background: 'none',
-                            border: 'none',
-                            fontSize: '0.78rem',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          略過錯因（不標記）
-                        </button>
-                      </div>
+                    <div
+                      style={{
+                        padding: '14px',
+                        backgroundColor: 'var(--notebook-paper)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--glass-border)',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px'
+                      }}
+                    >
+                      {relevantErrorReasons.map(reason => {
+                        const isSelected = selectedErrorReasons.includes(reason.id);
+                        return (
+                          <button
+                            key={reason.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedErrorReasons(prev => prev.filter(id => id !== reason.id));
+                              } else {
+                                setSelectedErrorReasons(prev => [...prev, reason.id]);
+                              }
+                            }}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '20px',
+                              border: isSelected ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                              backgroundColor: isSelected ? '#FDE68A' : '#FFFFFF',
+                              color: '#1C1917',
+                              fontSize: '0.82rem',
+                              fontWeight: isSelected ? 700 : 500,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {reason.name}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1539,42 +2497,47 @@ ${currentStructureText}
 
           {/* TAB 4: 完成歸檔畫面 (COMPLETED) */}
           {activeTab === 'completed' && (
-            <div style={{
-              textAlign: 'center',
-              padding: '48px 24px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px'
-            }} className="animate-fade-in">
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(25, 122, 39, 0.1)',
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '48px 24px',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--success)',
-                marginBottom: '8px'
-              }}>
+                gap: '16px'
+              }}
+              className="animate-fade-in"
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(25, 122, 39, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--success)',
+                  marginBottom: '8px'
+                }}
+              >
                 <CheckCircle2 size={36} />
               </div>
               <h3 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                整份考卷錯題已全數建檔完成！
+                整份考卷錯題已全數寫入錯題索引與手帳！
               </h3>
               <p style={{ margin: 0, fontSize: '0.94rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6 }}>
-                本批共 <strong style={{ color: 'var(--accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{reviewItems.length} 道錯題</strong> 已自動依學科與章節歸納入庫，並記錄專屬熟悉度狀態。
+                本批共 <strong style={{ color: 'var(--accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{savedCount || reviewItems.length} 道錯題</strong> 已同步寫入資料庫與「錯題索引」，包含題目圖片、多張解析圖片與解析說明文字。
               </p>
 
-              <div style={{ display: 'flex', gap: '14px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', gap: '14px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={onClose}
                   style={{ padding: '10px 24px', fontSize: '0.92rem', fontWeight: 600 }}
                 >
-                  返回數位書架查看活頁手帳
+                  完成並查看錯題本與索引
                 </button>
                 <button
                   type="button"

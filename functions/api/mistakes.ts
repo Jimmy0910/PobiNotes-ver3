@@ -158,7 +158,8 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
         { id: 'q_img', type: 'image', label: '題目相片' }
       ],
       answerFields: [
-        { id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' }
+        { id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' },
+        { id: 'a_img', type: 'image', label: '解析相片' }
       ]
     };
 

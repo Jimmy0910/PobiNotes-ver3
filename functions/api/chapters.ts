@@ -96,6 +96,7 @@ export const onRequestPost: PagesFunction<Env, any, UserContext> = async (contex
 
     return new Response(JSON.stringify({
       success: true,
+      id,
       chapter: { id, subject_id: subjectId, name: name.trim(), color, sort_order: sortOrder, is_active: 1, created_at: now, updated_at: now }
     }), {
       status: 201,

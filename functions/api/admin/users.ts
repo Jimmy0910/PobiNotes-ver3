@@ -1,3 +1,5 @@
+import { ensureSchemaAndUserDefaults } from '../_dbInit';
+
 interface Env {
   DB: D1Database;
 }
@@ -17,12 +19,17 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
       });
     }
 
+    await ensureSchemaAndUserDefaults(env.DB, data.user.id);
+
     const users = await env.DB.prepare('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC')
       .all();
 
-    return new Response(JSON.stringify(users.results), {
+    return new Response(JSON.stringify(users.results || []), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
+      }
     });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message || 'Internal Server Error' }), {

@@ -8,7 +8,53 @@ const STORAGE_KEYS = {
   CATEGORIES: 'pobi_local_categories',
   TEMPLATES: 'pobi_local_templates',
   USER: 'pobi_local_user',
+  USERS_LIST: 'pobi_local_users_list',
 };
+
+interface LocalUserItem {
+  id: string;
+  username: string;
+  is_admin: number;
+  created_at: number;
+}
+
+function getLocalUsersList(): LocalUserItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [
+    { id: 'u-jimmy', username: 'jimmy', is_admin: 1, created_at: Date.now() }
+  ];
+}
+
+function saveLocalUsersList(list: LocalUserItem[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(list));
+  } catch {}
+}
+
+function upsertLocalUser(user: { id: string; username: string; is_admin: number; created_at?: number }): LocalUserItem {
+  const list = getLocalUsersList();
+  const idx = list.findIndex(u => u.id === user.id || u.username.toLowerCase() === user.username.toLowerCase());
+  const isJimmy = user.username.toLowerCase() === 'jimmy';
+  const entry: LocalUserItem = {
+    id: idx !== -1 ? list[idx].id : user.id,
+    username: user.username,
+    is_admin: isJimmy ? 1 : user.is_admin,
+    created_at: idx !== -1 ? list[idx].created_at : (user.created_at || Date.now()),
+  };
+  if (idx !== -1) {
+    list[idx] = entry;
+  } else {
+    list.unshift(entry);
+  }
+  saveLocalUsersList(list);
+  return entry;
+}
 
 // Helper: Read or initialize local mistakes
 function getLocalMistakes(): MistakeRecord[] {
@@ -227,11 +273,18 @@ async function handleLocalFallback<T = any>(
 
   if (pathname === '/api/subjects' && method === 'POST') {
     const categories = getLocalCategories();
+    const trimmedName = (bodyData.name || '').trim();
+    const existing = categories.subjects.find(
+      s => s.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (existing) {
+      return { success: true, id: existing.id, subject: existing, item: existing } as any as T;
+    }
     const newSubject = {
-      id: `local-subject-${Date.now()}`,
+      id: `local-subject-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       dimension: 'subject' as const,
       parent_id: null,
-      name: bodyData.name,
+      name: trimmedName,
       color: bodyData.color || 'color:emerald;icon:Book',
       sort_order: (categories.subjects.length + 1) * 10,
       is_active: 1,
@@ -241,17 +294,26 @@ async function handleLocalFallback<T = any>(
     };
     categories.subjects.push(newSubject);
     saveLocalCategories(categories);
-    return { success: true, item: newSubject } as any as T;
+    return { success: true, id: newSubject.id, subject: newSubject, item: newSubject } as any as T;
   }
 
   if (pathname === '/api/chapters' && method === 'POST') {
     const categories = getLocalCategories();
+    const trimmedName = (bodyData.name || '').trim();
+    const existing = categories.chapters.find(
+      c =>
+        (c.subject_id === bodyData.subjectId || c.parent_id === bodyData.subjectId) &&
+        c.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (existing) {
+      return { success: true, id: existing.id, chapter: existing, item: existing } as any as T;
+    }
     const newChapter = {
-      id: `local-chapter-${Date.now()}`,
+      id: `local-chapter-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       dimension: 'chapter' as const,
       parent_id: bodyData.subjectId,
       subject_id: bodyData.subjectId,
-      name: bodyData.name,
+      name: trimmedName,
       color: 'default',
       sort_order: 10,
       is_active: 1,
@@ -261,7 +323,7 @@ async function handleLocalFallback<T = any>(
     };
     categories.chapters.push(newChapter);
     saveLocalCategories(categories);
-    return { success: true, item: newChapter } as any as T;
+    return { success: true, id: newChapter.id, chapter: newChapter, item: newChapter } as any as T;
   }
 
   // 3. Image Upload (/api/images/upload)
@@ -304,41 +366,34 @@ async function handleLocalFallback<T = any>(
     const { username, registerAsAdmin, is_admin } = bodyData || {};
     const trimmed = (username || '').trim();
     const isJimmy = trimmed.toLowerCase() === 'jimmy';
-    const newUser = {
-      id: `user-${Date.now()}`,
+    const rawUser = {
+      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       username: trimmed || '學生同學',
-      is_admin: (isJimmy || registerAsAdmin || is_admin) ? 1 : 0
+      is_admin: (isJimmy || registerAsAdmin || is_admin) ? 1 : 0,
+      created_at: Date.now()
     };
+    const savedUser = upsertLocalUser(rawUser);
     try {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(savedUser));
     } catch {}
-    return { success: true, message: '註冊成功', user: newUser } as any as T;
+    return { success: true, message: '註冊成功', user: savedUser } as any as T;
   }
 
   if (pathname === '/api/auth/login' && method === 'POST') {
     const { username } = bodyData || {};
     const trimmed = (username || '').trim();
     const isJimmy = trimmed.toLowerCase() === 'jimmy';
-    let currentUser: any = null;
+    const existingInList = getLocalUsersList().find(u => u.username.toLowerCase() === trimmed.toLowerCase());
+    const userToSave = existingInList || {
+      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      username: trimmed || '學生同學',
+      is_admin: isJimmy ? 1 : 0,
+      created_at: Date.now()
+    };
+    const currentUser = upsertLocalUser(userToSave);
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.USER);
-      if (raw) currentUser = JSON.parse(raw);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
     } catch {}
-    if (!currentUser || (trimmed && currentUser.username !== trimmed)) {
-      currentUser = {
-        id: `user-${Date.now()}`,
-        username: trimmed || '學生同學',
-        is_admin: isJimmy ? 1 : 0
-      };
-      try {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
-      } catch {}
-    } else if (isJimmy && currentUser.is_admin !== 1) {
-      currentUser.is_admin = 1;
-      try {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
-      } catch {}
-    }
     return { success: true, user: currentUser } as any as T;
   }
 
@@ -359,6 +414,7 @@ async function handleLocalFallback<T = any>(
             u.is_admin = 1;
             try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(u)); } catch {}
           }
+          upsertLocalUser(u);
           return { success: true, user: u } as any as T;
         }
       }
@@ -367,16 +423,23 @@ async function handleLocalFallback<T = any>(
   }
 
   // 6. Admin API fallbacks
-  if (pathname === '/api/admin/users') {
+  if (pathname === '/api/admin/users' && method === 'GET') {
     let currentUser: any = null;
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.USER);
       if (raw) currentUser = JSON.parse(raw);
     } catch {}
-    const userList = [
-      currentUser || { id: 'u-jimmy', username: 'jimmy', is_admin: 1, created_at: Date.now() }
-    ];
-    return userList as any as T;
+    if (currentUser && currentUser.id && currentUser.username) {
+      upsertLocalUser(currentUser);
+    }
+    return getLocalUsersList() as any as T;
+  }
+
+  if (pathname.startsWith('/api/admin/users/') && method === 'DELETE') {
+    const targetUserId = pathname.replace('/api/admin/users/', '').trim();
+    const filtered = getLocalUsersList().filter(u => u.id !== targetUserId);
+    saveLocalUsersList(filtered);
+    return { success: true } as any as T;
   }
 
   if (pathname === '/api/feedback') {

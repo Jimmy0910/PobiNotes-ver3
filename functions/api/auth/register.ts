@@ -1,4 +1,5 @@
 import { hashPassword, signJWT } from './_utils';
+import { ensureSchemaAndUserDefaults } from '../_dbInit';
 
 interface Env {
   DB: D1Database;
@@ -17,26 +18,29 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    const trimmedUsername = username.trim();
+    await ensureSchemaAndUserDefaults(env.DB);
 
-    // Check if user already exists
-    const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ?')
+    const trimmedUsername = username.trim();
+    const isJimmy = trimmedUsername.toLowerCase() === 'jimmy';
+
+    // Check if user already exists (case-insensitive check for safety)
+    const existing = await env.DB.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)')
       .bind(trimmedUsername)
       .first();
 
     if (existing) {
-      return new Response(JSON.stringify({ error: 'Username already exists.' }), {
+      return new Response(JSON.stringify({ error: '此使用者名稱已被註冊，請使用其他名稱或直接登入。' }), {
         status: 409,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
     // Admin registration check
-    const wantsAdmin = !!(is_admin === true || registerAsAdmin === true);
-    if (wantsAdmin) {
+    const wantsAdmin = !!(isJimmy || is_admin === true || registerAsAdmin === true);
+    if (wantsAdmin && !isJimmy) {
       const adminExists = await env.DB.prepare('SELECT id FROM users WHERE is_admin = 1').first();
       if (adminExists) {
-        return new Response(JSON.stringify({ error: 'Admin account already exists. Registration locked.' }), {
+        return new Response(JSON.stringify({ error: '系統已存在管理員帳號，一般註冊請取消勾選管理員。' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -52,6 +56,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await env.DB.prepare('INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)')
       .bind(userId, trimmedUsername, passwordHash, isAdminVal, now)
       .run();
+
+    await ensureSchemaAndUserDefaults(env.DB, userId);
 
     // Sign token
     const jwtSecret = env.JWT_SECRET || 'local-dev-jwt-secret-key-12345';
