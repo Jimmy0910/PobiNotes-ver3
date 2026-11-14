@@ -319,13 +319,25 @@ export default function BookshelfView({
             </button>
           </div>
           <div className="dashboard-snapshot-stat">
-            <span>收錄錯題</span><strong>{totalMistakes}</strong><small>分布於 {totalNotebooks} 本錯題本</small>
+            <strong>{totalMistakes}</strong>
+            <div className="dashboard-snapshot-stat-meta">
+              <span>收錄錯題</span>
+              <small>分布於 {totalNotebooks} 本錯題本</small>
+            </div>
           </div>
           <div className="dashboard-snapshot-stat">
-            <span>待複習</span><strong>{Math.max(0, totalMistakes - masteredCount)}</strong><small>從最近錯題開始回顧</small>
+            <strong>{Math.max(0, totalMistakes - masteredCount)}</strong>
+            <div className="dashboard-snapshot-stat-meta">
+              <span>待複習</span>
+              <small>從最近錯題開始回顧</small>
+            </div>
           </div>
           <div className="dashboard-snapshot-stat">
-            <span>已掌握</span><strong>{masteredCount}</strong><small>掌握率 {totalMistakes > 0 ? Math.round((masteredCount / totalMistakes) * 100) : 0}%</small>
+            <strong>{masteredCount}</strong>
+            <div className="dashboard-snapshot-stat-meta">
+              <span>已掌握</span>
+              <small>掌握率 {totalMistakes > 0 ? Math.round((masteredCount / totalMistakes) * 100) : 0}%</small>
+            </div>
           </div>
         </section>
       </main>
@@ -382,10 +394,14 @@ export default function BookshelfView({
 
                 {/* Color Palette Selector */}
                 <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">
+                  <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                     書封皮革色彩 (藍 / 綠 / 紅 / 橘 / 粉 / 棕 / 紫 / 黑)
                   </label>
-                  <div className="grid grid-cols-4 gap-2.5">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                    gap: '10px'
+                  }}>
                     {NOTEBOOK_COLOR_PALETTES.map((p) => {
                       const isSelected = selectedPalette === p.id;
                       return (
@@ -393,20 +409,45 @@ export default function BookshelfView({
                           key={p.id}
                           type="button"
                           onClick={() => setSelectedPalette(p.id)}
-                          className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer hover:scale-[1.02]"
                           style={{
-                            borderColor: isSelected ? p.primary : 'var(--glass-border)',
-                            backgroundColor: isSelected ? 'var(--glass-highlight)' : 'transparent',
-                            boxShadow: isSelected ? `0 0 0 2px ${p.primary}40` : 'none'
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '8px 4px',
+                            borderRadius: '8px',
+                            border: isSelected ? `2px solid ${p.primary}` : '1.5px solid var(--glass-border)',
+                            backgroundColor: isSelected ? 'rgba(180, 83, 9, 0.08)' : 'var(--bg-secondary)',
+                            boxShadow: isSelected ? `0 0 0 2px ${p.primary}30` : 'none',
+                            cursor: 'pointer',
+                            outline: 'none',
+                            transition: 'all 0.15s ease'
                           }}
                         >
                           <div
-                            className="w-8 h-8 rounded-full shadow-md flex items-center justify-center transition-transform"
-                            style={{ background: p.coverTexture }}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              minWidth: '32px',
+                              minHeight: '32px',
+                              borderRadius: '50%',
+                              backgroundColor: p.primary,
+                              boxShadow: '0 2px 5px rgba(0,0,0,0.22), inset 0 1px 2px rgba(255,255,255,0.35)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
                           >
-                            {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
+                            {isSelected && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
                           </div>
-                          <span className="text-xs font-medium text-text-muted">{p.name}</span>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected ? p.primary : 'var(--text-primary)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {p.name}
+                          </span>
                         </button>
                       );
                     })}
@@ -415,10 +456,14 @@ export default function BookshelfView({
 
                 {/* Badge Icon Selector */}
                 <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">
+                  <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                     書封徽章圖示
                   </label>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+                    gap: '8px'
+                  }}>
                     {NOTEBOOK_ICONS.map((item) => {
                       const Icon = item.icon;
                       const isSelected = selectedIcon === item.id;
@@ -427,16 +472,27 @@ export default function BookshelfView({
                           key={item.id}
                           type="button"
                           onClick={() => setSelectedIcon(item.id)}
-                          className="flex flex-col items-center gap-1.5 p-2 rounded-lg border text-center transition-all cursor-pointer hover:bg-glass-highlight"
                           style={{
-                            borderColor: isSelected ? 'var(--pobi-blue)' : 'var(--glass-border)',
-                            backgroundColor: isSelected ? 'var(--glass-highlight)' : 'transparent',
-                            color: isSelected ? 'var(--pobi-blue)' : 'var(--text-muted)'
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            padding: '8px 4px',
+                            borderRadius: '8px',
+                            border: isSelected ? '2px solid var(--pobi-blue)' : '1px solid var(--glass-border)',
+                            backgroundColor: isSelected ? 'rgba(139, 90, 43, 0.14)' : 'transparent',
+                            color: isSelected ? 'var(--pobi-blue)' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            outline: 'none',
+                            transition: 'all 0.15s ease'
                           }}
                           title={item.name}
                         >
-                          <Icon className="w-5 h-5" />
-                          <span className="text-[11px] truncate max-w-full">{item.name}</span>
+                          <Icon size={20} />
+                          <span style={{ fontSize: '11px', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+                            {item.name}
+                          </span>
                         </button>
                       );
                     })}

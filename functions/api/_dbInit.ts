@@ -263,6 +263,23 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
     await db.prepare("UPDATE users SET is_admin = 1 WHERE LOWER(username) = 'jimmy'").run();
   } catch {}
 
+  // Automatically delete user 'pobi' and all associated data if present
+  try {
+    const pobiUser = await db.prepare("SELECT id FROM users WHERE LOWER(username) = 'pobi'").first() as any;
+    if (pobiUser && pobiUser.id) {
+      await db.prepare('DELETE FROM mistakes WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM units WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM categories WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM prompt_templates WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM user_settings WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM chapters WHERE subject_id IN (SELECT id FROM subjects WHERE user_id = ?)').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM subjects WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM templates WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM feedback WHERE user_id = ?').bind(pobiUser.id).run();
+      await db.prepare('DELETE FROM users WHERE id = ?').bind(pobiUser.id).run();
+    }
+  } catch {}
+
   if (!schemaChecked) {
     // 1. Create new tables if they don't exist
     await db.prepare(`

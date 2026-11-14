@@ -70,3 +70,18 @@ export async function deleteUserAndData(userId: string, db: D1Database): Promise
   // 4. Delete the user from the 'users' table
   await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
 }
+
+export async function deleteUserByUsername(username: string, db: D1Database): Promise<boolean> {
+  try {
+    const user = await db.prepare('SELECT id FROM users WHERE LOWER(username) = ?')
+      .bind(username.toLowerCase().trim())
+      .first() as any;
+    if (user && user.id) {
+      await deleteUserAndData(user.id, db);
+      return true;
+    }
+  } catch (e) {
+    console.warn(`Failed to delete user ${username}:`, e);
+  }
+  return false;
+}

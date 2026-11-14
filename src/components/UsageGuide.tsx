@@ -8,7 +8,6 @@ import {
   BarChart2,
   Layers,
   Crop,
-  HelpCircle as QuestionIcon,
   Smartphone,
   Compass
 } from 'lucide-react';
@@ -32,8 +31,7 @@ export default function UsageGuide() {
     { id: 'export', title: '試卷工坊與 PDF 雙模式', icon: Printer, description: '練習卷與解析卷，高解析度 A4 列印' },
     { id: 'prompt', title: 'AI 複習提詞工坊', icon: Sparkles, description: '搭配 Claude/ChatGPT/Gemini 的破題思維樹' },
     { id: 'structure', title: '學科章節與單元三層管理', icon: FolderTree, description: '靈活規劃各科綱要與自訂題型模板' },
-    { id: 'mobile', title: '行動裝置與觸控筆支援', icon: Smartphone, description: '手機自適應底部 Dock 與 iPad 觸控優化' },
-    { id: 'faq', title: '常見問答集 (Q&A)', icon: QuestionIcon, description: '使用疑問、列印技巧與帳號權限解答' }
+    { id: 'mobile', title: '行動裝置與觸控筆支援', icon: Smartphone, description: '手機自適應底部 Dock 與 iPad 觸控優化' }
   ];
 
   const renderContent = () => {
@@ -338,53 +336,6 @@ export default function UsageGuide() {
                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>iPad / Apple Pencil 手寫圈選</h4>
                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
                   圖片標註器具備原生的粗細感壓與多點觸控支援，在平板上可以像真筆一樣在題幹上畫線與標註重點。
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'faq':
-        return (
-          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
-              常見問題集 (Q&A)
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div className="glass-card" style={{ padding: '18px 22px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
-                  Q1：為什麼要取消訪客模式？
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
-                  答：訪客模式容易導致同部裝置上不同同學的錯題與進度互相混淆。取消訪客模式後，每位同學都擁有完全獨立且加密的專屬知識資料庫，確保學習隱私。
-                </p>
-              </div>
-
-              <div className="glass-card" style={{ padding: '18px 22px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
-                  Q2：列印試卷時，如何把背景米黃紙質還原成乾淨白底？
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
-                  答：試卷工坊內建專業的列印樣式（Print Stylesheet），只要按下列印，系統會自動將紙質替換為純白底色，並關閉側邊欄與操作按鈕，節省印表機墨水。
-                </p>
-              </div>
-
-              <div className="glass-card" style={{ padding: '18px 22px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
-                  Q3：如何修改已建好手帳的書封顏色或圖示？
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
-                  答：前往「分類管理」頁面，找到目標科目後點選編輯，即可隨時更換藍、綠、紅、橘、粉、棕等書封色彩與代表徽章。
-                </p>
-              </div>
-
-              <div className="glass-card" style={{ padding: '18px 22px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
-                  Q4：管理員帳號有什麼特殊權限？
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
-                  答：管理員（如 jimmy）登入後可在左側選單進入「控制台」，檢視全站註冊用戶、查看各用戶錯題總數、一鍵清理特定測試錯題以及管理用戶意見回饋。
                 </p>
               </div>
             </div>
