@@ -319,24 +319,24 @@ export default function BookshelfView({
             </button>
           </div>
           <div className="dashboard-snapshot-stat">
-            <strong>{totalMistakes}</strong>
+            <strong className="dashboard-stat-number">{totalMistakes}</strong>
             <div className="dashboard-snapshot-stat-meta">
-              <span>收錄錯題</span>
-              <small>分布於 {totalNotebooks} 本錯題本</small>
+              <span className="dashboard-stat-label">收錄錯題</span>
+              <small className="dashboard-stat-sub">分布於 {totalNotebooks} 本錯題本</small>
             </div>
           </div>
           <div className="dashboard-snapshot-stat">
-            <strong>{Math.max(0, totalMistakes - masteredCount)}</strong>
+            <strong className="dashboard-stat-number">{Math.max(0, totalMistakes - masteredCount)}</strong>
             <div className="dashboard-snapshot-stat-meta">
-              <span>待複習</span>
-              <small>從最近錯題開始回顧</small>
+              <span className="dashboard-stat-label">待複習</span>
+              <small className="dashboard-stat-sub">從最近錯題開始回顧</small>
             </div>
           </div>
           <div className="dashboard-snapshot-stat">
-            <strong>{masteredCount}</strong>
+            <strong className="dashboard-stat-number">{masteredCount}</strong>
             <div className="dashboard-snapshot-stat-meta">
-              <span>已掌握</span>
-              <small>掌握率 {totalMistakes > 0 ? Math.round((masteredCount / totalMistakes) * 100) : 0}%</small>
+              <span className="dashboard-stat-label">已掌握</span>
+              <small className="dashboard-stat-sub">掌握率 {totalMistakes > 0 ? Math.round((masteredCount / totalMistakes) * 100) : 0}%</small>
             </div>
           </div>
         </section>
@@ -346,39 +346,70 @@ export default function BookshelfView({
       {showAddModal && (
         <div className="notebook-sheet-overlay" onClick={() => setShowAddModal(false)}>
           <div
-            className="notebook-sheet-content flex flex-col"
+            className="notebook-sheet-content"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '540px',
+              maxWidth: '520px',
               width: '92vw',
-              maxHeight: '88vh',
+              maxHeight: '85vh',
               borderRadius: '12px',
               overflow: 'hidden',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1.5px solid var(--glass-border)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)'
             }}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-glass-border bg-bg-secondary flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <BookOpen className="w-5 h-5 text-pobi-blue dark:text-blue-400" />
-                <h3 className="text-lg font-bold text-text-primary">新增學科錯題本</h3>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--glass-border)',
+              backgroundColor: 'var(--bg-secondary)',
+              flexShrink: 0
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <BookOpen size={20} color="var(--pobi-blue)" />
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  新增學科錯題本
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-highlight transition-colors cursor-pointer"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
-                <X className="w-5 h-5" />
+                <X size={18} />
               </button>
             </div>
 
             {/* Scrollable Form Body */}
-            <form onSubmit={handleCreateNotebook} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 space-y-5 overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin' }}>
+            <form onSubmit={handleCreateNotebook} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <div style={{
+                padding: '20px',
+                overflowY: 'auto',
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px',
+                scrollbarWidth: 'thin'
+              }}>
                 {/* Subject Name Input */}
                 <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">
+                  <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                     錯題本名稱
                   </label>
                   <input
@@ -386,8 +417,18 @@ export default function BookshelfView({
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="例如：學測自然科、高一數學、多益單字"
-                    className="w-full px-4 py-3 rounded-lg border border-glass-border bg-notebook-paper text-text-primary text-base focus:outline-none focus:ring-2 focus:ring-pobi-blue transition-all"
-                    style={{ minHeight: '46px', fontSize: '15px' }}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      minHeight: '46px',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--glass-border)',
+                      backgroundColor: 'var(--notebook-paper)',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px',
+                      outline: 'none'
+                    }}
                     autoFocus
                   />
                 </div>
@@ -413,35 +454,36 @@ export default function BookshelfView({
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
+                            justifyContent: 'center',
                             gap: '6px',
-                            padding: '8px 4px',
-                            borderRadius: '8px',
-                            border: isSelected ? `2px solid ${p.primary}` : '1.5px solid var(--glass-border)',
-                            backgroundColor: isSelected ? 'rgba(180, 83, 9, 0.08)' : 'var(--bg-secondary)',
-                            boxShadow: isSelected ? `0 0 0 2px ${p.primary}30` : 'none',
+                            padding: '10px 4px',
+                            borderRadius: '10px',
+                            border: isSelected ? `2.5px solid ${p.primary}` : '1.5px solid var(--glass-border)',
+                            backgroundColor: isSelected ? 'rgba(180, 83, 9, 0.1)' : 'var(--bg-secondary)',
+                            boxShadow: isSelected ? `0 0 0 3px ${p.primary}35` : 'none',
                             cursor: 'pointer',
                             outline: 'none',
-                            transition: 'all 0.15s ease'
+                            transition: 'all 0.18s ease'
                           }}
                         >
                           <div
                             style={{
-                              width: '32px',
-                              height: '32px',
-                              minWidth: '32px',
-                              minHeight: '32px',
+                              width: '34px',
+                              height: '34px',
+                              minWidth: '34px',
+                              minHeight: '34px',
                               borderRadius: '50%',
                               backgroundColor: p.primary,
-                              boxShadow: '0 2px 5px rgba(0,0,0,0.22), inset 0 1px 2px rgba(255,255,255,0.35)',
+                              boxShadow: '0 3px 8px rgba(0,0,0,0.28), inset 0 2px 3px rgba(255,255,255,0.4)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center'
                             }}
                           >
-                            {isSelected && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
+                            {isSelected && <Check size={18} color="#FFFFFF" strokeWidth={3} />}
                           </div>
                           <span style={{
-                            fontSize: '11px',
+                            fontSize: '11.5px',
                             fontWeight: isSelected ? 700 : 500,
                             color: isSelected ? p.primary : 'var(--text-primary)',
                             whiteSpace: 'nowrap'
@@ -479,6 +521,7 @@ export default function BookshelfView({
                             justifyContent: 'center',
                             gap: '4px',
                             padding: '8px 4px',
+                            minHeight: '52px',
                             borderRadius: '8px',
                             border: isSelected ? '2px solid var(--pobi-blue)' : '1px solid var(--glass-border)',
                             backgroundColor: isSelected ? 'rgba(139, 90, 43, 0.14)' : 'transparent',
@@ -490,7 +533,7 @@ export default function BookshelfView({
                           title={item.name}
                         >
                           <Icon size={20} />
-                          <span style={{ fontSize: '11px', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+                          <span style={{ fontSize: '11px', whiteSpace: 'nowrap', fontWeight: isSelected ? 650 : 400 }}>
                             {item.name}
                           </span>
                         </button>
@@ -500,25 +543,61 @@ export default function BookshelfView({
                 </div>
 
                 {errorMsg && (
-                  <div className="p-3 text-xs text-danger bg-danger-glow/10 border border-danger/30 rounded-lg">
+                  <div style={{
+                    padding: '10px 14px',
+                    fontSize: '12px',
+                    color: 'var(--danger)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px'
+                  }}>
                     {errorMsg}
                   </div>
                 )}
               </div>
 
               {/* Fixed Footer */}
-              <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-glass-border bg-bg-secondary flex-shrink-0">
+              <div style={{
+                padding: '14px 20px',
+                borderTop: '1px solid var(--glass-border)',
+                backgroundColor: 'var(--bg-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                flexShrink: 0
+              }}>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 text-sm rounded-lg border border-glass-border text-text-muted hover:bg-glass-highlight cursor-pointer"
+                  style={{
+                    padding: '8px 18px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
                   disabled={submitting}
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-pobi-blue text-white hover:opacity-90 shadow-md cursor-pointer disabled:opacity-50"
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    border: '1.5px solid #D97706',
+                    background: 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%)',
+                    color: '#451A03',
+                    boxShadow: '0 2px 6px rgba(217, 119, 6, 0.25)',
+                    cursor: 'pointer',
+                    opacity: submitting ? 0.6 : 1
+                  }}
                   disabled={submitting}
                 >
                   {submitting ? '建立中...' : '確認放置書架'}
