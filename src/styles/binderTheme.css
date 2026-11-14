@@ -3,6 +3,16 @@
    Design Core: Vintage Kraft Paper, Obsidian Dark Leather, Instant Response
    ========================================================================== */
 
+.guide-layout-grid {
+  grid-template-columns: 260px 1fr;
+}
+
+@media (max-width: 768px) {
+  .guide-layout-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 :root {
   /* Typography */
   --font-serif: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', Georgia, serif;
@@ -325,39 +335,94 @@ html:not([data-theme="dark"]) .binder-nav-item.active .binder-nav-icon {
 }
 
 @media (max-width: 768px) {
-  .binder-spine-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100% !important;
-    min-width: 100% !important;
-    height: 56px;
-    flex-direction: row;
-    z-index: 50;
-    border-right: none;
-    border-top: 1px solid rgba(0, 0, 0, 0.2);
+  .binder-app-shell {
+    flex-direction: column !important;
+    width: 100vw !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
   }
+  .binder-main-stage {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-bottom: 72px !important;
+  }
+  .binder-top-bar {
+    width: 100% !important;
+    border-radius: 0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 45 !important;
+    padding: 10px 16px !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .binder-spine-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    height: 56px !important;
+    flex-direction: row !important;
+    z-index: 100 !important;
+    border-right: none !important;
+    border-top: 1.5px solid var(--binder-spine-border) !important;
+    background: var(--binder-spine-bg) !important;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .binder-spine-header,
   .binder-spine-brand,
   .binder-spine-footer {
-    display: none;
+    display: none !important;
   }
   .binder-nav-list {
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 4px;
-    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    padding: 0 4px !important;
+    width: 100% !important;
+    height: 100% !important;
   }
   .binder-nav-item {
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.68rem;
-    padding: 6px 4px;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    font-size: 0.65rem !important;
+    padding: 4px 6px !important;
+    border-radius: 6px !important;
+    min-width: 48px !important;
+    flex: 1 !important;
+  }
+  .binder-nav-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
   .binder-stage-container {
-    padding: 16px 12px 72px 12px;
+    padding: 14px 12px 76px 12px !important;
+    max-width: 100% !important;
+  }
+  .bookshelf-room {
+    padding: 16px 10px 80px 10px !important;
+  }
+  .bookshelf-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .bookshelf-actions {
+    width: 100% !important;
+    overflow-x: auto !important;
+    padding-bottom: 6px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
   }
 }
 
@@ -365,6 +430,16 @@ html:not([data-theme="dark"]) .binder-nav-item.active .binder-nav-icon {
 /* ==========================================================================
    AUTHENTIC VINTAGE KRAFT PAPER & NOTEBOOK INNER SPREAD STYLING
    ========================================================================== */
+
+.guide-layout-grid {
+  grid-template-columns: 260px 1fr;
+}
+
+@media (max-width: 768px) {
+  .guide-layout-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
 
 :root {
   --notebook-paper: #f5efe4 !important;

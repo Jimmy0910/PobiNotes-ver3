@@ -110,15 +110,11 @@ export default function BinderSpineNav({
   return (
     <aside
       className={`sidebar-container binder-spine-nav no-print ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
-      style={{
-        width: collapsed ? '60px' : '200px',
-        minWidth: collapsed ? '60px' : '200px'
-      }}
       aria-label="手帳書脊主導航"
     >
       {/* Brand Header */}
       <div>
-        <div style={{
+        <div className="binder-spine-header" style={{
           display: 'flex',
           flexDirection: collapsed ? 'column' : 'row',
           alignItems: 'center',

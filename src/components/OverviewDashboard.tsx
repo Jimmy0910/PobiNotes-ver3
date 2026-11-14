@@ -15,8 +15,7 @@ import {
   FolderTree,
   BarChart3,
   Plus,
-  Sparkles,
-  Zap
+  Sparkles
 } from 'lucide-react';
 
 interface OverviewDashboardProps {
@@ -35,8 +34,7 @@ export default function OverviewDashboard({
   onDrilldownCategory,
   onNavigateToView,
   onOpenNewMistake,
-  onOpenBatchImport,
-  onOpenFastReview
+  onOpenBatchImport
 }: OverviewDashboardProps) {
   const stats = useMemo(() => {
     const total = mistakes.length;
@@ -150,50 +148,6 @@ export default function OverviewDashboard({
           </button>
         </div>
       </div>
-
-      {/* Inbox Notification Banner for Unreviewed Mistakes */}
-      {stats.unsetFamCount > 0 && (
-        <div style={{
-          padding: '14px 20px',
-          backgroundColor: '#FFFBEB',
-          border: '1px solid #D97706',
-          borderRadius: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertTriangle size={20} style={{ color: '#B45309' }} />
-            <span style={{ fontSize: '0.9rem', color: '#78350F', fontWeight: 600 }}>
-              收件匣提醒：尚有 <strong style={{ fontVariantNumeric: 'tabular-nums', textDecoration: 'underline' }}>{stats.unsetFamCount} 道新題目</strong> 尚未完成熟悉度標記。
-            </span>
-          </div>
-          {onOpenFastReview && (
-            <button
-              type="button"
-              onClick={onOpenFastReview}
-              style={{
-                padding: '6px 14px',
-                backgroundColor: '#B45309',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Zap size={14} /> 立即接續極速審核
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Top Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px' }}>

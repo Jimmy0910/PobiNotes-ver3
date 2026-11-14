@@ -181,6 +181,10 @@ async function handleLocalFallback<T = any>(
     }
 
     if (method === 'DELETE') {
+      if (searchParams.get('all') === 'true') {
+        saveLocalMistakes([]);
+        return { success: true, message: 'All mistakes cleared.' } as any as T;
+      }
       const targetId = searchParams.get('id') || bodyData?.id;
       if (targetId) {
         const filtered = mistakes.filter(m => m.id !== targetId);
@@ -298,10 +302,12 @@ async function handleLocalFallback<T = any>(
   // 5. Auth & User Profile
   if (pathname === '/api/auth/register' && method === 'POST') {
     const { username, registerAsAdmin, is_admin } = bodyData || {};
+    const trimmed = (username || '').trim();
+    const isJimmy = trimmed.toLowerCase() === 'jimmy';
     const newUser = {
       id: `user-${Date.now()}`,
-      username: (username || '').trim() || '學生同學',
-      is_admin: (registerAsAdmin || is_admin) ? 1 : 0
+      username: trimmed || '學生同學',
+      is_admin: (isJimmy || registerAsAdmin || is_admin) ? 1 : 0
     };
     try {
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
@@ -312,6 +318,7 @@ async function handleLocalFallback<T = any>(
   if (pathname === '/api/auth/login' && method === 'POST') {
     const { username } = bodyData || {};
     const trimmed = (username || '').trim();
+    const isJimmy = trimmed.toLowerCase() === 'jimmy';
     let currentUser: any = null;
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.USER);
@@ -321,8 +328,13 @@ async function handleLocalFallback<T = any>(
       currentUser = {
         id: `user-${Date.now()}`,
         username: trimmed || '學生同學',
-        is_admin: 0
+        is_admin: isJimmy ? 1 : 0
       };
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
+      } catch {}
+    } else if (isJimmy && currentUser.is_admin !== 1) {
+      currentUser.is_admin = 1;
       try {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
       } catch {}
@@ -343,11 +355,32 @@ async function handleLocalFallback<T = any>(
       if (raw) {
         const u = JSON.parse(raw);
         if (u && u.id && u.username) {
+          if (String(u.username).toLowerCase() === 'jimmy') {
+            u.is_admin = 1;
+            try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(u)); } catch {}
+          }
           return { success: true, user: u } as any as T;
         }
       }
     } catch {}
     return { success: false, user: null } as any as T;
+  }
+
+  // 6. Admin API fallbacks
+  if (pathname === '/api/admin/users') {
+    let currentUser: any = null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.USER);
+      if (raw) currentUser = JSON.parse(raw);
+    } catch {}
+    const userList = [
+      currentUser || { id: 'u-jimmy', username: 'jimmy', is_admin: 1, created_at: Date.now() }
+    ];
+    return userList as any as T;
+  }
+
+  if (pathname === '/api/feedback') {
+    return [] as any as T;
   }
 
   // Default fallback response

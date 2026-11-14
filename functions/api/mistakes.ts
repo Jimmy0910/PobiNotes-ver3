@@ -551,6 +551,19 @@ export const onRequestDelete: PagesFunction<Env, any, UserContext> = async (cont
     await ensureSchemaAndUserDefaults(env.DB, userId);
 
     const url = new URL(request.url);
+    const clearAll = url.searchParams.get('all') === 'true';
+
+    if (clearAll) {
+      const targetUserId = (data.user!.is_admin === 1 && url.searchParams.get('userId'))
+        ? url.searchParams.get('userId')!
+        : userId;
+      await env.DB.prepare('DELETE FROM mistakes WHERE user_id = ?').bind(targetUserId).run();
+      return new Response(JSON.stringify({ success: true, message: 'All mistakes cleared.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const id = url.searchParams.get('id');
 
     if (!id) {

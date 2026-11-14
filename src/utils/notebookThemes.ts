@@ -26,115 +26,115 @@ export interface NotebookThemeConfig {
 
 export const NOTEBOOK_COLOR_PALETTES: NotebookThemeConfig[] = [
   {
-    id: 'navy',
-    name: '深焙焦糖皮',
-    primary: '#4A2A14',
-    secondary: '#5C381E',
-    accent: '#FDE68A',
-    foilColor: '#FEF3C7',
-    textLight: '#FAF5ED',
-    spineShadow: 'rgba(35, 18, 8, 0.8)',
+    id: 'blue',
+    name: '藏青深藍',
+    primary: '#1E3A8A',
+    secondary: '#1D4ED8',
+    accent: '#BFDBFE',
+    foilColor: '#DBEAFE',
+    textLight: '#EFF6FF',
+    spineShadow: 'rgba(15, 23, 42, 0.85)',
     coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-      linear-gradient(90deg, #2E1508 0%, #4A2A14 12%, #5C381E 50%, #4D2D16 88%, #2E1508 100%)
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #0F172A 0%, #1E3A8A 14%, #1D4ED8 50%, #1E3A8A 86%, #0F172A 100%)
     `
   },
   {
-    id: 'emerald',
+    id: 'green',
+    name: '翡翠墨綠',
+    primary: '#14532D',
+    secondary: '#166534',
+    accent: '#BBF7D0',
+    foilColor: '#DCFCE7',
+    textLight: '#F0FDF4',
+    spineShadow: 'rgba(5, 46, 22, 0.85)',
+    coverTexture: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #052E16 0%, #14532D 14%, #166534 50%, #14532D 86%, #052E16 100%)
+    `
+  },
+  {
+    id: 'red',
+    name: '經典緋紅',
+    primary: '#991B1B',
+    secondary: '#B91C1C',
+    accent: '#FECACA',
+    foilColor: '#FEE2E2',
+    textLight: '#FEF2F2',
+    spineShadow: 'rgba(69, 10, 10, 0.85)',
+    coverTexture: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #450A0A 0%, #991B1B 14%, #B91C1C 50%, #991B1B 86%, #450A0A 100%)
+    `
+  },
+  {
+    id: 'orange',
+    name: '暖陽蜜橘',
+    primary: '#C2410C',
+    secondary: '#EA580C',
+    accent: '#FED7AA',
+    foilColor: '#FFEDD5',
+    textLight: '#FFF7ED',
+    spineShadow: 'rgba(67, 20, 7, 0.85)',
+    coverTexture: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #431407 0%, #C2410C 14%, #EA580C 50%, #C2410C 86%, #431407 100%)
+    `
+  },
+  {
+    id: 'pink',
+    name: '櫻花柔粉',
+    primary: '#9D174D',
+    secondary: '#BE185D',
+    accent: '#FBCFE8',
+    foilColor: '#FCE7F3',
+    textLight: '#FDF2F8',
+    spineShadow: 'rgba(76, 5, 25, 0.85)',
+    coverTexture: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #4C0519 0%, #9D174D 14%, #BE185D 50%, #9D174D 86%, #4C0519 100%)
+    `
+  },
+  {
+    id: 'brown',
     name: '復古牛皮棕',
-    primary: '#784620',
-    secondary: '#8B5A2B',
+    primary: '#5A3214',
+    secondary: '#784620',
     accent: '#FEF3C7',
     foilColor: '#FFFBEB',
     textLight: '#FDFBF7',
-    spineShadow: 'rgba(40, 22, 10, 0.8)',
+    spineShadow: 'rgba(40, 22, 10, 0.85)',
     coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
-      linear-gradient(90deg, #532C11 0%, #784620 12%, #8B5A2B 50%, #794821 88%, #532C11 100%)
-    `
-  },
-  {
-    id: 'amber',
-    name: '暖陽琥珀金',
-    primary: '#78350F',
-    secondary: '#92400E',
-    accent: '#FDE68A',
-    foilColor: '#FEF3C7',
-    textLight: '#FFFBEB',
-    spineShadow: 'rgba(45, 18, 4, 0.8)',
-    coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-      linear-gradient(90deg, #451A03 0%, #78350F 12%, #92400E 50%, #7E370F 88%, #451A03 100%)
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #321908 0%, #5A3214 14%, #784620 50%, #5A3214 86%, #321908 100%)
     `
   },
   {
     id: 'purple',
     name: '紫檀原木褐',
-    primary: '#4A242B',
-    secondary: '#5C2D35',
-    accent: '#FCE7F3',
-    foilColor: '#FDF2F8',
-    textLight: '#FDF7F8',
-    spineShadow: 'rgba(30, 10, 18, 0.8)',
+    primary: '#4C1D95',
+    secondary: '#6D28D9',
+    accent: '#DDD6FE',
+    foilColor: '#EDE9FE',
+    textLight: '#F5F3FF',
+    spineShadow: 'rgba(30, 10, 60, 0.85)',
     coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      linear-gradient(90deg, #2D1419 0%, #4A242B 12%, #5C2D35 50%, #4E252D 88%, #2D1419 100%)
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+      linear-gradient(90deg, #2E1065 0%, #4C1D95 14%, #6D28D9 50%, #4C1D95 86%, #2E1065 100%)
     `
   },
   {
-    id: 'ruby',
-    name: '珊瑚磚紅皮',
-    primary: '#7F1D1D',
-    secondary: '#991B1B',
-    accent: '#FDE047',
-    foilColor: '#FEF08A',
-    textLight: '#FEF2F2',
-    spineShadow: 'rgba(50, 10, 10, 0.8)',
-    coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      linear-gradient(90deg, #450A0A 0%, #7F1D1D 12%, #991B1B 50%, #851E1E 88%, #450A0A 100%)
-    `
-  },
-  {
-    id: 'slate',
+    id: 'black',
     name: '石墨曜岩黑',
-    primary: '#1C1917',
-    secondary: '#292524',
-    accent: '#E7E5E4',
-    foilColor: '#F5F5F4',
-    textLight: '#FAFAF9',
-    spineShadow: 'rgba(10, 10, 10, 0.9)',
+    primary: '#18181B',
+    secondary: '#27272A',
+    accent: '#E4E4E7',
+    foilColor: '#F4F4F5',
+    textLight: '#FAFAFA',
+    spineShadow: 'rgba(9, 9, 11, 0.95)',
     coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      linear-gradient(90deg, #0C0A09 0%, #1C1917 12%, #292524 50%, #1F1B18 88%, #0C0A09 100%)
-    `
-  },
-  {
-    id: 'teal',
-    name: '典雅胡桃木',
-    primary: '#3B2F2F',
-    secondary: '#4E3E3E',
-    accent: '#EFEBE9',
-    foilColor: '#F7F5F4',
-    textLight: '#FAF8F7',
-    spineShadow: 'rgba(25, 18, 18, 0.8)',
-    coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      linear-gradient(90deg, #241C1C 0%, #3B2F2F 12%, #4E3E3E 50%, #423434 88%, #241C1C 100%)
-    `
-  },
-  {
-    id: 'indigo',
-    name: '黑胡桃鞍皮',
-    primary: '#3E2723',
-    secondary: '#4E342E',
-    accent: '#D7CCC8',
-    foilColor: '#EFEBE9',
-    textLight: '#FBE9E7',
-    spineShadow: 'rgba(25, 15, 12, 0.8)',
-    coverTexture: `
-      linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      linear-gradient(90deg, #271714 0%, #3E2723 12%, #4E342E 50%, #442B26 88%, #271714 100%)
+      linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
+      linear-gradient(90deg, #09090B 0%, #18181B 14%, #27272A 50%, #18181B 86%, #09090B 100%)
     `
   }
 ];
@@ -157,8 +157,21 @@ export interface ParsedNotebookStyle {
   iconId: string;
 }
 
+// 顏色別名相容映射
+const PALETTE_ALIAS_MAP: Record<string, string> = {
+  navy: 'blue',
+  emerald: 'green',
+  ruby: 'red',
+  amber: 'orange',
+  rose: 'pink',
+  leather: 'brown',
+  slate: 'black',
+  teal: 'green',
+  indigo: 'blue'
+};
+
 export function parseNotebookStyle(rawColor?: string | null, name?: string): ParsedNotebookStyle {
-  let paletteId = 'navy';
+  let paletteId = 'blue';
   let iconId = 'BookOpen';
 
   if (rawColor) {
@@ -171,12 +184,14 @@ export function parseNotebookStyle(rawColor?: string | null, name?: string): Par
     if (rawColor.includes('color:')) {
       const match = rawColor.match(/color:([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        paletteId = match[1];
+        const rawPalette = match[1];
+        paletteId = PALETTE_ALIAS_MAP[rawPalette] || rawPalette;
       }
     } else {
       const clean = rawColor.replace(/^#/, '').toLowerCase();
+      const mapped = PALETTE_ALIAS_MAP[clean] || clean;
       const foundPalette = NOTEBOOK_COLOR_PALETTES.find(
-        p => p.id === clean || p.primary.toLowerCase() === rawColor.toLowerCase()
+        p => p.id === mapped || p.primary.toLowerCase() === rawColor.toLowerCase()
       );
       if (foundPalette) {
         paletteId = foundPalette.id;
@@ -184,20 +199,21 @@ export function parseNotebookStyle(rawColor?: string | null, name?: string): Par
     }
   }
 
+  // 根據科目名稱智慧推薦預設色彩與圖示
   if (iconId === 'BookOpen' && name) {
     const n = name.toLowerCase();
     if (n.includes('數') || n.includes('微積分') || n.includes('幾何') || n.includes('代數')) {
       iconId = 'Calculator';
-      if (!rawColor || rawColor === 'default') paletteId = 'amber';
+      if (!rawColor || rawColor === 'default') paletteId = 'orange';
     } else if (n.includes('自') || n.includes('物') || n.includes('化') || n.includes('生') || n.includes('地科')) {
       iconId = 'Atom';
-      if (!rawColor || rawColor === 'default') paletteId = 'emerald';
+      if (!rawColor || rawColor === 'default') paletteId = 'green';
     } else if (n.includes('英') || n.includes('國') || n.includes('文') || n.includes('日') || n.includes('語')) {
       iconId = 'Languages';
-      if (!rawColor || rawColor === 'default') paletteId = 'navy';
+      if (!rawColor || rawColor === 'default') paletteId = 'blue';
     } else if (n.includes('歷') || n.includes('史') || n.includes('社') || n.includes('公') || n.includes('地')) {
       iconId = 'History';
-      if (!rawColor || rawColor === 'default') paletteId = 'ruby';
+      if (!rawColor || rawColor === 'default') paletteId = 'red';
     } else if (n.includes('考') || n.includes('衝刺') || n.includes('模考')) {
       iconId = 'Target';
       if (!rawColor || rawColor === 'default') paletteId = 'purple';
@@ -212,7 +228,8 @@ export function serializeNotebookStyle(paletteId: string, iconId: string): strin
 }
 
 export function getNotebookPalette(paletteId: string): NotebookThemeConfig {
-  return NOTEBOOK_COLOR_PALETTES.find(p => p.id === paletteId) || NOTEBOOK_COLOR_PALETTES[0];
+  const normalized = PALETTE_ALIAS_MAP[paletteId] || paletteId;
+  return NOTEBOOK_COLOR_PALETTES.find(p => p.id === normalized) || NOTEBOOK_COLOR_PALETTES[0];
 }
 
 export function getNotebookIcon(iconId: string): LucideIcon {

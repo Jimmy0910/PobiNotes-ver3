@@ -258,6 +258,11 @@ export async function healMistakeFamiliarities(db: D1Database, userId: string): 
 }
 
 export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: string): Promise<void> {
+  // Always ensure jimmy is admin
+  try {
+    await db.prepare("UPDATE users SET is_admin = 1 WHERE LOWER(username) = 'jimmy'").run();
+  } catch {}
+
   if (!schemaChecked) {
     // 1. Create new tables if they don't exist
     await db.prepare(`

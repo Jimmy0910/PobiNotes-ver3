@@ -18,9 +18,7 @@ import {
   LayoutDashboard,
   Check,
   X,
-  Sparkles,
-  AlertCircle,
-  Zap
+  Sparkles
 } from 'lucide-react';
 
 interface BookshelfViewProps {
@@ -50,8 +48,7 @@ export default function BookshelfView({
   theme,
   currentUser,
   onSwitchToClassicDashboard,
-  onOpenBatchImport,
-  onOpenFastReview
+  onOpenBatchImport
 }: BookshelfViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -59,12 +56,6 @@ export default function BookshelfView({
   const [selectedIcon, setSelectedIcon] = useState('BookOpen');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Unreviewed mistakes count for Inbox banner
-  const unreviewedMistakes = useMemo(() => {
-    return mistakes.filter(m => !m.familiarity_id);
-  }, [mistakes]);
-  const unreviewedCount = unreviewedMistakes.length;
 
   // Calculate stats per subject
   const subjectStats = useMemo(() => {
@@ -198,53 +189,6 @@ export default function BookshelfView({
           )}
         </div>
       </header>
-
-      {/* Inbox Notification Banner for Pending Reviews */}
-      {unreviewedCount > 0 && (
-        <div style={{
-          maxWidth: '1240px',
-          width: '100%',
-          margin: '0 auto 24px auto',
-          padding: '14px 20px',
-          backgroundColor: '#FFFBEB',
-          border: '1px solid #D97706',
-          borderRadius: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle className="w-5 h-5 text-amber-700" />
-            <span style={{ fontSize: '0.9rem', color: '#78350F', fontWeight: 600 }}>
-              收件匣提醒：尚有 <strong style={{ fontVariantNumeric: 'tabular-nums', textDecoration: 'underline' }}>{unreviewedCount} 道新題目</strong> 尚未完成熟悉度標記。
-            </span>
-          </div>
-          {onOpenFastReview && (
-            <button
-              type="button"
-              onClick={onOpenFastReview}
-              style={{
-                padding: '6px 14px',
-                backgroundColor: '#B45309',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Zap className="w-3.5 h-3.5" /> 立即接續極速審核
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Main Bookshelf Stage */}
       <main className="bookshelf-stage">
@@ -381,7 +325,7 @@ export default function BookshelfView({
             <span>待複習</span><strong>{Math.max(0, totalMistakes - masteredCount)}</strong><small>從最近錯題開始回顧</small>
           </div>
           <div className="dashboard-snapshot-stat">
-            <span>已掌握</span><strong>{masteredCount}</strong><small>持續累積學習進度</small>
+            <span>已掌握</span><strong>{masteredCount}</strong><small>掌握率 {totalMistakes > 0 ? Math.round((masteredCount / totalMistakes) * 100) : 0}%</small>
           </div>
         </section>
       </main>
@@ -390,26 +334,36 @@ export default function BookshelfView({
       {showAddModal && (
         <div className="notebook-sheet-overlay" onClick={() => setShowAddModal(false)}>
           <div
-            className="notebook-sheet-content p-6 flex flex-col justify-between"
+            className="notebook-sheet-content flex flex-col"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '480px' }}
+            style={{
+              maxWidth: '540px',
+              width: '92vw',
+              maxHeight: '88vh',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
           >
-            <div>
-              <div className="flex items-center justify-between pb-4 border-b border-glass-border">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-pobi-blue dark:text-blue-400" />
-                  <h3 className="text-lg font-bold text-text-primary">新增學科錯題本</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-highlight"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-glass-border bg-bg-secondary flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-5 h-5 text-pobi-blue dark:text-blue-400" />
+                <h3 className="text-lg font-bold text-text-primary">新增學科錯題本</h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-highlight transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <form onSubmit={handleCreateNotebook} className="mt-5 space-y-5">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleCreateNotebook} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-5 overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin' }}>
                 {/* Subject Name Input */}
                 <div>
                   <label className="block text-sm font-semibold text-text-primary mb-2">
@@ -420,7 +374,8 @@ export default function BookshelfView({
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="例如：學測自然科、高一數學、多益單字"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-glass-border bg-notebook-paper text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-pobi-blue"
+                    className="w-full px-4 py-3 rounded-lg border border-glass-border bg-notebook-paper text-text-primary text-base focus:outline-none focus:ring-2 focus:ring-pobi-blue transition-all"
+                    style={{ minHeight: '46px', fontSize: '15px' }}
                     autoFocus
                   />
                 </div>
@@ -428,7 +383,7 @@ export default function BookshelfView({
                 {/* Color Palette Selector */}
                 <div>
                   <label className="block text-sm font-semibold text-text-primary mb-2">
-                    書封皮革色彩
+                    書封皮革色彩 (藍 / 綠 / 紅 / 橘 / 粉 / 棕 / 紫 / 黑)
                   </label>
                   <div className="grid grid-cols-4 gap-2.5">
                     {NOTEBOOK_COLOR_PALETTES.map((p) => {
@@ -438,19 +393,20 @@ export default function BookshelfView({
                           key={p.id}
                           type="button"
                           onClick={() => setSelectedPalette(p.id)}
-                          className="flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all"
+                          className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer hover:scale-[1.02]"
                           style={{
                             borderColor: isSelected ? p.primary : 'var(--glass-border)',
-                            backgroundColor: isSelected ? 'var(--glass-highlight)' : 'transparent'
+                            backgroundColor: isSelected ? 'var(--glass-highlight)' : 'transparent',
+                            boxShadow: isSelected ? `0 0 0 2px ${p.primary}40` : 'none'
                           }}
                         >
                           <div
-                            className="w-7 h-7 rounded-full shadow-inner flex items-center justify-center"
+                            className="w-8 h-8 rounded-full shadow-md flex items-center justify-center transition-transform"
                             style={{ background: p.coverTexture }}
                           >
-                            {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                            {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
                           </div>
-                          <span className="text-xs text-text-muted">{p.name}</span>
+                          <span className="text-xs font-medium text-text-muted">{p.name}</span>
                         </button>
                       );
                     })}
@@ -471,7 +427,7 @@ export default function BookshelfView({
                           key={item.id}
                           type="button"
                           onClick={() => setSelectedIcon(item.id)}
-                          className="flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all"
+                          className="flex flex-col items-center gap-1.5 p-2 rounded-lg border text-center transition-all cursor-pointer hover:bg-glass-highlight"
                           style={{
                             borderColor: isSelected ? 'var(--pobi-blue)' : 'var(--glass-border)',
                             backgroundColor: isSelected ? 'var(--glass-highlight)' : 'transparent',
@@ -480,7 +436,7 @@ export default function BookshelfView({
                           title={item.name}
                         >
                           <Icon className="w-5 h-5" />
-                          <span className="text-[10px] truncate max-w-full">{item.name}</span>
+                          <span className="text-[11px] truncate max-w-full">{item.name}</span>
                         </button>
                       );
                     })}
@@ -492,27 +448,27 @@ export default function BookshelfView({
                     {errorMsg}
                   </div>
                 )}
+              </div>
 
-                {/* Modal Footer */}
-                <div className="pt-4 flex items-center justify-end gap-3 border-t border-glass-border">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 text-sm rounded-lg border border-glass-border text-text-muted hover:bg-glass-highlight"
-                    disabled={submitting}
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 text-sm font-semibold rounded-lg bg-pobi-blue text-white hover:opacity-90 shadow-sm"
-                    disabled={submitting}
-                  >
-                    {submitting ? '建立中...' : '確認放置書架'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Fixed Footer */}
+              <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-glass-border bg-bg-secondary flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2.5 text-sm rounded-lg border border-glass-border text-text-muted hover:bg-glass-highlight cursor-pointer"
+                  disabled={submitting}
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-pobi-blue text-white hover:opacity-90 shadow-md cursor-pointer disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? '建立中...' : '確認放置書架'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

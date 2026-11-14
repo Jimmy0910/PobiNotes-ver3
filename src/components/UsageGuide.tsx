@@ -1,23 +1,23 @@
 import { useState } from 'react';
-import { 
-  Folder, 
-  Settings, 
-  PlusCircle, 
-  Filter, 
-  FileText, 
-  MessageSquare, 
-  Shield, 
+import {
   BookOpen,
-  ChevronRight,
-  HelpCircle,
-  Info,
-  CheckCircle2
+  FolderTree,
+  FileText,
+  Printer,
+  Sparkles,
+  BarChart2,
+  Layers,
+  Crop,
+  HelpCircle as QuestionIcon,
+  Smartphone,
+  Compass
 } from 'lucide-react';
 
 interface GuideSection {
   id: string;
   title: string;
   icon: React.ComponentType<any>;
+  badge?: string;
   description: string;
 }
 
@@ -25,14 +25,15 @@ export default function UsageGuide() {
   const [activeTab, setActiveTab] = useState<string>('overview');
 
   const sections: GuideSection[] = [
-    { id: 'overview', title: '系統總覽', icon: BookOpen, description: '了解核心概念與設計初衷' },
-    { id: 'subjects', title: '科目與章節管理', icon: Folder, description: '如何建立、編輯與規劃您的學科結構' },
-    { id: 'templates', title: '自訂模板設計', icon: Settings, description: '量身打造適合各學科的錯題欄位版面' },
-    { id: 'mistakes', title: '錯題新增與圖片', icon: PlusCircle, description: '新增錯題、上傳圖片與填寫自訂欄位' },
-    { id: 'filtering', title: '題目篩選系統', icon: Filter, description: '使用關鍵字、日期與難度交叉篩選題目' },
-    { id: 'exporting', title: '匯出', icon: FileText, description: '批次選取錯題並匯出成無答案的練習本' },
-    { id: 'feedback', title: '意見與評價回饋', icon: MessageSquare, description: '與我們分享您的使用體驗以持續改進' },
-    { id: 'admin', title: '管理員系統', icon: Shield, description: '單一管理員註冊限制與後台管理功能說明' },
+    { id: 'overview', title: '系統總覽與設計理念', icon: BookOpen, badge: 'ver3', description: '數位書架與活頁手帳的現代複習架構' },
+    { id: 'bookshelf', title: '數位書架與手帳書封', icon: Layers, description: '多色彩皮革書封、徽章與翻頁手帳導覽' },
+    { id: 'import', title: '考卷批次匯入與標註', icon: Crop, badge: '核心功能', description: '大考考卷多題裁切、紅筆圈記與極速審核' },
+    { id: 'mastery', title: '四維度熟悉度與錯因診斷', icon: BarChart2, description: '順、卡、不會、誤解與多維度弱點標籤' },
+    { id: 'export', title: '試卷工坊與 PDF 雙模式', icon: Printer, description: '練習卷與解析卷，高解析度 A4 列印' },
+    { id: 'prompt', title: 'AI 複習提詞工坊', icon: Sparkles, description: '搭配 Claude/ChatGPT/Gemini 的破題思維樹' },
+    { id: 'structure', title: '學科章節與單元三層管理', icon: FolderTree, description: '靈活規劃各科綱要與自訂題型模板' },
+    { id: 'mobile', title: '行動裝置與觸控筆支援', icon: Smartphone, description: '手機自適應底部 Dock 與 iPad 觸控優化' },
+    { id: 'faq', title: '常見問答集 (Q&A)', icon: QuestionIcon, description: '使用疑問、列印技巧與帳號權限解答' }
   ];
 
   const renderContent = () => {
@@ -40,414 +41,351 @@ export default function UsageGuide() {
       case 'overview':
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
               <div style={{
-                background: '#FEF3C7',
+                background: 'rgba(180, 83, 9, 0.12)',
                 border: '1.5px solid #D97706',
-                padding: '10px',
-                borderRadius: 'var(--radius-md)',
-                color: '#78350F',
+                padding: '12px',
+                borderRadius: '8px',
+                color: '#92400E',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <HelpCircle size={24} />
+                <BookOpen size={26} />
               </div>
               <div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>歡迎使用錯題本！</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>專為學生與學習者設計的數位化錯題整理與複習工具</p>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+                  歡迎來到 PobiNotes ver3 錯題手帳系統
+                </h2>
+                <p style={{ color: 'var(--binder-text-muted)', fontSize: '0.92rem', margin: '4px 0 0 0' }}>
+                  結合實體手帳質感與科學化錯題診斷的現代學習工作站
+                </p>
               </div>
             </div>
 
-            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, fontSize: '0.95rem' }}>
-              在學習的過程中，「從錯誤中學習」是最有效率的進步方式。本系統旨在幫助您整理各科目的錯題，並透過自訂欄位、標籤與快速搜尋，建立最適合您步調的複習資料庫。
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.96rem' }}>
+              很多同學在整理錯題時，往往流於「剪下貼上」或「拍照存檔」，但真正大考前卻沒有時間重新作答。
+              PobiNotes ver3 的核心精神在於打造**「收集 ➔ 標記 ➔ 診斷 ➔ 重練 ➔ 攻克」**的高效閉環：
+              讓每一道錯題都有獨立的知識脈絡，隨時能一鍵生成專屬無答案練習卷重新檢驗。
             </p>
 
             <div style={{
-              background: 'var(--glass-highlight)',
+              background: 'var(--bg-secondary)',
               border: '1px solid var(--glass-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '20px',
-              marginTop: '10px'
+              borderRadius: '8px',
+              padding: '22px'
             }}>
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)' }}>
-                <Info size={18} /> 快速上手四步驟：
+              <h3 style={{ fontSize: '1.12rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--pobi-blue)' }}>
+                <Compass size={20} /> 核心複習五步驟：
               </h3>
-              <ol style={{ paddingLeft: '20px', color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '0.92rem' }}>
-                <li style={{ marginBottom: '8px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>建立科目與章節</strong>：在左側側邊欄規劃您的學習大綱（如：數學 - 第一章 函數）。
+              <ol style={{ paddingLeft: '22px', color: 'var(--binder-text-body)', lineHeight: 1.85, fontSize: '0.94rem', margin: 0 }}>
+                <li style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--binder-text-title)' }}>放置學科手帳</strong>：在「我的數位書架」中挑選藍、綠、紅、橘、粉、棕等精裝書封，建立國文、英文、數學、自然、社會等科目。
                 </li>
-                <li style={{ marginBottom: '8px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>設計自訂模板</strong>：針對不同的學科特性（如：英文單字、數學計算題）規劃輸入欄位。
+                <li style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--binder-text-title)' }}>考卷批次快速匯入</strong>：使用 AI 考卷批次匯入，上傳大考整張試卷或相片，即時用紅筆圈記題目、螢光筆標示關鍵字，一鍵收錄。
                 </li>
-                <li style={{ marginBottom: '8px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>整理您的錯題</strong>：填寫題目敘述、上傳題目或手寫解析照片，並為其標註難度。
+                <li style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--binder-text-title)' }}>標記四維度熟悉度</strong>：依據真實答題體感標記「順、卡、不會、誤解」，並附上粗心、觀念、審題等錯因標籤。
+                </li>
+                <li style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--binder-text-title)' }}>試卷工坊重新演練</strong>：考前勾選目標章節，切換「練習卷模式」隱藏答案匯出 A4 試卷，給自己一次真正的無提示重測。
                 </li>
                 <li>
-                  <strong style={{ color: 'var(--text-primary)' }}>篩選與匯出複習</strong>：利用篩選系統找出特定難度的錯題，批次匯出，重新列印練習！
+                  <strong style={{ color: 'var(--binder-text-title)' }}>AI 提詞深入剖析</strong>：遇到想不通的難題，使用 AI 提詞工坊產出學測自然/數學破題思維樹，引導 AI 逐步啟發盲點。
                 </li>
               </ol>
             </div>
+          </div>
+        );
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginTop: '16px' }}>
-              <div className="glass-card" style={{ padding: '16px', cursor: 'pointer' }} onClick={() => setActiveTab('subjects')}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.95rem' }}>
-                  <Folder size={18} style={{ color: 'var(--accent-primary)' }} /> 科目管理
+      case 'bookshelf':
+        return (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              數位書架與多學科手帳
+            </h2>
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              書架首頁採用溫潤質感書架陳列，每一本學科手帳都象徵一門獨立的知識庫。
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+              <div className="glass-card" style={{ padding: '18px' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--pobi-blue)', marginBottom: '8px' }}>
+                  八款精裝皮革書封色彩
                 </h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                  學習如何使用側邊欄自由新增、修改與刪除您的學科與章節目錄。
+                <p style={{ fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.6 }}>
+                  提供藏青深藍、翡翠墨綠、經典緋紅、暖陽蜜橘、櫻花柔粉、復古牛皮棕、紫檀原木褐、石墨曜岩黑共 8 種色彩。每一種都具備皮革紋理光澤與細緻燙金。
                 </p>
               </div>
-              <div className="glass-card" style={{ padding: '16px', cursor: 'pointer' }} onClick={() => setActiveTab('templates')}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.95rem' }}>
-                  <Settings size={18} style={{ color: 'var(--accent-primary)' }} /> 模板設計
+
+              <div className="glass-card" style={{ padding: '18px' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--pobi-blue)', marginBottom: '8px' }}>
+                  專屬學科徽章與翻頁體驗
                 </h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                  不同學科需要不同的欄位。學習如何新增文字、圖片與單選選項欄位。
-                </p>
-              </div>
-              <div className="glass-card" style={{ padding: '16px', cursor: 'pointer' }} onClick={() => setActiveTab('exporting')}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.95rem' }}>
-                  <FileText size={18} style={{ color: 'var(--accent-primary)' }} /> 匯出複習本
-                </h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                  一次勾選多個錯題，隱藏答案與解析快速列印成乾淨的實體考卷。
+                <p style={{ fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.6 }}>
+                  支援自然科學、數學計算、語言文學、歷史社會等 10 款徽章標誌。點選書封即可「翻開手帳」，進入左右對開的活頁筆記本模式。
                 </p>
               </div>
             </div>
+
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', padding: '16px', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '0.96rem', color: 'var(--binder-text-title)' }}>
+                手帳翻開後的內頁功能：
+              </h4>
+              <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.8 }}>
+                <li><strong>左頁章節單元導航</strong>：以活頁色標紙籤呈現科目底下的章節與單元，附帶各章節題目數與熟悉度圓點。</li>
+                <li><strong>右頁核心工具與進度</strong>：快速開啟新增錯題、試卷工坊列印、章節新增，以及各科目精熟掌握度的即時百分比進度條。</li>
+              </ul>
+            </div>
           </div>
         );
 
-      case 'subjects':
+      case 'import':
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <Folder size={24} /> 科目與章節管理
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              大考考卷批次匯入與圖片標註
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              此系統採用「科目 &gt; 章節 &gt; 錯題」的三層式結構。您可以透過側邊欄隨時維護您的學科分類：
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              學校模擬考或歷屆學測試卷往往篇幅冗長，傳統上一題題拍照裁剪極度耗時。PobiNotes ver3 內建專門為大考設計的批次匯入工坊：
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>建立學科</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    點擊側邊欄「學科分類」標題右側的 <strong>+</strong> 按鈕，在出現的輸入框中鍵入您的學科名稱（例如：數學、化學、英文），然後點擊「新增」或按確認鍵即可。
-                  </span>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="glass-card" style={{ padding: '16px 20px' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>1. 拖曳批量上傳</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
+                  一次選取整份考卷的正反面、多張照片或螢幕截圖，系統自動載入候選清單。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>重命名或刪除學科</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    將滑鼠懸停於學科名稱上，右側將會顯示編輯（鉛筆）與刪除（垃圾桶）圖示。點擊編輯圖示可重新命名；點擊刪除圖示可將科目移除。
-                    <span style={{ color: 'var(--danger)', display: 'block', marginTop: '4px', fontWeight: 500 }}>
-                      注意：刪除學科時可選擇保留底下錯題（轉為未分類）或至分類管理重新指派。
-                    </span>
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '16px 20px' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>2. 內建高畫質標註畫布 (Annotator)</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
+                  支援**紅筆圈記錯誤處**、**黃色螢光筆標記題目關鍵條件**、90 度旋轉與自由裁切，並自動壓縮最佳化圖片尺寸，免除開啟第三方修圖軟體。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>章節管理</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    展開學科後，點擊學科名稱最右側的 <strong>+</strong> 圖示，即可在該學科下新增一個子章節（例如：第二章 三角函數）。章節同樣支援點選右側的鉛筆圖示重新命名，或垃圾桶圖示刪除（會一併刪除該章節下的錯題）。
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '16px 20px' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>3. 連續極速審核入庫</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
+                  標註完成後，直接在同一介面接續指定章節、輸入詳解與熟悉度，省去反覆開關對話框的繁瑣操作。
+                </p>
               </div>
             </div>
           </div>
         );
 
-      case 'templates':
+      case 'mastery':
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <Settings size={24} /> 自訂模板設計
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              四維度熟悉度與錯因診斷體系
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              不同科目的錯題記錄需求大不相同。利用自訂模板，您可以自主設計適合各學科的錄入格式。
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              很多錯題本僅記錄「對或錯」，無法反映學習深度的差異。本系統嚴格標準化為四大核心熟悉度指標：
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>建立新模板</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    點擊左側側邊欄的「自訂模板管理」按鈕，進入模板編輯畫面後點擊「新增模板」。您可以為模板設定一個易懂的名稱（如「理科計算模板」或「文科單字模板」）。
-                  </span>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+              <div style={{ padding: '16px', borderRadius: '8px', border: '1px solid #10B981', background: 'rgba(16, 185, 129, 0.08)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#047857', fontWeight: 700 }}>「順」 (精熟掌握)</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-body)' }}>
+                  題目能迅速看透本質，運算無礙，完全掌握解題核心步驟。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>規劃題目與答案欄位</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    模板分為「題目欄位」與「答案欄位」兩大區塊。您可以點擊「新增欄位」來添加以下不同類型的元件：
-                    <ul style={{ paddingLeft: '20px', marginTop: '6px', listStyleType: 'circle' }}>
-                      <li><strong>文字輸入</strong>：適合輸入短文字（如：來源出處、題號）。</li>
-                      <li><strong>長文字輸入</strong>：適合填寫大段敘述（如：題目原文、程式碼、多步驟解析）。</li>
-                      <li><strong>上傳圖片</strong>：適合存放題目截圖或手繪公式照片。</li>
-                      <li><strong>選擇題選項</strong>：可建立選單或標籤（如：錯因分析、關聯知識點），並可為各個選項標示不同顏色（如紅、黃、綠、藍）。</li>
-                    </ul>
-                  </span>
-                </div>
+              <div style={{ padding: '16px', borderRadius: '8px', border: '1px solid #F59E0B', background: 'rgba(245, 158, 11, 0.08)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#B45309', fontWeight: 700 }}>「卡」 (過程卡頓)</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-body)' }}>
+                  觀念有印象，但某個公式卡住、輔助線想不出來或計算過程受挫。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>調整順序與儲存</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    您可以利用每個欄位旁的 <strong>↑</strong> 與 <strong>↓</strong> 按鈕來調整其顯示順序，或點擊垃圾桶按鈕刪除該欄位。設計完成後，<strong>請務必點擊右上角的「儲存模板」按鈕</strong>以套用變更。
-                  </span>
-                </div>
+              <div style={{ padding: '16px', borderRadius: '8px', border: '1px solid #EF4444', background: 'rgba(239, 68, 68, 0.08)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#B91C1C', fontWeight: 700 }}>「不會」 (完全生疏)</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-body)' }}>
+                  題目毫無頭緒或題型未曾見過，需要重新回顧課本基礎定義。
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', borderRadius: '8px', border: '1px solid #DC2626', background: 'rgba(220, 38, 38, 0.08)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#991B1B', fontWeight: 700 }}>「誤解」 (審題失誤)</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-body)' }}>
+                  漏看題目限制條件（如正整數、非負實數等）或將物理情境混淆。
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '10px' }}>
+              <h3 style={{ fontSize: '1.05rem', color: 'var(--binder-text-title)', marginBottom: '8px' }}>
+                獨立多維度錯誤原因標籤：
+              </h3>
+              <p style={{ fontSize: '0.92rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                系統提供「計算粗心」、「觀念模糊」、「審題不清」、「題型生疏」等標籤，亦可於分類管理中為個別學科新增專屬標籤（例如英文的「字彙量不足」、數學的「公式代入錯誤」）。
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'export':
+        return (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              試卷工坊與雙模式 PDF 列印
+            </h2>
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              試卷工坊是 PobiNotes 的一大特色，專為需要用紙筆親手重新作答的學生設計：
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div className="glass-card" style={{ padding: '20px', borderTop: '4px solid #10B981' }}>
+                <h3 style={{ fontSize: '1.1rem', color: '#047857', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Printer size={18} /> 練習卷模式 (無答案空白重練)
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.7 }}>
+                  自動遮蔽答案與解析，僅保留題幹文字與題目圖檔，並在每一題下方自動產生專業的手寫作答留白方框，提供最真實的考試情境。
+                </p>
+              </div>
+
+              <div className="glass-card" style={{ padding: '20px', borderTop: '4px solid #3B82F6' }}>
+                <h3 style={{ fontSize: '1.1rem', color: '#1D4ED8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={18} /> 解析卷模式 (完整詳解複習)
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.7 }}>
+                  完整顯示詳細文字解析、板書圖解、熟悉度狀態與錯誤原因標籤，適合在練習後比對訂正或隨身攜帶翻閱。
+                </p>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', padding: '16px 20px', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)' }}>列印小技巧：</h4>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                點選右上角的「立即列印 / 另存為 PDF」時，請確保瀏覽器列印選項中的**「背景圖形」**已打勾，即可產出色彩飽和、字體清晰的高解析度 A4 文件。
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'prompt':
+        return (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              AI 複習提詞工坊
+            </h2>
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              直接將題目丟給 AI 往往只會得到生硬的答案，無法真正幫助吸收。本系統內建針對高中大考研發的專利級提示詞架構：
+            </p>
+
+            <div className="glass-card" style={{ padding: '20px' }}>
+              <h3 style={{ fontSize: '1.05rem', color: 'var(--pobi-blue)', marginBottom: '10px' }}>
+                學測自然與數學：思維樹思考架構 Prompt
+              </h3>
+              <p style={{ fontSize: '0.92rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
+                提詞會引導 AI 扮演親切的頂尖名師，遵循「核心觀念提取 ➔ 題目盲點破譯 ➔ 思考分岔樹 ➔ 類題演練」四層架構逐步啟發，絕不直接爆答案，引導同學自己想通！
+              </p>
+              <div style={{ marginTop: '12px', fontSize: '0.88rem', color: 'var(--binder-text-muted)' }}>
+                支援一鍵複製純代碼，可直接貼至 Claude 3.7 / ChatGPT 4o / Google Gemini 等對話視窗中使用。
               </div>
             </div>
           </div>
         );
 
-      case 'mistakes':
+      case 'structure':
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <PlusCircle size={24} /> 錯題新增與圖片上傳
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              學科、章節與單元三層架構
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              當您規劃好學科章節與模板後，即可開始記錄錯題：
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              清晰的目錄架構是檢視學習死角的最有效工具：
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>新增錯題視窗</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    點選進入任何一個「章節」，點擊頁面右上角的「新增錯題」按鈕，系統會彈出一個錯題編輯視窗。
-                  </span>
-                </div>
+            <ul style={{ paddingLeft: '22px', fontSize: '0.94rem', color: 'var(--binder-text-body)', lineHeight: 1.85 }}>
+              <li><strong>第一層：學科手帳 (Subject)</strong>：如「高中數學甲」、「學測自然科」、「多益核心單字」。</li>
+              <li><strong>第二層：章節 (Chapter)</strong>：如「第一單元 多項式函數」、「第二單元 空間向量」。</li>
+              <li><strong>第三層：細部單元 (Unit)</strong>：如「1-1 餘式定理綜合變形」、「1-2 根與係數關係」。</li>
+            </ul>
+
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>自訂輸入模板 (Templates)：</h4>
+              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
+                可為不同學科設計獨一無二的欄位（例如：為物理增加「受力分析圖」與「守恆定律依據」，為英文增加「核心生詞」與「搭配詞例句」）。
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'mobile':
+        return (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              行動裝置與觸控筆深度支援
+            </h2>
+            <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
+              為了讓同學們在公車上用手機背題、在書桌前用 iPad 搭配觸控筆做筆記，系統全面提供自適應介面：
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+              <div className="glass-card" style={{ padding: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>手機底部 Dock 自適應導覽</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
+                  在小螢幕上側邊欄會自動收斂至螢幕底部，單手即可切換「書架」、「錯題」、「試卷」、「總覽」四大視圖。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>選擇模板與基本資訊</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    輸入題目名稱，並在下拉選單中選擇要套用的模板。系統會隨即動態產生您在該模板中設計的全部欄位。同時，請選擇此錯題的難度等級：<strong>順、卡、不會、誤解</strong>。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>填寫內容與圖片上傳</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    依序填寫各欄位。對於圖片欄位，點擊「選擇圖片」或直接將圖檔拖入上傳區。
-                    <span style={{ color: 'var(--success)', display: 'block', marginTop: '4px', fontWeight: 500 }}>
-                      貼心功能：系統在前端會對上傳的圖片進行自動壓縮處理。這能大幅降低網路流量並加速頁面讀取速度，同時保持圖片的清晰度。
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>儲存與預覽</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    填寫完題目與解析內容後，點擊「儲存」即可完成登錄。在錯題清單中點選錯題，即可展開預覽完整的題目與解答。
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>iPad / Apple Pencil 手寫圈選</h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
+                  圖片標註器具備原生的粗細感壓與多點觸控支援，在平板上可以像真筆一樣在題幹上畫線與標註重點。
+                </p>
               </div>
             </div>
           </div>
         );
 
-      case 'filtering':
+      case 'faq':
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <Filter size={24} /> 題目篩選系統
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
+              常見問題集 (Q&A)
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              隨著錯題累積增加，如何快速找到需要複習的特定題目變得至關重要。系統提供強大的多維度篩選系統：
-            </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>關鍵字搜尋</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    在錯題清單頂部的搜尋欄中鍵入任意字詞，系統將會即時比對錯題標題以及各個自訂文字欄位的內容，篩選出符合的項目。
-                  </span>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="glass-card" style={{ padding: '18px 22px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
+                  Q1：為什麼要取消訪客模式？
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                  答：訪客模式容易導致同部裝置上不同同學的錯題與進度互相混淆。取消訪客模式後，每位同學都擁有完全獨立且加密的專屬知識資料庫，確保學習隱私。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>日期範圍篩選</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    點擊搜尋欄右側的「日期篩選」展開面板，您可以設定「開始日期」與「結束日期」，只顯示該時間區段內所新增的錯題。這非常適合用來進行「週複習」或「月考前複習」。
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '18px 22px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
+                  Q2：列印試卷時，如何把背景米黃紙質還原成乾淨白底？
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                  答：試卷工坊內建專業的列印樣式（Print Stylesheet），只要按下列印，系統會自動將紙質替換為純白底色，並關閉側邊欄與操作按鈕，節省印表機墨水。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>難度核取方塊交叉篩選</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    搜尋區下方提供四個難度標籤核取方塊：<strong>順、卡、不會、誤解</strong>。您可以同時勾選多個難度。例如：同時勾選「不會」與「誤解」，系統便會為您篩選出這兩個難度級別的錯題，方便集中突破。
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'exporting':
-        return (
-          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <FileText size={24} /> 匯出
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              本系統支援將選定的錯題批量匯出，供您列印成紙本重新練習，或是另存於平板中進行數位複習。
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>選取要匯出的錯題</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    在錯題卡片的左上角，有一個核取方塊。將滑鼠移至卡片上或點選，勾選您想要匯出的一道或多道題目。
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '18px 22px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
+                  Q3：如何修改已建好手帳的書封顏色或圖示？
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                  答：前往「分類管理」頁面，找到目標科目後點選編輯，即可隨時更換藍、綠、紅、橘、粉、棕等書封色彩與代表徽章。
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>進入匯出預覽頁面</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    選取錯題後，畫面右下角會浮現一個帶有 <strong>匯出所選（數量）</strong> 的懸浮按鈕。點擊該按鈕即可進入專屬的匯出排版預覽頁面。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>隱藏解析與下載</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    在匯出頁面頂部，您可以點擊勾選 <strong>隱藏答案與解析</strong>。此時，畫面上所有的答案文字與解析圖片皆會隱藏，方便您產出一份乾淨的「空白練習卷」。點擊「列印 / 匯出」即可呼叫瀏覽器列印視窗，將目標選擇為「另存」儲存。
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'feedback':
-        return (
-          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <MessageSquare size={24} /> 意見與評價回饋
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              我們非常重視您的使用體驗，並持續致力於使系統變得更好。
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>開啟回饋視窗</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    在畫面最頂端的導覽列中，您可以找到一個標示著 <strong>意見回饋</strong> 的按鈕。點擊它即可彈出回饋填寫視窗。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>星級評分與留言</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    您可點選 1 至 5 顆星來對我們的應用程式進行評分，並在下方的文字方塊中留下您具體的優缺點意見、使用困擾或期望新增的功能。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>送出回饋</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    點擊「送出回饋」後，您的評價將會安全地儲存至伺服器中，並能由管理員在後台統一查閱，做為系統升級的寶貴參考。
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'admin':
-        return (
-          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="title-gradient">
-              <Shield size={24} /> 管理員系統
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-              本系統內建管理員面板，以協助進行基本的系統維護與使用者管理：
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>單一管理員註冊機制</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    系統為了防範管理員帳號被濫用或惡意註冊，採取<strong>單一管理員鎖定原則</strong>。
-                    當系統資料庫中還沒有任何管理員時，首個在註冊頁面勾選「註冊為管理員」的使用者會成功升級為管理員。此後，<strong>管理員通道將自動關閉</strong>，任何人若再次嘗試以管理員身分註冊將會被系統拒絕。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>進入管理員面板</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    若您登入的帳號具有管理員身份（具備管理員權限），頂部導覽列將會自動出現 <strong>管理員面板</strong> 按鈕。點擊後即可檢視後台管理介面。
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}><CheckCircle2 size={18} /></div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>用戶與意見回饋管理</strong>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                    管理員可以在面板中進行兩大維護工作：
-                    <ul style={{ paddingLeft: '20px', marginTop: '6px', listStyleType: 'circle' }}>
-                      <li><strong>用戶管理</strong>：列出所有已註冊的用戶與其註冊時間，管理員可針對違規帳號點擊「刪除」以強制清除帳號。</li>
-                      <li><strong>回饋管理</strong>：集中檢視所有使用者提交的評分與建議留言，協助追蹤系統問題。</li>
-                    </ul>
-                  </span>
-                </div>
+              <div className="glass-card" style={{ padding: '18px 22px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--binder-text-title)', fontSize: '1rem' }}>
+                  Q4：管理員帳號有什麼特殊權限？
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)', lineHeight: 1.7 }}>
+                  答：管理員（如 jimmy）登入後可在左側選單進入「控制台」，檢視全站註冊用戶、查看各用戶錯題總數、一鍵清理特定測試錯題以及管理用戶意見回饋。
+                </p>
               </div>
             </div>
           </div>
@@ -459,99 +397,68 @@ export default function UsageGuide() {
   };
 
   return (
-    <div style={{
-      flex: 1,
-      padding: '32px',
-      overflowY: 'auto',
-      height: 'calc(100vh - 64px)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '24px',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      width: '100%'
-    }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <span style={{ 
-          color: 'var(--accent-primary)', 
-          fontSize: '0.8rem', 
-          fontWeight: 700, 
-          textTransform: 'uppercase', 
-          letterSpacing: '0.1em' 
-        }}>
-          說明中心
-        </span>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700 }} className="title-gradient">使用說明與教學手冊</h1>
+    <div className="animate-fade-in" style={{ maxWidth: '1180px', margin: '0 auto', width: '100%' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--binder-text-title)' }}>
+          系統使用導引與功能指南
+        </h1>
+        <p style={{ color: 'var(--binder-text-muted)', margin: 0, fontSize: '0.94rem' }}>
+          掌握 PobiNotes ver3 實體手帳錯題本、大考批次裁切、四維度熟悉度與試卷工坊的完整操作指南
+        </p>
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-        {/* Left/Top Navigation Tabs */}
-        <div style={{
-          flex: '1 1 280px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          alignSelf: 'flex-start'
-        }}>
+      {/* Main Layout Grid */}
+      <div className="guide-layout-grid" style={{ display: 'grid', gap: '20px', alignItems: 'start' }}>
+        {/* Left Side Navigation Menu */}
+        <div className="glass-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {sections.map(section => {
-            const IconComponent = section.icon;
+            const Icon = section.icon;
             const isActive = activeTab === section.id;
             return (
               <button
                 key={section.id}
+                type="button"
                 onClick={() => setActiveTab(section.id)}
-                className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
                 style={{
-                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '14px 18px',
+                  padding: '11px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: isActive ? 'var(--glass-highlight)' : 'transparent',
+                  color: isActive ? 'var(--pobi-blue)' : 'var(--binder-text-body)',
+                  fontWeight: isActive ? 600 : 500,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
                   textAlign: 'left',
-                  borderRadius: 'var(--radius-md)',
-                  background: isActive ? '#FDE68A' : 'var(--glass-bg)',
-                  border: isActive ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                  color: isActive ? '#1C1917' : 'var(--text-secondary)',
-                  boxShadow: isActive ? '0 2px 8px rgba(217, 119, 6, 0.2)' : 'none'
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                  <IconComponent size={18} style={{ flexShrink: 0, color: isActive ? '#78350F' : 'var(--accent-primary)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
-                    <span style={{ 
-                      fontWeight: isActive ? 700 : 600, 
-                      fontSize: '0.92rem', 
-                      color: isActive ? '#1C1917' : 'var(--text-primary)',
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
-                      overflow: 'hidden',
-                      width: '100%'
-                    }}>
-                      {section.title}
-                    </span>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Icon size={18} style={{ color: isActive ? 'var(--pobi-blue)' : 'var(--binder-text-muted)' }} />
+                  <span>{section.title}</span>
                 </div>
-                <ChevronRight size={16} style={{ 
-                  flexShrink: 0, 
-                  opacity: isActive ? 1 : 0.4,
-                  color: isActive ? '#78350F' : 'currentColor',
-                  transform: isActive ? 'translateX(2px)' : 'none',
-                  transition: 'transform 0.2s'
-                }} />
+                {section.badge && (
+                  <span style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(217, 119, 6, 0.15)',
+                    color: '#B45309',
+                    fontWeight: 700
+                  }}>
+                    {section.badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Right Content Area */}
-        <div className="glass" style={{
-          flex: '9 9 500px',
-          padding: '32px',
-          borderRadius: 'var(--radius-lg)',
-          background: 'var(--glass-bg)',
-          border: '1px solid var(--glass-border)',
-          boxShadow: 'var(--shadow-xl)',
-          minHeight: '450px'
-        }}>
+        {/* Right Side Content Stage */}
+        <div className="glass-card" style={{ padding: '28px 32px', minHeight: '560px' }}>
           {renderContent()}
         </div>
       </div>

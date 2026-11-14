@@ -69,6 +69,19 @@ export default function AdminPanel() {
     }
   };
 
+  const handleClearMistakes = async (userId?: string, username?: string) => {
+    const targetName = username ? `用戶「${username}」的` : '目前帳號的全部';
+    if (!confirm(`確定要清空${targetName}錯題記錄嗎？此操作將清除所有錯題資料！`)) return;
+    try {
+      const endpoint = userId ? `/api/mistakes?all=true&userId=${userId}` : '/api/mistakes?all=true';
+      await apiRequest(endpoint, { method: 'DELETE' });
+      alert(`已成功清空${targetName}錯題記錄！頁面將重新載入以更新數據。`);
+      window.location.reload();
+    } catch (e: any) {
+      alert(e.message || '清空失敗');
+    }
+  };
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -174,15 +187,28 @@ export default function AdminPanel() {
                     </td>
                     <td style={tdStyle}>{formatDate(u.created_at)}</td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
-                      {!u.is_admin && (
+                      <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
                         <button
-                          className="btn btn-danger"
-                          style={{ padding: '4px 12px', fontSize: '0.8rem' }}
-                          onClick={() => handleDeleteUser(u.id, u.username)}
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.8rem', color: 'var(--warning)' }}
+                          onClick={() => handleClearMistakes(u.id, u.username)}
+                          title="清空此用戶的全部錯題"
                         >
-                          <Trash2 size={14} /> 刪除
+                          <Trash2 size={13} /> 清空錯題
                         </button>
-                      )}
+                        {!u.is_admin && (
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                            onClick={() => handleDeleteUser(u.id, u.username)}
+                            title="刪除用戶帳號"
+                          >
+                            <Trash2 size={13} /> 刪除用戶
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
