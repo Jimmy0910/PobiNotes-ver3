@@ -17,7 +17,7 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
   
   let user = null;
   
-  // Parse Cookie header
+  // Parse Cookie header or Authorization Bearer header
   const cookieHeader = request.headers.get('Cookie') || '';
   const cookies = Object.fromEntries(
     cookieHeader.split(';').map(c => {
@@ -26,7 +26,9 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
     })
   );
   
-  const token = cookies['authToken'];
+  const authHeader = request.headers.get('Authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const token = cookies['authToken'] || bearerToken;
   
   if (token) {
     const payload = await verifyJWT(token, jwtSecret);

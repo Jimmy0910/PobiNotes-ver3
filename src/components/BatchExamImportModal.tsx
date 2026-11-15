@@ -24,8 +24,7 @@ import {
   ArrowDown,
   Plus,
   Trash2,
-  RefreshCw,
-  Layers
+  RefreshCw
 } from 'lucide-react';
 
 interface BatchExamImportModalProps {
@@ -152,7 +151,7 @@ export default function BatchExamImportModal({
   onRefreshCategories,
   onBatchImportComplete,
   onOpenZoomedImage,
-  initialStage = 'import',
+  initialStage = 'prompt',
   unreviewedMistakes = []
 }: BatchExamImportModalProps) {
   const [activeTab, setActiveTab] = useState<'prompt' | 'import' | 'review' | 'completed'>(initialStage);
@@ -160,31 +159,183 @@ export default function BatchExamImportModal({
   // Sync tab with initialStage when modal is reopened
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialStage);
+      setActiveTab(initialStage === 'review' ? 'review' : 'prompt');
     }
   }, [isOpen, initialStage]);
 
-  // Step 1: Prompt Generator State (Supports 2 Prompt Modes)
-  const [promptMode, setPromptMode] = useState<'auto' | 'target'>('auto');
+  // Auto-clear toggle for Step 1 & Step 2 after completing a batch
+  const [autoClearAfterBatch, setAutoClearAfterBatch] = useState<boolean>(true);
+
+  // Step 1: Multi-Select Subject & Chapter Scope State
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedChaptersBySubject, setSelectedChaptersBySubject] = useState<Record<string, string[]>>({});
+  const [customScopePool, setCustomScopePool] = useState<Array<{ subjectName: string; chapters: string[] }>>([]);
+  const [customSubjInput, setCustomSubjInput] = useState<string>('');
+  const [customChapInput, setCustomChapInput] = useState<string>('');
+  const [scopeInitialized, setScopeInitialized] = useState<boolean>(false);
+
+  // Step 2 quick batch override fields (synced from Step 1 selection)
   const [targetSubjectName, setTargetSubjectName] = useState<string>(() => categories.subjects[0]?.name || '');
   const [targetChapterName, setTargetChapterName] = useState<string>('');
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
-  // Keep default targetSubjectName synced if empty when subjects load
+  // Combined Subject & Chapter Pool (Database Categories + User Custom Scope Additions)
+  const combinedScopePool = useMemo(() => {
+    const map = new Map<string, string[]>();
+    categories.subjects.forEach(s => {
+      const chaps = categories.chapters
+        .filter(c => c.subject_id === s.id || c.parent_id === s.id)
+        .map(c => c.name);
+      map.set(s.name, chaps);
+    });
+    customScopePool.forEach(custom => {
+      const existing = map.get(custom.subjectName) || [];
+      const merged = Array.from(new Set([...existing, ...custom.chapters]));
+      map.set(custom.subjectName, merged);
+    });
+    return Array.from(map.entries()).map(([subjectName, chapters]) => ({
+      subjectName,
+      chapters
+    }));
+  }, [categories.subjects, categories.chapters, customScopePool]);
+
+  // Initialize multi-select scope when categories first load
   useEffect(() => {
-    if (!targetSubjectName && categories.subjects.length > 0) {
+    if (!scopeInitialized && combinedScopePool.length > 0) {
+      const allSubjs = combinedScopePool.map(item => item.subjectName);
+      const chapMap: Record<string, string[]> = {};
+      combinedScopePool.forEach(item => {
+        chapMap[item.subjectName] = [...item.chapters];
+      });
+      setSelectedSubjects(allSubjs);
+      setSelectedChaptersBySubject(chapMap);
+      setScopeInitialized(true);
+    }
+  }, [combinedScopePool, scopeInitialized]);
+
+  // Keep targetSubjectName / targetChapterName synced with first selected subject/chapter
+  useEffect(() => {
+    if (selectedSubjects.length > 0) {
+      const firstSubj = selectedSubjects[0];
+      setTargetSubjectName(firstSubj);
+      const chaps = selectedChaptersBySubject[firstSubj] || [];
+      if (chaps.length > 0) {
+        setTargetChapterName(chaps[0]);
+      }
+    } else if (!targetSubjectName && categories.subjects.length > 0) {
       setTargetSubjectName(categories.subjects[0].name);
     }
-  }, [categories.subjects, targetSubjectName]);
+  }, [selectedSubjects, selectedChaptersBySubject, categories.subjects, targetSubjectName]);
 
-  // Chapters belonging to currently selected targetSubjectName
-  const targetSubjectChapters = useMemo(() => {
-    const matchedSubj = categories.subjects.find(
-      s => s.name.trim().toLowerCase() === targetSubjectName.trim().toLowerCase()
-    );
-    if (!matchedSubj) return [];
-    return categories.chapters.filter(c => c.subject_id === matchedSubj.id || c.parent_id === matchedSubj.id);
-  }, [categories.subjects, categories.chapters, targetSubjectName]);
+  // Multi-select helpers for Step 1
+  const handleSelectAllScope = () => {
+    const allSubjs = combinedScopePool.map(item => item.subjectName);
+    const chapMap: Record<string, string[]> = {};
+    combinedScopePool.forEach(item => {
+      chapMap[item.subjectName] = [...item.chapters];
+    });
+    setSelectedSubjects(allSubjs);
+    setSelectedChaptersBySubject(chapMap);
+  };
+
+  const handleClearStep1Scope = () => {
+    setSelectedSubjects([]);
+    setSelectedChaptersBySubject({});
+    setCustomSubjInput('');
+    setCustomChapInput('');
+  };
+
+  const handleToggleSubjectScope = (subjName: string) => {
+    const poolItem = combinedScopePool.find(x => x.subjectName === subjName);
+    const allChaps = poolItem ? poolItem.chapters : [];
+    const isCurrentlySelected = selectedSubjects.includes(subjName);
+    if (isCurrentlySelected) {
+      setSelectedSubjects(prev => prev.filter(s => s !== subjName));
+      setSelectedChaptersBySubject(prev => {
+        const copy = { ...prev };
+        delete copy[subjName];
+        return copy;
+      });
+    } else {
+      setSelectedSubjects(prev => [...prev, subjName]);
+      setSelectedChaptersBySubject(prev => ({
+        ...prev,
+        [subjName]: [...allChaps]
+      }));
+    }
+  };
+
+  const handleToggleChapterScope = (subjName: string, chapName: string) => {
+    const currentChaps = selectedChaptersBySubject[subjName] || [];
+    const exists = currentChaps.includes(chapName);
+    const nextChaps = exists
+      ? currentChaps.filter(c => c !== chapName)
+      : [...currentChaps, chapName];
+
+    setSelectedChaptersBySubject(prev => ({
+      ...prev,
+      [subjName]: nextChaps
+    }));
+
+    if (!selectedSubjects.includes(subjName) && nextChaps.length > 0) {
+      setSelectedSubjects(prev => [...prev, subjName]);
+    }
+  };
+
+  const handleSelectAllChaptersOfSubject = (subjName: string, selectAll: boolean) => {
+    const poolItem = combinedScopePool.find(x => x.subjectName === subjName);
+    const allChaps = poolItem ? poolItem.chapters : [];
+    if (selectAll) {
+      if (!selectedSubjects.includes(subjName)) {
+        setSelectedSubjects(prev => [...prev, subjName]);
+      }
+      setSelectedChaptersBySubject(prev => ({
+        ...prev,
+        [subjName]: [...allChaps]
+      }));
+    } else {
+      setSelectedChaptersBySubject(prev => ({
+        ...prev,
+        [subjName]: []
+      }));
+    }
+  };
+
+  const handleAddCustomScopeItem = () => {
+    const sName = customSubjInput.trim();
+    const cName = customChapInput.trim();
+    if (!sName) {
+      alert('請先輸入科目名稱');
+      return;
+    }
+    setCustomScopePool(prev => {
+      const existingIdx = prev.findIndex(x => x.subjectName === sName);
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        const nextChaps = cName && !copy[existingIdx].chapters.includes(cName)
+          ? [...copy[existingIdx].chapters, cName]
+          : copy[existingIdx].chapters;
+        copy[existingIdx] = { subjectName: sName, chapters: nextChaps };
+        return copy;
+      }
+      return [...prev, { subjectName: sName, chapters: cName ? [cName] : [] }];
+    });
+
+    if (!selectedSubjects.includes(sName)) {
+      setSelectedSubjects(prev => [...prev, sName]);
+    }
+    if (cName) {
+      setSelectedChaptersBySubject(prev => {
+        const cur = prev[sName] || [];
+        return {
+          ...prev,
+          [sName]: cur.includes(cName) ? cur : [...cur, cName]
+        };
+      });
+    }
+    setCustomSubjInput('');
+    setCustomChapInput('');
+  };
 
   // Step 2: Dropzone & Upload State
   const [questionImages, setQuestionImages] = useState<UploadedImageItem[]>([]);
@@ -194,6 +345,21 @@ export default function BatchExamImportModal({
   const [aiJsonInput, setAiJsonInput] = useState('');
   const [parseError, setParseError] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<ParsedExamQuestion[]>([]);
+
+  // Clear Step 2 helper
+  const handleClearStep2Inputs = () => {
+    setQuestionImages([]);
+    setAnswerImages([]);
+    setAiJsonInput('');
+    setParsedQuestions([]);
+    setParseError('');
+  };
+
+  // Clear both Step 1 and Step 2 after completing a batch
+  const resetStep1AndStep2AfterBatch = () => {
+    handleClearStep1Scope();
+    handleClearStep2Inputs();
+  };
 
   // Step 3: Fast Review Wizard State
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
@@ -236,72 +402,56 @@ export default function BatchExamImportModal({
     }
   }, [initialStage, unreviewedMistakes, reviewItems.length]);
 
-  // Extract subjects and chapters for prompt injection
-  const currentStructureText = useMemo(() => {
+  // Build selected scope description text for prompt injection
+  const selectedScopeStructureText = useMemo(() => {
+    if (selectedSubjects.length === 0) {
+      return '- 尚未勾選特定科目與章節範圍（請由 AI 依題目內容自動判斷合適的學科與章節名稱）';
+    }
     const lines: string[] = [];
-    categories.subjects.forEach(subj => {
-      const chaps = categories.chapters.filter(c => c.subject_id === subj.id || c.parent_id === subj.id);
+    selectedSubjects.forEach(subjName => {
+      const chaps = selectedChaptersBySubject[subjName] || [];
       if (chaps.length > 0) {
-        lines.push(`- 科目【${subj.name}】：章節包含 [${chaps.map(c => c.name).join('、')}]`);
+        lines.push(`- 科目【${subjName}】：限定／優先歸入章節 [${chaps.join('、')}]`);
       } else {
-        lines.push(`- 科目【${subj.name}】`);
+        lines.push(`- 科目【${subjName}】（不限章節，請依題目考點歸納章節名稱）`);
       }
     });
-    return lines.length > 0 ? lines.join('\n') : '- 尚未建立科目（請自由建議合適的學科與章節名稱）';
-  }, [categories]);
+    return lines.join('\n');
+  }, [selectedSubjects, selectedChaptersBySubject]);
 
-  // Generate the specialized Exam Batch Import Prompt (Mode A: Auto Categorize vs Mode B: Fixed Target Subject/Chapter)
+  // Unified Multi-Select Scope Prompt Generator
   const generatedPrompt = useMemo(() => {
-    const subjTarget = targetSubjectName.trim() || '[某科目]';
-    const chapTarget = targetChapterName.trim() || '[某章節]';
+    const isSingleSubject = selectedSubjects.length === 1;
+    const onlySubj = isSingleSubject ? selectedSubjects[0] : '';
+    const onlySubjChaps = isSingleSubject ? (selectedChaptersBySubject[onlySubj] || []) : [];
+    const isSingleTargetChapter = isSingleSubject && onlySubjChaps.length === 1;
+    const onlyChap = isSingleTargetChapter ? onlySubjChaps[0] : '';
 
-    if (promptMode === 'target') {
-      return `你是一位專業的升學考試解題分析家。我將上傳多張錯題的「題目照片」與「解析照片」。
-請幫我把這些錯題全部放在科目【${subjTarget}】的章節【${chapTarget}】底下，並完成題目與解析圖片配對及重點解析整理。
+    const exampleSubj = onlySubj || selectedSubjects[0] || '數學';
+    const exampleChap = onlyChap || (selectedChaptersBySubject[exampleSubj]?.[0]) || '多項式函數';
 
-請嚴格遵守以下指令：
-1. 固定科目與章節：
-   - 請把這些錯題全部放在【${subjTarget}】【${chapTarget}】！
-   - 每一題輸出的 "subject_name" 欄位請固定填寫 "${subjTarget}"，"chapter_name" 欄位請固定填寫 "${chapTarget}"。
-2. 題目與解析圖片配對（支援單題對應多張解析圖片）：
-   - 使用者上傳的題目照片依序編號為 1, 2, 3...，填入 "question_image_index"（整數）。
-   - 使用者上傳的解析照片依序編號為 1, 2, 3...，填入 "answer_image_indices"（整數陣列，例如 [1] 或若同一題解析跨多張圖片則填 [1, 2]）。
-3. 題目名稱與解析重點說明：
-   - "title"：提取 10 至 20 字以內的簡明核心題旨（例如：「力學能守恆與彈簧張力分析」）。
-   - "key_concept"：請根據解析照片或題目內容，整理出清晰的解答與破題關鍵步驟說明（將直接顯示於錯題本的解析文字區）。
-4. 輸出格式限制：
-   - 嚴格只回傳 JSON 陣列代碼區塊，不要輸出任何額外寒暄文字。
-
-回傳 JSON 結構範例如下：
-[
-  {
-    "index": 1,
-    "title": "題目核心觀念題旨摘要",
-    "subject_name": "${subjTarget}",
-    "chapter_name": "${chapTarget}",
-    "question_image_index": 1,
-    "answer_image_indices": [1],
-    "key_concept": "正確答案與關鍵破題步驟說明"
-  }
-]`;
-    }
+    const scopeInstruction = isSingleTargetChapter
+      ? `1. 固定單一科目與章節範圍（使用者已指定單一目標）：
+   - 請把這些錯題全部放在科目【${onlySubj}】的章節【${onlyChap}】底下！
+   - 每一題輸出的 "subject_name" 欄位請固定填寫 "${onlySubj}"，"chapter_name" 欄位請固定填寫 "${onlyChap}"。`
+      : `1. 多選科目與章節分類範圍（使用者自訂勾選範圍）：
+${selectedScopeStructureText}
+   - 請嚴格根據每道題目的考點，優先從上方使用者勾選的【科目】與【章節】範圍內挑選出最契合的 "subject_name" 與 "chapter_name"。
+   - 若某題考點不在已勾選章節中，請在已勾選的科目底下給予簡明規範的章節名稱。`;
 
     return `你是一位專業的升學考試解題分析家。我將上傳一整份考卷或多道錯題的「題目照片」與「解析照片」。
-請協助我逐題進行「題目與解析配對」（支援一題對應多張解析圖）以及「科目章節精準分類」。
+請協助我逐題進行「題目與解析配對」（支援一題對應多張解析圖片）以及「依我選定的科目與章節範圍精準分類」。
 
-目前我的錯題本中已存在的科目與章節架構如下：
-${currentStructureText}
+${scopeInstruction}
 
-請依據下列原則進行分析：
-1. 圖片配對順序（支援一個解析對應多張圖片）：
-   - 題目照片依序編號為 1, 2, 3...，請填入 "question_image_index"（例如第 1 張題目圖填 1）。
-   - 解析照片依序編號為 1, 2, 3...，請填入 "answer_image_indices"（陣列格式，例如對應第 1 張解析圖填 [1]；若該題詳解跨第 1、2 張解析圖，請填 [1, 2]）。
-2. 科目與章節對齊：
-   - 請優先配對上述現有的科目與章節（若使用者在對話中有特別指定「把這些錯題全部放在 [某科目] [某章節]」，請優先遵照使用者指定的科目與章節）。
-   - 若考卷題目的考點不屬於現有章節，請依課程標準給定簡明規範的科目與章節名稱。
-3. 題目核心題旨與解析說明：
-   - "title"：提取 10 至 20 字以內的簡要觀念核心題旨（例如：「三次多項式插值與餘式定理」）。
-   - "key_concept"：整理該題的正確答案、核心考點與破題步驟說明（將直接存入錯題本的解析說明文字）。
+2. 題目與解析圖片配對順序（支援一個解析對應多張圖片）：
+   - 使用者上傳的題目照片依序編號為 1, 2, 3...，請填入 "question_image_index"（整數，例如第 1 張題目圖填 1）。
+   - 使用者上傳的解析照片依序編號為 1, 2, 3...，請填入 "answer_image_indices"（整數陣列格式，例如對應第 1 張解析圖填 [1]；若該題詳解跨第 1、2 張解析圖，請填 [1, 2]）。
+
+3. 題目核心題旨與解析重點說明：
+   - "title"：提取 10 至 20 字以內的簡明核心題旨（例如：「力學能守恆與彈簧張力分析」）。
+   - "key_concept"：請根據解析照片或題目內容，整理出正確答案、核心考點與破題關鍵步驟說明（將直接顯示於錯題本的解析文字區）。
+
 4. 輸出格式限制：
    - 嚴格只回傳 JSON 陣列代碼區塊，不要輸出任何額外寒暄或開場白。
 
@@ -310,23 +460,29 @@ ${currentStructureText}
   {
     "index": 1,
     "title": "題目核心觀念題旨摘要",
-    "subject_name": "數學",
-    "chapter_name": "多項式函數",
+    "subject_name": "${exampleSubj}",
+    "chapter_name": "${exampleChap}",
     "question_image_index": 1,
     "answer_image_indices": [1],
     "key_concept": "正確答案與核心破題觀念說明"
   }
 ]`;
-  }, [promptMode, targetSubjectName, targetChapterName, currentStructureText]);
+  }, [selectedSubjects, selectedChaptersBySubject, selectedScopeStructureText]);
 
   // Handle Copy Prompt
-  const handleCopyPrompt = async () => {
+  const handleCopyPrompt = async (advanceToStep2 = false) => {
     try {
       await navigator.clipboard.writeText(generatedPrompt);
       setCopiedPrompt(true);
       setTimeout(() => setCopiedPrompt(false), 2000);
     } catch {
       // Fallback
+    }
+    if (advanceToStep2) {
+      if (autoClearAfterBatch) {
+        handleClearStep1Scope();
+      }
+      setActiveTab('import');
     }
   };
 
@@ -435,12 +591,15 @@ ${currentStructureText}
         const sName = (
           item.subject_name ||
           item.subject ||
-          (promptMode === 'target' && targetSubjectName ? targetSubjectName : '未分類科目')
+          targetSubjectName ||
+          selectedSubjects[0] ||
+          '未分類科目'
         ).trim();
         const cName = (
           item.chapter_name ||
           item.chapter ||
-          (promptMode === 'target' && targetChapterName ? targetChapterName : '一般章節')
+          targetChapterName ||
+          '一般章節'
         ).trim();
 
         const qIdx =
@@ -629,6 +788,9 @@ ${currentStructureText}
     setCurrentReviewIndex(0);
     setIsErrorDrawerOpen(false);
     setSelectedErrorReasons([]);
+    if (autoClearAfterBatch) {
+      resetStep1AndStep2AfterBatch();
+    }
     setActiveTab('review');
   };
 
@@ -843,6 +1005,9 @@ ${currentStructureText}
       }
 
       setSavedCount(finalItems.length);
+      if (autoClearAfterBatch) {
+        resetStep1AndStep2AfterBatch();
+      }
       if (onRefreshCategories) {
         await onRefreshCategories();
       }
@@ -933,13 +1098,38 @@ ${currentStructureText}
                 AI 考卷批次歸納與極速審核
               </h2>
               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                支援自動分類或指定章節 ➔ 自由調整順序與多張解析圖配對 ➔ 實際寫入錯題索引與手帳
+                1. 多選科目與章節範圍設計提詞 -&gt; 2. 選圖與調整順序/多圖配對 -&gt; 3. 極速審核寫入錯題本
               </p>
             </div>
           </div>
 
           {/* Workflow Tabs Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                backgroundColor: autoClearAfterBatch ? 'rgba(25, 122, 39, 0.08)' : 'rgba(180, 83, 9, 0.06)',
+                border: '1px solid var(--glass-border)',
+                fontSize: '0.76rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                cursor: 'pointer'
+              }}
+              title="勾選後，每次完成一份提詞或配對輸入後將自動清空第一、二階段設定，方便連續處理下一份考卷"
+            >
+              <input
+                type="checkbox"
+                checked={autoClearAfterBatch}
+                onChange={e => setAutoClearAfterBatch(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              完成一份後自動清空第 1、2 階段
+            </label>
+
             <div
               style={{
                 display: 'flex',
@@ -964,7 +1154,7 @@ ${currentStructureText}
                   cursor: 'pointer'
                 }}
               >
-                1. 取得提詞
+                1. 設計提詞 (多選範圍)
               </button>
               <button
                 type="button"
@@ -1027,7 +1217,7 @@ ${currentStructureText}
 
         {/* Modal Body Area */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-          {/* TAB 1: 專屬提詞產生器 (支援兩種提詞模式) */}
+          {/* TAB 1: 多選科目／章節範圍提詞設計器 */}
           {activeTab === 'prompt' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div
@@ -1038,210 +1228,264 @@ ${currentStructureText}
                   borderRadius: '10px',
                   display: 'flex',
                   alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
                   gap: '12px'
                 }}
               >
-                <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}>
-                  <HelpCircle size={20} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: '1 1 480px' }}>
+                  <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}>
+                    <HelpCircle size={20} />
+                  </div>
+                  <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    <strong>第一階段：自由多選科目／章節範圍，自動產生專屬 AI 辨識提詞</strong>
+                    <br />
+                    1. 在下方勾選本次考卷涵蓋的<strong>一個或多個科目與章節</strong>（若只勾選 1 個科目與 1 個章節，提詞會自動要求 AI 將全部錯題放入該章節；若勾選多個科目與章節，AI 會在您指定的範圍內精準分類）。
+                    <br />
+                    2. 點擊「複製提詞並前往第 2 步」，開啟外部 AI（ChatGPT、Gemini 或 Claude）上傳題目圖與解析圖並貼上提詞。
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  <strong>三步驟完成 AI 考卷批次歸納：</strong>
-                  <br />
-                  1. 選擇下方提詞模式（可讓 AI 自動判斷各題章節，或指定<strong>「把這些錯題全部放在 [某科目] [某章節]」</strong>）並複製提詞。
-                  <br />
-                  2. 開啟 ChatGPT、Gemini 或 Claude，上傳題目照片與解析照片並貼上提詞。
-                  <br />
-                  3. 複製 AI 回傳的 JSON，前往「2. 選圖與調整配對」自由調整題目順序、題目/多張解析圖配對！
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllScope}
+                    className="btn btn-secondary"
+                    style={{ padding: '5px 12px', fontSize: '0.78rem', fontWeight: 600 }}
+                  >
+                    全選所有科目與章節
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearStep1Scope}
+                    className="btn btn-secondary"
+                    style={{ padding: '5px 12px', fontSize: '0.78rem', fontWeight: 600, color: 'var(--danger)' }}
+                  >
+                    清空範圍重選
+                  </button>
                 </div>
               </div>
 
-              {/* Prompt Mode Selector */}
+              {/* Quick Custom Subject / Chapter Addition Bar */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: '12px'
+                  padding: '12px 16px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--glass-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px'
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => setPromptMode('auto')}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '10px',
-                    border: promptMode === 'auto' ? '2px solid #D97706' : '1px solid var(--glass-border)',
-                    backgroundColor: promptMode === 'auto' ? '#FEF3C7' : 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={16} /> 模式一：AI 自動判斷各題科目與章節
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    適合綜合考卷或跨章節題目，AI 會自動對齊現有科目與章節架構
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPromptMode('target')}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '10px',
-                    border: promptMode === 'target' ? '2px solid #D97706' : '1px solid var(--glass-border)',
-                    backgroundColor: promptMode === 'target' ? '#FEF3C7' : 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Layers size={16} /> 模式二：把這些錯題全部放在 [某科目] [某章節]
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    適合小考或單一講義單元，直接指定全部題目歸入同一個科目與章節
-                  </div>
-                </button>
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  新增自訂科目／章節至多選範圍：
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: '1 1 380px', justifyContent: 'flex-end' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="輸入科目 (如：物理、生物)"
+                    value={customSubjInput}
+                    onChange={e => setCustomSubjInput(e.target.value)}
+                    style={{ width: '160px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="輸入章節 (選填，如：運動&力)"
+                    value={customChapInput}
+                    onChange={e => setCustomChapInput(e.target.value)}
+                    style={{ width: '190px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomScopeItem}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 700 }}
+                  >
+                    + 加入多選範圍
+                  </button>
+                </div>
               </div>
 
-              {/* Target Subject & Chapter Picker when Mode 2 is active */}
-              {promptMode === 'target' && (
-                <div
-                  style={{
-                    padding: '16px',
-                    borderRadius: '10px',
-                    backgroundColor: 'var(--bg-secondary)',
-                    border: '1.5px solid #D97706',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px'
-                  }}
-                >
-                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    設定目標位置：「把這些錯題全部放在【{targetSubjectName || '某科目'}】【{targetChapterName || '某章節'}】」
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                        指定科目名稱（可點選下方現有科目或直接輸入）：
-                      </label>
-                      <input
-                        type="text"
-                        className="input"
-                        value={targetSubjectName}
-                        onChange={e => setTargetSubjectName(e.target.value)}
-                        placeholder="例如：物理、數學、自然"
-                        style={{ padding: '8px 12px', fontSize: '0.88rem' }}
-                      />
-                      {categories.subjects.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                          {categories.subjects.map(s => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                setTargetSubjectName(s.name);
-                                const firstChap = categories.chapters.find(
-                                  c => c.subject_id === s.id || c.parent_id === s.id
-                                );
-                                if (firstChap) setTargetChapterName(firstChap.name);
-                              }}
-                              style={{
-                                padding: '3px 10px',
-                                borderRadius: '999px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                border: targetSubjectName === s.name ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                                backgroundColor: targetSubjectName === s.name ? '#FDE68A' : '#FFFFFF',
-                                color: '#1C1917',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {s.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                        指定章節名稱（可點選現有章節或輸入新章節）：
-                      </label>
-                      <input
-                        type="text"
-                        className="input"
-                        value={targetChapterName}
-                        onChange={e => setTargetChapterName(e.target.value)}
-                        placeholder="例如：運動&力、三角函數、溶液"
-                        style={{ padding: '8px 12px', fontSize: '0.88rem' }}
-                      />
-                      {targetSubjectChapters.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                          {targetSubjectChapters.map(c => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => setTargetChapterName(c.name)}
-                              style={{
-                                padding: '3px 10px',
-                                borderRadius: '999px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                border: targetChapterName === c.name ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                                backgroundColor: targetChapterName === c.name ? '#FDE68A' : '#FFFFFF',
-                                color: '#1C1917',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {c.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {/* Multi-Select Subject & Chapter Cards Grid */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    勾選本次考卷的科目與章節範圍（已選 {selectedSubjects.length} 個科目）：
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    可點選多個科目與多個章節自由組合範圍
+                  </span>
                 </div>
-              )}
+
+                {combinedScopePool.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '18px',
+                      borderRadius: '10px',
+                      border: '1px dashed var(--glass-border)',
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    目前尚無預設科目，請使用上方輸入框新增自訂科目與章節，或直接複製下方通用提詞。
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '12px'
+                    }}
+                  >
+                    {combinedScopePool.map(({ subjectName, chapters }) => {
+                      const isSubjChecked = selectedSubjects.includes(subjectName);
+                      const checkedChaps = selectedChaptersBySubject[subjectName] || [];
+                      return (
+                        <div
+                          key={subjectName}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: isSubjChecked ? '2px solid #D97706' : '1px solid var(--glass-border)',
+                            backgroundColor: isSubjChecked ? '#FFFBEB' : '#FFFFFF',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <label
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontWeight: 700,
+                                fontSize: '0.92rem',
+                                color: '#1C1917',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSubjChecked}
+                                onChange={() => handleToggleSubjectScope(subjectName)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                              />
+                              <span>科目：{subjectName}</span>
+                            </label>
+
+                            {chapters.length > 0 && (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectAllChaptersOfSubject(subjectName, true)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 600,
+                                    color: 'var(--accent-primary)',
+                                    cursor: 'pointer',
+                                    padding: '2px 4px'
+                                  }}
+                                >
+                                  全選章節
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectAllChaptersOfSubject(subjectName, false)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 600,
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    padding: '2px 4px'
+                                  }}
+                                >
+                                  取消章節
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {chapters.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {chapters.map(chapName => {
+                                const isChapSelected = checkedChaps.includes(chapName);
+                                return (
+                                  <button
+                                    key={chapName}
+                                    type="button"
+                                    onClick={() => handleToggleChapterScope(subjectName, chapName)}
+                                    style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '999px',
+                                      fontSize: '0.76rem',
+                                      fontWeight: isChapSelected ? 700 : 500,
+                                      border: isChapSelected ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                                      backgroundColor: isChapSelected ? '#FDE68A' : '#FAF7F0',
+                                      color: '#1C1917',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    {isChapSelected && <Check size={12} />}
+                                    {chapName}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                              尚未建立細部章節（AI 將自動為此科目建議章節）
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                   <label style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {promptMode === 'target'
-                      ? `指定歸入【${targetSubjectName || '某科目'}】【${targetChapterName || '某章節'}】專用提詞：`
-                      : 'AI 自動判斷科目與章節專用提詞：'}
+                    即時產生的多選科目／章節範圍 AI 提詞：
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleCopyPrompt}
-                    className="btn btn-primary"
-                    style={{
-                      padding: '6px 14px',
-                      fontSize: '0.84rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    {copiedPrompt ? <Check size={15} /> : <Copy size={15} />}
-                    {copiedPrompt ? '已成功複製至剪貼簿！' : '一鍵複製提詞'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPrompt(false)}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '0.84rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {copiedPrompt ? <Check size={15} /> : <Copy size={15} />}
+                      {copiedPrompt ? '已複製至剪貼簿！' : '一鍵複製提詞'}
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   readOnly
                   value={generatedPrompt}
                   style={{
                     width: '100%',
-                    height: '240px',
+                    height: '220px',
                     padding: '14px',
                     fontFamily: 'monospace',
                     fontSize: '0.84rem',
@@ -1255,15 +1499,25 @@ ${currentStructureText}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  onClick={() => setActiveTab('import')}
-                  style={{ padding: '10px 20px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  className="btn btn-secondary"
+                  onClick={handleClearStep1Scope}
+                  style={{ padding: '8px 14px', fontSize: '0.84rem' }}
                 >
-                  前往下一步：選圖與調整配對 <ArrowRight size={16} />
+                  清空第一階段已選範圍
                 </button>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleCopyPrompt(true)}
+                    style={{ padding: '10px 20px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    複製提詞並前往第 2 步：選圖與配對 <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1271,7 +1525,7 @@ ${currentStructureText}
           {/* TAB 2: 雙區選圖、AI JSON 解析與手動順序/多圖配對調整工作台 */}
           {activeTab === 'import' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Header Action Bar with Sample Data Button */}
+              {/* Header Action Bar with Sample Data Button & Auto-Clear Step 2 Button */}
               <div
                 style={{
                   display: 'flex',
@@ -1288,24 +1542,41 @@ ${currentStructureText}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Zap size={18} style={{ color: 'var(--success)' }} />
                   <span style={{ fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
-                    手邊若無考卷照片，可一鍵載入範例題目與詳解圖片測試完整歸納與多圖配對流程：
+                    上傳考卷題目圖與解析圖並貼上外部 AI 回傳的 JSON（完成本份進入審核後將依上方設定自動清空暫存）：
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleLoadSampleData}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {(questionImages.length > 0 || answerImages.length > 0 || aiJsonInput || parsedQuestions.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleClearStep2Inputs}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: 'var(--danger)'
+                      }}
+                    >
+                      清空第二階段全部資料
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleData}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
                     gap: '6px'
                   }}
                 >
-                  <Sparkles size={14} /> 載入測試範例資料
-                </button>
+                    <Sparkles size={14} /> 載入測試範例資料
+                  </button>
+                </div>
               </div>
 
               {/* Dual Dropzone Containers */}
@@ -2543,16 +2814,13 @@ ${currentStructureText}
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
-                    setQuestionImages([]);
-                    setAnswerImages([]);
-                    setAiJsonInput('');
-                    setParsedQuestions([]);
+                    resetStep1AndStep2AfterBatch();
                     setReviewItems([]);
-                    setActiveTab('import');
+                    setActiveTab('prompt');
                   }}
                   style={{ padding: '10px 20px', fontSize: '0.92rem' }}
                 >
-                  繼續匯入下一份考卷
+                  繼續匯入下一份考卷（返回第 1 步）
                 </button>
               </div>
             </div>

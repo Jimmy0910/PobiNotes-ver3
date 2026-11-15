@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   TEMPLATES: 'pobi_local_templates',
   USER: 'pobi_local_user',
   USERS_LIST: 'pobi_local_users_list',
+  AUTH_TOKEN: 'pobi_auth_token',
 };
 
 interface LocalUserItem {
@@ -435,6 +436,25 @@ async function handleLocalFallback<T = any>(
     return getLocalUsersList() as any as T;
   }
 
+  if (pathname === '/api/admin/users' && method === 'POST') {
+    const { username, is_admin } = bodyData || {};
+    const trimmed = (username || '').trim();
+    if (!trimmed) {
+      throw new Error('請輸入有效的使用者名稱');
+    }
+    const existing = getLocalUsersList().find(u => u.username.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      throw new Error('此使用者名稱已被註冊，請使用其他名稱。');
+    }
+    const created = upsertLocalUser({
+      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      username: trimmed,
+      is_admin: is_admin ? 1 : 0,
+      created_at: Date.now()
+    });
+    return { success: true, user: created } as any as T;
+  }
+
   if (pathname.startsWith('/api/admin/users/') && method === 'DELETE') {
     const targetUserId = pathname.replace('/api/admin/users/', '').trim();
     const filtered = getLocalUsersList().filter(u => u.id !== targetUserId);
@@ -460,9 +480,20 @@ export async function apiRequest<T = any>(
 
   const url = `${BASE_URL}${endpoint}`;
   
+  let storedToken = '';
+  try {
+    storedToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
+  } catch {}
+
+  const mergedHeaders: Record<string, string> = {
+    ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
   // Default to credentials 'include' so HTTP-only auth cookies are sent and stored properly
   const config = {
     ...options,
+    headers: mergedHeaders,
     credentials: options.credentials || 'include',
   } as RequestInit;
 
@@ -470,7 +501,7 @@ export async function apiRequest<T = any>(
   if (config.body && !(config.body instanceof Blob) && !(config.body instanceof FormData)) {
     config.headers = {
       'Content-Type': 'application/json',
-      ...config.headers,
+      ...(config.headers as Record<string, string>),
     };
     if (typeof config.body !== 'string') {
       parsedBodyData = config.body;
@@ -484,54 +515,58 @@ export async function apiRequest<T = any>(
     }
   }
 
+  let response: Response;
   try {
-    const response = await fetch(url, config);
-    const contentType = response.headers.get('content-type') || '';
-    const isHtmlResponse = contentType.includes('text/html');
-
-    // If server returns 404, 500, 502, or an HTML fallback on an /api route (Vite SPA fallback)
-    if (
-      response.status === 404 ||
-      response.status === 500 ||
-      response.status === 502 ||
-      (isHtmlResponse && endpoint.startsWith('/api'))
-    ) {
-      console.warn(`[Local Fallback] API ${endpoint} returned ${response.status} (${contentType || 'no type'}). Switching to Local Storage Adapter.`);
-      return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
-    }
-
-    if (!response.ok) {
-      let errorMsg = `Request failed with status ${response.status}`;
-      try {
-        const data = await response.json() as any;
-        if (data.error) errorMsg = data.error;
-      } catch {
-        // ignore
-      }
-      throw new Error(errorMsg);
-    }
-
-    const text = await response.text();
-    try {
-      return text ? JSON.parse(text) : ({ success: true } as T);
-    } catch {
-      if (endpoint.startsWith('/api')) {
-        return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
-      }
-      return text as any as T;
-    }
+    response = await fetch(url, config);
   } catch (err: any) {
-    // If fetch failed completely (e.g. server offline or network error), use local fallback
+    console.warn(`[Local Fallback] Network failed on ${endpoint}: ${err.message}. Switching to Local Storage Adapter.`);
+    return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const isHtmlResponse = contentType.includes('text/html');
+
+  // Only fall back to LocalStorage if running on a static dev server without /api functions mounted (404 or HTML SPA fallback)
+  if (
+    response.status === 404 ||
+    (isHtmlResponse && endpoint.startsWith('/api'))
+  ) {
+    console.warn(`[Local Fallback] API ${endpoint} returned ${response.status} (${contentType || 'no type'}). Switching to Local Storage Adapter.`);
+    return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
+  }
+
+  if (!response.ok) {
+    let errorMsg = `Request failed with status ${response.status}`;
+    try {
+      const data = await response.json() as any;
+      if (data.error) errorMsg = data.error;
+    } catch {
+      // ignore
+    }
+    throw new Error(errorMsg);
+  }
+
+  const text = await response.text();
+  try {
+    const parsed = text ? JSON.parse(text) : ({ success: true } as any);
+    // Persist auth token when logging in or registering
     if (
-      err.message?.includes('404') ||
-      err.message?.includes('Failed to fetch') ||
-      err.message?.includes('NetworkError') ||
-      err.name === 'TypeError' ||
-      endpoint.startsWith('/api')
+      (endpoint === '/api/auth/login' || endpoint === '/api/auth/register') &&
+      parsed?.token
     ) {
-      console.warn(`[Local Fallback] Network failed on ${endpoint}: ${err.message}. Switching to Local Storage Adapter.`);
+      try {
+        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, parsed.token);
+      } catch {}
+    } else if (endpoint === '/api/auth/logout') {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      } catch {}
+    }
+    return parsed as T;
+  } catch {
+    if (endpoint.startsWith('/api')) {
       return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
     }
-    throw err;
+    return text as any as T;
   }
 }

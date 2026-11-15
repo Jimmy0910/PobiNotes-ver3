@@ -181,7 +181,7 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
                 <input
                   type="password"
                   className="binder-auth-input"
-                  placeholder={isLogin ? '請輸入密碼' : '設定 6 位數以上安全密碼'}
+                  placeholder={isLogin ? '請輸入密碼' : '請設定登入密碼'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

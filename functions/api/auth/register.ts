@@ -11,8 +11,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const { request, env } = context;
     const { username, password, is_admin, registerAsAdmin } = await request.json() as any;
 
-    if (!username || !password || username.trim() === '' || password.length < 6) {
-      return new Response(JSON.stringify({ error: 'Username must not be empty, and password must be at least 6 characters.' }), {
+    if (!username || !password || username.trim() === '' || String(password).length < 1) {
+      return new Response(JSON.stringify({ error: '請輸入有效的使用者名稱與密碼。' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -40,7 +40,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (wantsAdmin && !isJimmy) {
       const adminExists = await env.DB.prepare('SELECT id FROM users WHERE is_admin = 1').first();
       if (adminExists) {
-        return new Response(JSON.stringify({ error: '系統已存在管理員帳號，一般註冊請取消勾選管理員。' }), {
+        return new Response(JSON.stringify({ error: '系統已存在管理員帳號，一般註冊請取消勾選管理員 (Admin account already exists)。' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -69,6 +69,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     return new Response(JSON.stringify({
       success: true,
+      token,
       message: 'User registered successfully.',
       user: { id: userId, username: trimmedUsername, is_admin: isAdminVal }
     }), {

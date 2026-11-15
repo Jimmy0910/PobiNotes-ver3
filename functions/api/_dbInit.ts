@@ -281,134 +281,126 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
   } catch {}
 
   if (!schemaChecked) {
-    // 0. Ensure core tables exist on fresh D1 instances
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        is_admin INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS subjects (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        color TEXT DEFAULT 'default',
-        sort_order INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER DEFAULT 0
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS chapters (
-        id TEXT PRIMARY KEY,
-        subject_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        color TEXT DEFAULT 'default',
-        sort_order INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER DEFAULT 0
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS templates (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        fields TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS mistakes (
-        id TEXT PRIMARY KEY,
-        user_id TEXT,
-        subject_id TEXT,
-        chapter_id TEXT,
-        unit_id TEXT,
-        familiarity_id TEXT,
-        error_reason_ids TEXT DEFAULT '[]',
-        tags TEXT DEFAULT '[]',
-        mistake_date TEXT,
-        template_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        data TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS feedback (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        rating INTEGER NOT NULL,
-        comment TEXT DEFAULT '',
-        created_at INTEGER NOT NULL
-      )
-    `).run();
-
-    // 1. Create new tables if they don't exist
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS user_settings (
-        user_id TEXT PRIMARY KEY,
-        categories_seeded INTEGER DEFAULT 0,
-        error_reason_mode TEXT DEFAULT 'multi',
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS units (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        subject_id TEXT NOT NULL,
-        chapter_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        color TEXT DEFAULT 'default',
-        sort_order INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL DEFAULT 0
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        dimension TEXT NOT NULL,
-        parent_id TEXT,
-        name TEXT NOT NULL,
-        color TEXT DEFAULT 'default',
-        sort_order INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL DEFAULT 0
-      )
-    `).run();
-
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS prompt_templates (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        base_key TEXT,
-        name TEXT NOT NULL,
-        description TEXT DEFAULT '',
-        content TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
+    // 0. Ensure core tables exist on fresh D1 instances using a single batch roundtrip
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          username TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          is_admin INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS subjects (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT 'default',
+          sort_order INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER DEFAULT 0
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS chapters (
+          id TEXT PRIMARY KEY,
+          subject_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT 'default',
+          sort_order INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER DEFAULT 0
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS templates (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          fields TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS mistakes (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          subject_id TEXT,
+          chapter_id TEXT,
+          unit_id TEXT,
+          familiarity_id TEXT,
+          error_reason_ids TEXT DEFAULT '[]',
+          tags TEXT DEFAULT '[]',
+          mistake_date TEXT,
+          template_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          data TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS feedback (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          rating INTEGER NOT NULL,
+          comment TEXT DEFAULT '',
+          created_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          user_id TEXT PRIMARY KEY,
+          categories_seeded INTEGER DEFAULT 0,
+          error_reason_mode TEXT DEFAULT 'multi',
+          updated_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS units (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          subject_id TEXT NOT NULL,
+          chapter_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT 'default',
+          sort_order INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL DEFAULT 0
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS categories (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          dimension TEXT NOT NULL,
+          parent_id TEXT,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT 'default',
+          sort_order INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL DEFAULT 0
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS prompt_templates (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          base_key TEXT,
+          name TEXT NOT NULL,
+          description TEXT DEFAULT '',
+          content TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `)
+    ]);
 
     // 2. Check and add columns on subjects & chapters if migrating from old DB
     const subjectCols = await db.prepare(`PRAGMA table_info(subjects)`).all();

@@ -79,7 +79,7 @@ export default function App() {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [triggerOpenNewMistake, setTriggerOpenNewMistake] = useState(false);
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
-  const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('import');
+  const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('prompt');
 
   // Global synchronized Categories & Mistakes state + persistent Analytics Filter state (Requirement 8)
   const [categories, setCategories] = useState<CategoriesBundle>(EMPTY_CATEGORIES);
@@ -590,7 +590,7 @@ export default function App() {
               currentUser={user}
               onSwitchToClassicDashboard={() => setActiveView('dashboard')}
               onOpenBatchImport={() => {
-                setBatchImportStage('import');
+                setBatchImportStage('prompt');
                 setShowBatchImportModal(true);
               }}
               onOpenFastReview={() => {

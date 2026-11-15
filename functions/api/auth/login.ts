@@ -65,6 +65,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     return new Response(JSON.stringify({
       success: true,
+      token,
       user: { id: user.id, username: user.username, is_admin: isAdminVal }
     }), {
       status: 200,

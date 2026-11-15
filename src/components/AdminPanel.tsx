@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
-import { Users, MessageSquare, Trash2, Star, Loader2, RefreshCw } from 'lucide-react';
+import { Users, MessageSquare, Trash2, Star, Loader2, RefreshCw, UserPlus } from 'lucide-react';
 
 interface AdminUser {
   id: string;
   username: string;
   is_admin: number;
-  created_at: string;
+  created_at: string | number;
 }
 
 interface FeedbackItem {
@@ -25,6 +25,12 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Create new user directly from Admin Panel
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createSuccessMsg, setCreateSuccessMsg] = useState('');
+
   const fetchUsers = async () => {
     setLoading(true);
     setError('');
@@ -35,6 +41,35 @@ export default function AdminPanel() {
       setError(e.message || '無法載入用戶列表');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newPassword) {
+      setError('請輸入新用戶的帳號名稱與密碼');
+      return;
+    }
+    setCreatingUser(true);
+    setError('');
+    setCreateSuccessMsg('');
+    try {
+      await apiRequest('/api/admin/users', {
+        method: 'POST',
+        body: {
+          username: newUsername.trim(),
+          password: newPassword,
+          is_admin: 0
+        }
+      });
+      setCreateSuccessMsg(`已成功建立用戶「${newUsername.trim()}」！`);
+      setNewUsername('');
+      setNewPassword('');
+      await fetchUsers();
+    } catch (err: any) {
+      setError(err.message || '建立用戶失敗');
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -93,20 +128,19 @@ export default function AdminPanel() {
     ));
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | number) => {
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        // Try treating as unix timestamp (seconds)
-        const ts = Number(dateStr);
-        if (!isNaN(ts)) {
-          return new Date(ts < 1e12 ? ts * 1000 : ts).toLocaleString('zh-TW');
-        }
-        return dateStr;
+      const num = typeof dateStr === 'number' ? dateStr : Number(dateStr);
+      if (!isNaN(num) && num > 0) {
+        return new Date(num < 1e12 ? num * 1000 : num).toLocaleString('zh-TW');
       }
-      return d.toLocaleString('zh-TW');
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString('zh-TW');
+      }
+      return String(dateStr);
     } catch {
-      return dateStr;
+      return String(dateStr);
     }
   };
 
@@ -170,8 +204,63 @@ export default function AdminPanel() {
 
         {/* Users Tab */}
         {!loading && activeTab === 'users' && (
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Quick Create User Card */}
+            <form
+              onSubmit={handleCreateUser}
+              className="glass-card"
+              style={{
+                padding: '16px 20px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'flex-end',
+                gap: '12px'
+              }}
+            >
+              <div style={{ flex: '1 1 180px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  新增用戶帳號名稱
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="輸入新用戶名稱"
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                  disabled={creatingUser}
+                />
+              </div>
+              <div style={{ flex: '1 1 180px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  設定登入密碼
+                </label>
+                <input
+                  type="password"
+                  className="input"
+                  placeholder="輸入登入密碼"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  disabled={creatingUser}
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={creatingUser || !newUsername.trim() || !newPassword}
+                style={{ height: '40px', padding: '0 18px' }}
+              >
+                <UserPlus size={16} />
+                <span>{creatingUser ? '建立中...' : '建立新帳戶'}</span>
+              </button>
+              {createSuccessMsg && (
+                <div style={{ width: '100%', fontSize: '0.85rem', color: 'var(--success)', fontWeight: 600 }}>
+                  {createSuccessMsg}
+                </div>
+              )}
+            </form>
+
+            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <th style={thStyle}>使用者名稱</th>
@@ -233,6 +322,7 @@ export default function AdminPanel() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

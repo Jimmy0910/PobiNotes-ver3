@@ -25,13 +25,13 @@ export default function UsageGuide() {
 
   const sections: GuideSection[] = [
     { id: 'overview', title: '系統總覽與設計理念', icon: BookOpen, badge: 'ver3', description: '數位書架與活頁手帳的現代複習架構' },
+    { id: 'import', title: '3 步驟 AI 批次錯題與外部 AI 教學', icon: Crop, badge: '核心必讀', description: '多選範圍提詞、外部 AI 協作、多圖配對與自動清空' },
     { id: 'bookshelf', title: '數位書架與手帳書封', icon: Layers, description: '多色彩皮革書封、徽章與翻頁手帳導覽' },
-    { id: 'import', title: '考卷批次匯入與標註', icon: Crop, badge: '核心功能', description: '大考考卷多題裁切、紅筆圈記與極速審核' },
     { id: 'mastery', title: '四維度熟悉度與錯因診斷', icon: BarChart2, description: '順、卡、不會、誤解與多維度弱點標籤' },
     { id: 'export', title: '試卷工坊與 PDF 雙模式', icon: Printer, description: '練習卷與解析卷，高解析度 A4 列印' },
     { id: 'prompt', title: 'AI 複習提詞工坊', icon: Sparkles, description: '搭配 Claude/ChatGPT/Gemini 的破題思維樹' },
     { id: 'structure', title: '學科章節與單元三層管理', icon: FolderTree, description: '靈活規劃各科綱要與自訂題型模板' },
-    { id: 'mobile', title: '行動裝置與觸控筆支援', icon: Smartphone, description: '手機自適應底部 Dock 與 iPad 觸控優化' }
+    { id: 'mobile', title: '行動裝置與左側收折導覽', icon: Smartphone, description: '手機左側收折書脊面板與平板觸控優化' }
   ];
 
   const renderContent = () => {
@@ -54,18 +54,18 @@ export default function UsageGuide() {
               </div>
               <div>
                 <h2 style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
-                  歡迎來到 PobiNotes ver3 錯題手帳系統
+                  歡迎來到數位錯題手帳系統
                 </h2>
                 <p style={{ color: 'var(--binder-text-muted)', fontSize: '0.92rem', margin: '4px 0 0 0' }}>
-                  結合實體手帳質感與科學化錯題診斷的現代學習工作站
+                  結合實體手帳質感、外部 AI 批次歸納與科學化錯題診斷的現代學習工作站
                 </p>
               </div>
             </div>
 
             <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.96rem' }}>
               很多同學在整理錯題時，往往流於「剪下貼上」或「拍照存檔」，但真正大考前卻沒有時間重新作答。
-              PobiNotes ver3 的核心精神在於打造**「收集 ➔ 標記 ➔ 診斷 ➔ 重練 ➔ 攻克」**的高效閉環：
-              讓每一道錯題都有獨立的知識脈絡，隨時能一鍵生成專屬無答案練習卷重新檢驗。
+              本系統的核心精神在於打造<strong>「收集 -&gt; 標記 -&gt; 診斷 -&gt; 重練 -&gt; 攻克」</strong>的高效閉環：
+              讓每一道錯題都有獨立的知識脈絡，隨時能透過 3 步驟 AI 批次歸納快速入庫，並一鍵生成無答案練習卷重新檢驗。
             </p>
 
             <div style={{
@@ -79,10 +79,10 @@ export default function UsageGuide() {
               </h3>
               <ol style={{ paddingLeft: '22px', color: 'var(--binder-text-body)', lineHeight: 1.85, fontSize: '0.94rem', margin: 0 }}>
                 <li style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: 'var(--binder-text-title)' }}>放置學科手帳</strong>：在「我的數位書架」中挑選藍、綠、紅、橘、粉、棕等精裝書封，建立國文、英文、數學、自然、社會等科目。
+                  <strong style={{ color: 'var(--binder-text-title)' }}>放置學科手帳</strong>：在「我的數位書架」中挑選藍、綠、紅、橘、粉、棕、紫、黑等精裝書封，建立國文、英文、數學、物理、化學等科目。
                 </li>
                 <li style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: 'var(--binder-text-title)' }}>考卷批次快速匯入</strong>：使用 AI 考卷批次匯入，上傳大考整張試卷或相片，即時用紅筆圈記題目、螢光筆標示關鍵字，一鍵收錄。
+                  <strong style={{ color: 'var(--binder-text-title)' }}>3 步驟 AI 考卷批次匯入</strong>：先於第一階段多選科目與章節範圍產生提詞，交由外部 AI（ChatGPT / Gemini / Claude）辨識後，在第二階段自由調整順序與一題多張解析圖配對，最後於第三階段極速審核寫入錯題索引。
                 </li>
                 <li style={{ marginBottom: '10px' }}>
                   <strong style={{ color: 'var(--binder-text-title)' }}>標記四維度熟悉度</strong>：依據真實答題體感標記「順、卡、不會、誤解」，並附上粗心、觀念、審題等錯因標籤。
@@ -144,32 +144,72 @@ export default function UsageGuide() {
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
-              大考考卷批次匯入與圖片標註
+              3 步驟 AI 考卷批次錯題歸納與外部 AI 協作完整教學
             </h2>
             <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
-              學校模擬考或歷屆學測試卷往往篇幅冗長，傳統上一題題拍照裁剪極度耗時。PobiNotes ver3 內建專門為大考設計的批次匯入工坊：
+              當手邊有一整份段考卷、模擬考卷或多張錯題與詳解照片時，無須逐題手動打字建檔。點擊書架或總覽頁面的<strong>「AI 考卷批次匯入」</strong>，系統會引導您透過以下標準三步驟完成批次歸納：
             </p>
 
+            {/* Step-by-Step 3 Stages */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div className="glass-card" style={{ padding: '16px 20px' }}>
-                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>1. 拖曳批量上傳</h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
-                  一次選取整份考卷的正反面、多張照片或螢幕截圖，系統自動載入候選清單。
-                </p>
+              <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #D97706' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
+                  第一階段（步驟 1）：多選科目／章節範圍，產生專屬 AI 提詞
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
+                  <li>點擊「AI 考卷批次匯入」後，系統會優先帶您進入<strong>「1. 設計提詞 (多選範圍)」</strong>。</li>
+                  <li><strong>自由多選科目與章節範圍</strong>：您可勾選本次考卷涵蓋的 1 個或多個科目，並在科目卡片內點選多個章節標籤（亦可使用上方輸入框即時新增自訂科目與章節至多選範圍）。</li>
+                  <li><strong>智慧範圍鎖定</strong>：若您只勾選「單一科目＋單一章節」（例如只選【物理】【運動&amp;力】），提詞會自動命令外部 AI 將這批錯題全部歸入該章節；若勾選多個科目與章節，提詞會列出您選定的清單，讓外部 AI 嚴格在該範圍內為各題分類。</li>
+                  <li>確認範圍後，點擊<strong>「複製提詞並前往第 2 步」</strong>，系統即會將專屬提詞複製到剪貼簿。</li>
+                </ul>
               </div>
 
-              <div className="glass-card" style={{ padding: '16px 20px' }}>
-                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>2. 內建高畫質標註畫布 (Annotator)</h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
-                  支援**紅筆圈記錯誤處**、**黃色螢光筆標記題目關鍵條件**、90 度旋轉與自由裁切，並自動壓縮最佳化圖片尺寸，免除開啟第三方修圖軟體。
-                </p>
+              <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #2563EB' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
+                  特別說明：如何搭配外部 AI（ChatGPT / Google Gemini / Claude）進行辨識？
+                </h4>
+                <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.8 }}>
+                  <li>
+                    <strong>開啟外部 AI 對話視窗</strong>：打開您習慣使用的外部多模態 AI（推薦使用 ChatGPT-4o、Google Gemini 或 Claude 3.5 / 3.7 Sonnet）。
+                  </li>
+                  <li>
+                    <strong>依序上傳「題目照片」與「解析照片」</strong>：在外部 AI 的對話輸入框中，先選取並上傳本次錯題的「題目截圖／照片」（第 1 張、第 2 張...），接著上傳對應的「詳解／解析照片」（若同一題的詳解很長、分成 2 至 3 張照片拍攝，也可以全部上傳）。
+                  </li>
+                  <li>
+                    <strong>貼上步驟 1 複製的提詞並送出</strong>：在同一個對話訊息中貼上剛剛從本系統複製的 AI 提詞（您也可以在對話最後加上補充指令，例如：「第 2 題的詳解是第 2 和第 3 張解析圖」），然後按下送出。
+                  </li>
+                  <li>
+                    <strong>一鍵複製外部 AI 輸出的 JSON 代碼</strong>：外部 AI 會自動辨識每題的核心題旨（<code>title</code>）、整理詳解重點說明（<code>key_concept</code>）、歸類至您指定的科目與章節，並配對題目與多張解析圖編號，最後輸出一段 <code>[ &#123; ... &#125; ]</code> 格式的 JSON 陣列。請直接點擊外部 AI 程式碼區塊右上角的<strong>「Copy code（複製代碼）」</strong>。
+                  </li>
+                </ol>
               </div>
 
-              <div className="glass-card" style={{ padding: '16px 20px' }}>
-                <h4 style={{ margin: '0 0 6px 0', color: 'var(--pobi-blue)' }}>3. 連續極速審核入庫</h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--binder-text-muted)' }}>
-                  標註完成後，直接在同一介面接續指定章節、輸入詳解與熟悉度，省去反覆開關對話框的繁瑣操作。
-                </p>
+              <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #059669' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
+                  第二階段（步驟 2）：上傳題目／解析圖片、貼上 JSON 與手動微調配對
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
+                  <li><strong>雙區圖片上傳</strong>：在「1. 題目圖片區」與「2. 解析圖片區」分別選取剛剛提供給 AI 的題目圖與解析圖（系統會自動進行高畫質壓縮並永久存入資料庫）。</li>
+                  <li><strong>貼上 JSON 陣列</strong>：將外部 AI 回傳的 JSON 貼入「3. 貼上外部 AI 分析結果」輸入框，下方會立即展開可視化配對工作台。</li>
+                  <li><strong>自由調整順序與一題多張解析圖配對</strong>：
+                    <ul>
+                      <li>可使用上下箭頭按鈕調整題目順序，或直接在欄位內修改題目名稱、科目、章節與解析說明文字。</li>
+                      <li>在每題右側的「配對解析圖」區域，可同時點選<strong>多張解析圖片</strong>（例如同時勾選「解析 #2」與「解析 #3」），支援單一題目對應多張詳解圖！</li>
+                      <li>亦可使用上方橘色快捷列「一鍵把全部錯題放在指定科目與章節」，瞬間覆寫整批題目的歸屬位置。</li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #7C3AED' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
+                  第三階段（步驟 3）：極速卡片審核與「完成一份自動清空」機制
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
+                  <li>點擊「確認順序與配對，進入極速審核」後，系統會以全幅卡片逐題呈現題目圖、多張解析圖與解析文字。</li>
+                  <li><strong>一鍵標記熟悉度</strong>：只需點擊「完全不會」、「過程卡住」或「已經熟練」（或展開選填錯因標籤），系統就會自動跳往下一題；最後一題點選後即會<strong>正式寫入資料庫、錯題索引與各科手帳</strong>。</li>
+                  <li><strong>自動清空第一、二階段資料</strong>：工作台右上角預設勾選「完成一份後自動清空第 1、2 階段」。每當您完成一份提詞或考卷配對入庫後，系統會自動清空第一階段的選取範圍與第二階段的圖片／JSON 暫存，讓您能直接無縫接續處理下一份考卷！</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -272,7 +312,7 @@ export default function UsageGuide() {
               AI 複習提詞工坊
             </h2>
             <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
-              直接將題目丟給 AI 往往只會得到生硬的答案，無法真正幫助吸收。本系統內建針對高中大考研發的專利級提示詞架構：
+              直接將題目丟給 AI 往往只會得到生硬的答案，無法真正幫助吸收。本系統內建針對高中大考研發的思維樹提示詞架構：
             </p>
 
             <div className="glass-card" style={{ padding: '20px' }}>
@@ -280,7 +320,7 @@ export default function UsageGuide() {
                 學測自然與數學：思維樹思考架構 Prompt
               </h3>
               <p style={{ fontSize: '0.92rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
-                提詞會引導 AI 扮演親切的頂尖名師，遵循「核心觀念提取 ➔ 題目盲點破譯 ➔ 思考分岔樹 ➔ 類題演練」四層架構逐步啟發，絕不直接爆答案，引導同學自己想通！
+                提詞會引導 AI 扮演親切的頂尖名師，遵循「核心觀念提取 -&gt; 題目盲點破譯 -&gt; 思考分岔樹 -&gt; 類題演練」四層架構逐步啟發，絕不直接爆答案，引導同學自己想通！
               </p>
               <div style={{ marginTop: '12px', fontSize: '0.88rem', color: 'var(--binder-text-muted)' }}>
                 支援一鍵複製純代碼，可直接貼至 Claude 3.7 / ChatGPT 4o / Google Gemini 等對話視窗中使用。
@@ -318,22 +358,22 @@ export default function UsageGuide() {
         return (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h2 style={{ fontSize: '1.45rem', fontWeight: 700, margin: 0, color: 'var(--binder-text-title)' }}>
-              行動裝置與觸控筆深度支援
+              行動裝置左側收折導航與觸控筆支援
             </h2>
             <p style={{ color: 'var(--binder-text-body)', lineHeight: 1.75, fontSize: '0.95rem' }}>
-              為了讓同學們在公車上用手機背題、在書桌前用 iPad 搭配觸控筆做筆記，系統全面提供自適應介面：
+              為了讓同學們在通勤時用手機複習、在書桌前用平板搭配觸控筆做筆記，系統全面提供行動裝置自適應介面：
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
               <div className="glass-card" style={{ padding: '18px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>手機底部 Dock 自適應導覽</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>手機版左側收折書脊面板</h4>
                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
-                  在小螢幕上側邊欄會自動收斂至螢幕底部，單手即可切換「書架」、「錯題」、「試卷」、「總覽」四大視圖。
+                  在手機螢幕上，側邊導覽列會自動收折於螢幕左側邊緣（僅保留精緻書脊圖示），不會遮擋底部閱讀空間；點擊頂部導覽按鈕或左側書脊即可隨時展開完整學科與功能選單。
                 </p>
               </div>
 
               <div className="glass-card" style={{ padding: '18px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>iPad / Apple Pencil 手寫圈選</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--pobi-blue)' }}>iPad / 觸控筆手寫圈選</h4>
                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.65 }}>
                   圖片標註器具備原生的粗細感壓與多點觸控支援，在平板上可以像真筆一樣在題幹上畫線與標註重點。
                 </p>
@@ -355,7 +395,7 @@ export default function UsageGuide() {
           系統使用導引與功能指南
         </h1>
         <p style={{ color: 'var(--binder-text-muted)', margin: 0, fontSize: '0.94rem' }}>
-          掌握 PobiNotes ver3 實體手帳錯題本、大考批次裁切、四維度熟悉度與試卷工坊的完整操作指南
+          掌握數位錯題手帳、3 步驟 AI 考卷批次歸納、外部 AI 協作、四維度熟悉度與試卷工坊的完整操作指南
         </p>
       </div>
 
