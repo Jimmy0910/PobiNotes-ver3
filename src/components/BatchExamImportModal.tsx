@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { CategoriesBundle, MistakeRecord } from '../types';
 import { apiRequest } from '../utils/api';
 import { compressImage } from '../utils/compress';
+import { packageImagesToZip, triggerFileDownload } from '../utils/zipPacker';
 import {
   Sparkles,
   Copy,
@@ -24,7 +25,9 @@ import {
   ArrowDown,
   Plus,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Archive,
+  Download
 } from 'lucide-react';
 
 interface BatchExamImportModalProps {
@@ -345,6 +348,44 @@ export default function BatchExamImportModal({
   const [aiJsonInput, setAiJsonInput] = useState('');
   const [parseError, setParseError] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<ParsedExamQuestion[]>([]);
+
+  // Packaging images into ZIP state
+  const [packagingZip, setPackagingZip] = useState(false);
+  const [zipProgressText, setZipProgressText] = useState('');
+  const [zipSuccessMsg, setZipSuccessMsg] = useState('');
+
+  // Handle packaging all current images into a single ZIP archive for external AI
+  const handlePackageAndDownloadZip = async () => {
+    if (questionImages.length === 0 && answerImages.length === 0) {
+      alert('請先在題目區或解析區上傳圖片，才能進行打包。');
+      return;
+    }
+    setPackagingZip(true);
+    setZipSuccessMsg('');
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `考卷題目與解析圖片包_${todayStr}.zip`;
+      const zipBlob = await packageImagesToZip(
+        {
+          questionImages,
+          answerImages,
+          promptText: generatedPrompt,
+          zipFilename: filename
+        },
+        (current, total, message) => {
+          setZipProgressText(`${message} (${current}/${total})`);
+        }
+      );
+      triggerFileDownload(zipBlob, filename);
+      setZipSuccessMsg(`已成功將 ${questionImages.length} 張題目圖與 ${answerImages.length} 張解析圖打包為 ${filename}！`);
+      setTimeout(() => setZipSuccessMsg(''), 7000);
+    } catch (err: any) {
+      alert('圖片打包失敗：' + (err.message || String(err)));
+    } finally {
+      setPackagingZip(false);
+      setZipProgressText('');
+    }
+  };
 
   // Clear Step 2 helper
   const handleClearStep2Inputs = () => {
@@ -1243,6 +1284,8 @@ ${scopeInstruction}
                     1. 在下方勾選本次考卷涵蓋的<strong>一個或多個科目與章節</strong>（若只勾選 1 個科目與 1 個章節，提詞會自動要求 AI 將全部錯題放入該章節；若勾選多個科目與章節，AI 會在您指定的範圍內精準分類）。
                     <br />
                     2. 點擊「複製提詞並前往第 2 步」，開啟外部 AI（ChatGPT、Gemini 或 Claude）上傳題目圖與解析圖並貼上提詞。
+                    <br />
+                    3. <strong>圖片較多時的推薦做法</strong>：若手邊有整份模擬考或多張照片，部分外部 AI 對話框有單次上傳張數限制，建議於第 2 步上傳後使用本系統內建的<strong>「打包全部圖片為 ZIP 壓縮檔」</strong>功能，一鍵打包下載後直接傳給外部 AI！
                   </div>
                 </div>
 
@@ -1861,6 +1904,104 @@ ${scopeInstruction}
                   )}
                 </div>
               </div>
+
+              {/* Packaging Images into ZIP Archive for External AI */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  padding: '14px 18px',
+                  backgroundColor: '#EFF6FF',
+                  border: '1.5px solid #3B82F6',
+                  borderRadius: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: '1 1 360px' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#2563EB',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Archive size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1E3A8A' }}>
+                      圖片較多？一鍵打包為 ZIP 壓縮檔（自動附帶第 1 階段 AI 提詞說明）
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#1E40AF', marginTop: '3px', lineHeight: 1.5 }}>
+                      當題目與解析照片數量較多時（如整份模擬考），直接拖曳到 ChatGPT / Claude / Gemini 常受限於單次貼圖張數限制。點擊右側即可將目前上傳的 <strong>{questionImages.length} 張題目圖</strong> 與 <strong>{answerImages.length} 張解析圖</strong> 依序分類打包為單一 ZIP 壓縮檔，並自動附帶提詞 txt 檔，直接傳給外部 AI 進行高速批次辨識！
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handlePackageAndDownloadZip}
+                    disabled={packagingZip || (questionImages.length === 0 && answerImages.length === 0)}
+                    className="btn btn-primary"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#2563EB',
+                      borderColor: '#1D4ED8',
+                      color: '#FFFFFF',
+                      opacity: (questionImages.length === 0 && answerImages.length === 0) ? 0.6 : 1,
+                      cursor: (questionImages.length === 0 && answerImages.length === 0) ? 'not-allowed' : 'pointer'
+                    }}
+                    title={
+                      (questionImages.length === 0 && answerImages.length === 0)
+                        ? '請先在上方題目區或解析區選取圖片後再進行打包'
+                        : '點擊將目前全部題目與解析照片打包為 ZIP 壓縮檔'
+                    }
+                  >
+                    {packagingZip ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+                    {packagingZip
+                      ? (zipProgressText || '正在打包圖片中...')
+                      : `打包下載 ZIP 壓縮檔 (${questionImages.length + answerImages.length} 張)`}
+                  </button>
+                  <span style={{ fontSize: '0.72rem', color: '#3B82F6' }}>
+                    內含：題目圖片/資料夾、解析圖片/資料夾、外部AI提詞說明.txt
+                  </span>
+                </div>
+              </div>
+
+              {/* ZIP Packaging Success Banner */}
+              {zipSuccessMsg && (
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: '#ECFDF5',
+                    border: '1px solid #10B981',
+                    borderRadius: '8px',
+                    color: '#065F46',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  className="animate-fade-in"
+                >
+                  <CheckCircle2 size={16} style={{ color: '#059669' }} />
+                  {zipSuccessMsg}
+                </div>
+              )}
 
               {/* Paste AI JSON Textarea */}
               <div

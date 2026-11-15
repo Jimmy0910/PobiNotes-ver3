@@ -168,28 +168,37 @@ export default function UsageGuide() {
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
                   特別說明：如何搭配外部 AI（ChatGPT / Google Gemini / Claude）進行辨識？
                 </h4>
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.88rem', color: 'var(--binder-text-muted)', lineHeight: 1.6 }}>
+                  本系統與外部主流多模態 AI 完美協作。若錯題張數較多，強烈建議善用系統內建的圖片打包功能：
+                </p>
                 <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.8 }}>
                   <li>
                     <strong>開啟外部 AI 對話視窗</strong>：打開您習慣使用的外部多模態 AI（推薦使用 ChatGPT-4o、Google Gemini 或 Claude 3.5 / 3.7 Sonnet）。
                   </li>
                   <li>
-                    <strong>依序上傳「題目照片」與「解析照片」</strong>：在外部 AI 的對話輸入框中，先選取並上傳本次錯題的「題目截圖／照片」（第 1 張、第 2 張...），接著上傳對應的「詳解／解析照片」（若同一題的詳解很長、分成 2 至 3 張照片拍攝，也可以全部上傳）。
+                    <strong>重點建議：圖片較多時，請使用本系統內建「一鍵打包為 ZIP 壓縮檔」</strong>：
+                    <ul style={{ margin: '4px 0 6px 0', paddingLeft: '18px', color: '#1E40AF', fontSize: '0.86rem', lineHeight: 1.65 }}>
+                      <li><strong>為何需要打包？</strong>大考考卷或模擬考通常有十幾至數十張題目與解析照片，但 ChatGPT 與 Claude 的對話框通常有單次貼圖張數上限（例如一次最多 5 至 10 張），逐張上傳非常容易遺漏或順序錯亂。</li>
+                      <li><strong>如何一鍵打包？</strong>在系統第 2 階段「選圖與調整配對」中選取好全部題目與解析照片後，點擊藍色的<strong>「打包下載 ZIP 壓縮檔」</strong>按鈕，系統會將所有照片自動依序歸類為 <code>題目圖片/</code> 與 <code>解析圖片/</code> 兩個資料夾，並自動附帶步驟 1 所產生的 <code>外部AI提詞說明.txt</code>。</li>
+                      <li><strong>直接上傳單一 ZIP 檔</strong>：直接將下載的單一 <code>.zip</code> 壓縮檔拖曳上傳至外部 AI（ChatGPT Code Interpreter / Claude / Gemini 均支援讀取 ZIP 壓縮包），並在訊息中告知「請解壓縮此 ZIP 檔，依照裡面的外部AI提詞說明.txt 與圖片進行分析」，外部 AI 即可一次性批次讀取全部照片！</li>
+                    </ul>
                   </li>
                   <li>
-                    <strong>貼上步驟 1 複製的提詞並送出</strong>：在同一個對話訊息中貼上剛剛從本系統複製的 AI 提詞（您也可以在對話最後加上補充指令，例如：「第 2 題的詳解是第 2 和第 3 張解析圖」），然後按下送出。
+                    <strong>若圖片較少時（5 張以內）</strong>：亦可直接在外部 AI 對話框中依序拖曳上傳題目圖與解析圖，並貼上步驟 1 複製的提詞後送出。
                   </li>
                   <li>
-                    <strong>一鍵複製外部 AI 輸出的 JSON 代碼</strong>：外部 AI 會自動辨識每題的核心題旨（<code>title</code>）、整理詳解重點說明（<code>key_concept</code>）、歸類至您指定的科目與章節，並配對題目與多張解析圖編號，最後輸出一段 <code>[ &#123; ... &#125; ]</code> 格式的 JSON 陣列。請直接點擊外部 AI 程式碼區塊右上角的<strong>「Copy code（複製代碼）」</strong>。
+                    <strong>一鍵複製外部 AI 輸出的 JSON 代碼</strong>：外部 AI 會自動辨識每題的核心題旨（<code>title</code>）、整理詳解重點說明（<code>key_concept</code>）、歸類至您指定的科目與章節，並配對題目與多張解析圖編號，最後輸出一段 <code>[ &#123; ... &#125; ]</code> 格式的 JSON 陣列。請直接點擊外部 AI 程式碼區塊右上角的<strong>「Copy code（複製代碼）」</strong>貼回本系統第 2 階段。
                   </li>
                 </ol>
               </div>
 
               <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #059669' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '1.02rem', color: 'var(--binder-text-title)' }}>
-                  第二階段（步驟 2）：上傳題目／解析圖片、貼上 JSON 與手動微調配對
+                  第二階段（步驟 2）：上傳題目／解析圖片、一鍵打包 ZIP、貼上 JSON 與手動微調配對
                 </h4>
                 <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
-                  <li><strong>雙區圖片上傳</strong>：在「1. 題目圖片區」與「2. 解析圖片區」分別選取剛剛提供給 AI 的題目圖與解析圖（系統會自動進行高畫質壓縮並永久存入資料庫）。</li>
+                  <li><strong>雙區圖片上傳</strong>：在「1. 題目圖片區」與「2. 解析圖片區」分別選取題目圖與解析圖（系統會自動進行高畫質壓縮並永久存入資料庫）。</li>
+                  <li><strong>內建圖片打包為 ZIP 功能</strong>：上傳圖片後，可隨時點擊「打包下載 ZIP 壓縮檔」，系統會自動整理所有圖片與提詞說明為單一檔案，供外部 AI 高速解析。</li>
                   <li><strong>貼上 JSON 陣列</strong>：將外部 AI 回傳的 JSON 貼入「3. 貼上外部 AI 分析結果」輸入框，下方會立即展開可視化配對工作台。</li>
                   <li><strong>自由調整順序與一題多張解析圖配對</strong>：
                     <ul>
