@@ -1,19 +1,12 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
-import type { CategoriesBundle, CategoryItem } from '../types';
+import type { CategoriesBundle } from '../types';
 import {
   X,
   FolderTree,
-  Folder,
-  FolderOpen,
-  FileText,
-  GripVertical,
-  ChevronRight,
-  ChevronDown,
+  ArrowRight,
   ArrowUpRight,
-  CornerDownRight,
-  BookOpen,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -39,20 +32,6 @@ interface HierarchyMoverModalProps {
   onMoved: (result: HierarchyMoveResult) => Promise<void> | void;
 }
 
-type DragPayload = {
-  dimension: 'chapter' | 'unit';
-  id: string;
-  name: string;
-  subjectId: string;
-  parentId: string;
-};
-
-type DropIndicator = {
-  targetDimension: 'subject' | 'chapter' | 'unit';
-  targetId: string;
-  placement: 'inside' | 'before' | 'after';
-};
-
 export default function HierarchyMoverModal({
   categories,
   initialSubjectId,
@@ -60,155 +39,226 @@ export default function HierarchyMoverModal({
   onClose,
   onMoved
 }: HierarchyMoverModalProps) {
-  // Resolve initial expanded state
-  const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>(() => {
-    const map: Record<string, boolean> = {};
-    if (initialSubjectId) {
-      map[initialSubjectId] = true;
-    } else if (categories.subjects.length <= 3) {
-      categories.subjects.forEach(s => {
-        map[s.id] = true;
-      });
-    } else if (categories.subjects[0]) {
-      map[categories.subjects[0].id] = true;
-    }
-    if (focusedItem) {
-      if (focusedItem.dimension === 'chapter') {
-        const ch = categories.chapters.find(c => c.id === focusedItem.id);
-        const sId = ch?.subject_id || ch?.parent_id;
-        if (sId) map[sId] = true;
-      } else {
-        const u = categories.units.find(x => x.id === focusedItem.id);
-        const ch = categories.chapters.find(c => c.id === (u?.chapter_id || u?.parent_id));
-        const sId = u?.subject_id || ch?.subject_id || ch?.parent_id;
-        if (sId) map[sId] = true;
-      }
-    }
-    return map;
-  });
-
-  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>(() => {
-    const map: Record<string, boolean> = {};
-    // Expand all chapters in initial subject by default so units are immediately visible
-    categories.chapters.forEach(c => {
-      const sId = c.subject_id || c.parent_id;
-      if (!initialSubjectId || sId === initialSubjectId) {
-        map[c.id] = true;
-      }
-    });
-    if (focusedItem?.dimension === 'unit') {
-      const u = categories.units.find(x => x.id === focusedItem.id);
-      const cId = u?.chapter_id || u?.parent_id;
-      if (cId) map[cId] = true;
-    }
-    return map;
-  });
-
-  // Selected source for click-to-move (pre-populated when opened from an item's "搬運" button)
-  const [selectedSource, setSelectedSource] = useState<{ dimension: 'chapter' | 'unit'; id: string } | null>(
-    focusedItem || null
-  );
-
-  // Drag & Drop state
-  const [dragging, setDragging] = useState<DragPayload | null>(null);
-  const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
-  const [moving, setMoving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const hoverExpandTimerRef = useRef<number | null>(null);
-
+  // Lock background scroll cleanly (including iPadOS / iOS Safari)
   useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
     return () => {
-      if (hoverExpandTimerRef.current) {
-        window.clearTimeout(hoverExpandTimerRef.current);
-      }
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
     };
   }, []);
 
-  // Sort subjects so initialSubjectId appears first for convenience
-  const orderedSubjects = useMemo(() => {
-    const list = [...categories.subjects].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    if (!initialSubjectId) return list;
-    const idx = list.findIndex(s => s.id === initialSubjectId);
-    if (idx > 0) {
-      const [cur] = list.splice(idx, 1);
-      list.unshift(cur);
+  // Resolve initial source cascading dropdown values: Subject -> Chapter -> Unit (optional)
+  const initialSource = useMemo(() => {
+    if (focusedItem?.dimension === 'unit') {
+      const u = categories.units.find(x => x.id === focusedItem.id);
+      const ch = categories.chapters.find(c => c.id === (u?.chapter_id || u?.parent_id));
+      const sId = u?.subject_id || ch?.subject_id || ch?.parent_id || initialSubjectId || categories.subjects[0]?.id || '';
+      return {
+        subjectId: sId,
+        chapterId: ch?.id || u?.chapter_id || u?.parent_id || '',
+        unitId: u?.id || ''
+      };
     }
-    return list;
-  }, [categories.subjects, initialSubjectId]);
+    if (focusedItem?.dimension === 'chapter') {
+      const ch = categories.chapters.find(c => c.id === focusedItem.id);
+      const sId = ch?.subject_id || ch?.parent_id || initialSubjectId || categories.subjects[0]?.id || '';
+      return {
+        subjectId: sId,
+        chapterId: ch?.id || '',
+        unitId: ''
+      };
+    }
+    const defaultSubj = initialSubjectId || categories.subjects[0]?.id || '';
+    const firstChap = categories.chapters.find(c => (c.subject_id || c.parent_id) === defaultSubj);
+    return {
+      subjectId: defaultSubj,
+      chapterId: firstChap?.id || '',
+      unitId: ''
+    };
+  }, [focusedItem, categories.subjects, categories.chapters, categories.units, initialSubjectId]);
 
-  const chaptersBySubject = useMemo(() => {
-    const map: Record<string, CategoryItem[]> = {};
-    for (const ch of categories.chapters) {
-      const sId = ch.subject_id || ch.parent_id || '';
-      if (!map[sId]) map[sId] = [];
-      map[sId].push(ch);
-    }
-    for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    }
-    return map;
-  }, [categories.chapters]);
+  // Source cascading state
+  const [srcSubjectId, setSrcSubjectId] = useState<string>(initialSource.subjectId);
+  const [srcChapterId, setSrcChapterId] = useState<string>(initialSource.chapterId);
+  const [srcUnitId, setSrcUnitId] = useState<string>(initialSource.unitId);
 
-  const unitsByChapter = useMemo(() => {
-    const map: Record<string, CategoryItem[]> = {};
-    for (const u of categories.units) {
-      const cId = u.chapter_id || u.parent_id || '';
-      if (!map[cId]) map[cId] = [];
-      map[cId].push(u);
-    }
-    for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    }
-    return map;
-  }, [categories.units]);
+  // Target cascading state: Subject / Chapter (empty = chapter level under subject) / Unit (optional anchor for ordering)
+  const [tgtSubjectId, setTgtSubjectId] = useState<string>(initialSource.subjectId);
+  const [tgtChapterId, setTgtChapterId] = useState<string>('');
+  const [tgtUnitId, setTgtUnitId] = useState<string>('');
 
-  const selectedSourceItem = useMemo(() => {
-    if (!selectedSource) return null;
-    if (selectedSource.dimension === 'chapter') {
-      return categories.chapters.find(c => c.id === selectedSource.id) || null;
-    }
-    return categories.units.find(u => u.id === selectedSource.id) || null;
-  }, [selectedSource, categories.chapters, categories.units]);
+  const [moving, setMoving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const scheduleAutoExpand = (kind: 'subject' | 'chapter', id: string) => {
-    if (hoverExpandTimerRef.current) {
-      window.clearTimeout(hoverExpandTimerRef.current);
-    }
-    hoverExpandTimerRef.current = window.setTimeout(() => {
-      if (kind === 'subject') {
-        setExpandedSubjects(prev => (prev[id] ? prev : { ...prev, [id]: true }));
-      } else {
-        setExpandedChapters(prev => (prev[id] ? prev : { ...prev, [id]: true }));
+  // Sorted subjects
+  const sortedSubjects = useMemo(() => {
+    return [...categories.subjects].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [categories.subjects]);
+
+  // Source cascading lists
+  const srcChapters = useMemo(() => {
+    return categories.chapters
+      .filter(c => (c.subject_id || c.parent_id) === srcSubjectId)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [categories.chapters, srcSubjectId]);
+
+  const srcUnits = useMemo(() => {
+    if (!srcChapterId) return [];
+    return categories.units
+      .filter(u => (u.chapter_id || u.parent_id) === srcChapterId)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [categories.units, srcChapterId]);
+
+  // Active source item derived from cascading dropdowns
+  const activeSource = useMemo(() => {
+    if (srcUnitId) {
+      const u = categories.units.find(x => x.id === srcUnitId);
+      if (u) {
+        return { dimension: 'unit' as const, id: u.id, item: u };
       }
-    }, 450);
-  };
-
-  const clearAutoExpand = () => {
-    if (hoverExpandTimerRef.current) {
-      window.clearTimeout(hoverExpandTimerRef.current);
-      hoverExpandTimerRef.current = null;
     }
-  };
+    if (srcChapterId) {
+      const c = categories.chapters.find(x => x.id === srcChapterId);
+      if (c) {
+        return { dimension: 'chapter' as const, id: c.id, item: c };
+      }
+    }
+    return null;
+  }, [srcChapterId, srcUnitId, categories.chapters, categories.units]);
+
+  // Count child units if moving a chapter
+  const sourceChildUnitCount = useMemo(() => {
+    if (activeSource?.dimension !== 'chapter') return 0;
+    return categories.units.filter(u => (u.chapter_id || u.parent_id) === activeSource.id).length;
+  }, [activeSource, categories.units]);
+
+  // Target cascading lists
+  const tgtChapters = useMemo(() => {
+    return categories.chapters
+      .filter(c => {
+        if ((c.subject_id || c.parent_id) !== tgtSubjectId) return false;
+        // Cannot place a chapter inside itself
+        if (activeSource?.dimension === 'chapter' && c.id === activeSource.id) return false;
+        return true;
+      })
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [categories.chapters, tgtSubjectId, activeSource]);
+
+  const tgtUnits = useMemo(() => {
+    if (!tgtChapterId) return [];
+    return categories.units
+      .filter(u => {
+        if ((u.chapter_id || u.parent_id) !== tgtChapterId) return false;
+        if (activeSource?.dimension === 'unit' && u.id === activeSource.id) return false;
+        return true;
+      })
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [categories.units, tgtChapterId, activeSource]);
+
+  // Compute human-readable move preview & validity
+  const movePlan = useMemo(() => {
+    if (!activeSource) {
+      return { valid: false, reason: '請先選擇要搬運的章節或小單元', summary: '' };
+    }
+    if (!tgtSubjectId) {
+      return { valid: false, reason: '請選擇目標科目', summary: '' };
+    }
+
+    const tgtSubj = categories.subjects.find(s => s.id === tgtSubjectId);
+    const tgtChap = tgtChapterId ? categories.chapters.find(c => c.id === tgtChapterId) : null;
+    const tgtUnit = tgtUnitId ? categories.units.find(u => u.id === tgtUnitId) : null;
+
+    if (activeSource.dimension === 'unit') {
+      if (!tgtChapterId) {
+        return {
+          valid: true,
+          targetDimension: 'subject' as const,
+          targetId: tgtSubjectId,
+          placement: 'inside' as const,
+          isPromotion: true,
+          summary: `將小單元「${activeSource.item.name}」提升為「${tgtSubj?.name || '目標科目'}」底下的「章節」`
+        };
+      }
+      if (tgtUnit) {
+        return {
+          valid: true,
+          targetDimension: 'unit' as const,
+          targetId: tgtUnit.id,
+          placement: 'before' as const,
+          isPromotion: false,
+          summary: `將小單元「${activeSource.item.name}」移至「${tgtSubj?.name || ''} / ${tgtChap?.name || ''}」，並排在「${tgtUnit.name}」之前`
+        };
+      }
+      const currentChapId = activeSource.item.chapter_id || activeSource.item.parent_id;
+      if (currentChapId === tgtChapterId) {
+        return {
+          valid: false,
+          reason: '此小單元目前已經在該章節底下，請選擇其他目標科目／章節，或選擇小單元以調整排序',
+          summary: ''
+        };
+      }
+      return {
+        valid: true,
+        targetDimension: 'chapter' as const,
+        targetId: tgtChapterId,
+        placement: 'inside' as const,
+        isPromotion: false,
+        summary: `將小單元「${activeSource.item.name}」移入「${tgtSubj?.name || ''} / ${tgtChap?.name || ''}」底下`
+      };
+    }
+
+    // Moving a chapter
+    if (!tgtChapterId) {
+      const currentSubjId = activeSource.item.subject_id || activeSource.item.parent_id;
+      if (currentSubjId === tgtSubjectId) {
+        return {
+          valid: false,
+          reason: '此章節目前已經在該科目底下，請選擇其他科目，或選擇目標章節將其併入為小單元',
+          summary: ''
+        };
+      }
+      return {
+        valid: true,
+        targetDimension: 'subject' as const,
+        targetId: tgtSubjectId,
+        placement: 'inside' as const,
+        isPromotion: false,
+        summary: `將章節「${activeSource.item.name}」移至「${tgtSubj?.name || '目標科目'}」底下`
+      };
+    }
+
+    if (tgtUnit) {
+      return {
+        valid: true,
+        targetDimension: 'unit' as const,
+        targetId: tgtUnit.id,
+        placement: 'before' as const,
+        isPromotion: false,
+        summary: `將章節「${activeSource.item.name}」併入「${tgtSubj?.name || ''} / ${tgtChap?.name || ''}」成為小單元（排在「${tgtUnit.name}」之前）`
+      };
+    }
+
+    return {
+      valid: true,
+      targetDimension: 'chapter' as const,
+      targetId: tgtChapterId,
+      placement: 'inside' as const,
+      isPromotion: false,
+      summary: `將章節「${activeSource.item.name}」併入「${tgtSubj?.name || ''} / ${tgtChap?.name || ''}」底下成為小單元`
+    };
+  }, [activeSource, tgtSubjectId, tgtChapterId, tgtUnitId, categories.subjects, categories.chapters, categories.units]);
 
   const executeMove = async (
-    source: { dimension: 'chapter' | 'unit'; id: string; name: string },
     targetDimension: 'subject' | 'chapter' | 'unit',
     targetId: string,
-    placement: 'inside' | 'before' | 'after' = 'inside'
+    placement: 'inside' | 'before' | 'after'
   ) => {
-    if (moving) return;
-    if (source.dimension === targetDimension && source.id === targetId) return;
-
-    // Prevent dropping a chapter into one of its own child units
-    if (source.dimension === 'chapter' && targetDimension === 'unit') {
-      const targetUnit = categories.units.find(u => u.id === targetId);
-      if (targetUnit && (targetUnit.chapter_id === source.id || targetUnit.parent_id === source.id)) {
-        setStatusMessage({ type: 'error', text: '不可將章節搬移至自己底下的子單元' });
-        return;
-      }
-    }
-
+    if (!activeSource || moving) return;
     setMoving(true);
     setStatusMessage(null);
     try {
@@ -226,8 +276,8 @@ export default function HierarchyMoverModal({
         method: 'PUT',
         body: {
           action: 'move_hierarchy',
-          sourceDimension: source.dimension,
-          sourceId: source.id,
+          sourceDimension: activeSource.dimension,
+          sourceId: activeSource.id,
           targetDimension,
           targetId,
           placement
@@ -236,35 +286,40 @@ export default function HierarchyMoverModal({
 
       const moved = res.movedItem;
       if (moved) {
-        // Expand destination so user immediately sees where the item landed
-        setExpandedSubjects(prev => ({ ...prev, [moved.subject_id]: true }));
-        if (moved.dimension === 'unit') {
-          setExpandedChapters(prev => ({ ...prev, [moved.parent_id]: true }));
+        // Sync dropdown selections to the moved item's new location
+        setSrcSubjectId(moved.subject_id);
+        if (moved.dimension === 'chapter') {
+          setSrcChapterId(moved.id);
+          setSrcUnitId('');
+        } else {
+          setSrcChapterId(moved.parent_id);
+          setSrcUnitId(moved.id);
         }
-        // Keep focus on the moved item at its new ID/dimension
-        setSelectedSource({ dimension: moved.dimension, id: moved.id });
+        setTgtSubjectId(moved.subject_id);
+        setTgtChapterId('');
+        setTgtUnitId('');
 
         let msg = '';
-        if (source.dimension === 'unit' && moved.dimension === 'chapter') {
+        if (activeSource.dimension === 'unit' && moved.dimension === 'chapter') {
           const targetSubj = categories.subjects.find(s => s.id === moved.subject_id);
-          msg = `已將單元「${source.name}」提升為「${targetSubj?.name || '科目'}」的章節`;
-        } else if (source.dimension === 'chapter' && moved.dimension === 'unit') {
+          msg = `已將小單元「${activeSource.item.name}」提升為「${targetSubj?.name || '科目'}」的章節`;
+        } else if (activeSource.dimension === 'chapter' && moved.dimension === 'unit') {
           const targetChap = categories.chapters.find(c => c.id === moved.parent_id);
-          const extra = res.movedChildUnitCount ? `（原底下 ${res.movedChildUnitCount} 個子單元亦一併移入）` : '';
-          msg = `已將章節「${source.name}」併入「${targetChap?.name || '目標章節'}」成為子單元${extra}`;
+          const extra = res.movedChildUnitCount ? `（原底下 ${res.movedChildUnitCount} 個小單元亦一併移入）` : '';
+          msg = `已將章節「${activeSource.item.name}」併入「${targetChap?.name || '目標章節'}」成為小單元${extra}`;
         } else if (moved.dimension === 'chapter') {
           const targetSubj = categories.subjects.find(s => s.id === moved.subject_id);
-          msg = `已更新章節「${source.name}」至「${targetSubj?.name || '科目'}」`;
+          msg = `已將章節「${activeSource.item.name}」移至「${targetSubj?.name || '科目'}」`;
         } else {
           const targetChap = categories.chapters.find(c => c.id === moved.parent_id);
-          msg = `已移動單元「${source.name}」至「${targetChap?.name || '章節'}」`;
+          msg = `已將小單元「${activeSource.item.name}」移至「${targetChap?.name || '目標章節'}」`;
         }
         setStatusMessage({ type: 'success', text: msg });
 
         await onMoved({
-          sourceDimension: source.dimension,
-          sourceId: source.id,
-          sourceName: source.name,
+          sourceDimension: activeSource.dimension,
+          sourceId: activeSource.id,
+          sourceName: activeSource.item.name,
           newDimension: moved.dimension,
           newId: moved.id,
           newSubjectId: moved.subject_id,
@@ -276,48 +331,46 @@ export default function HierarchyMoverModal({
       setStatusMessage({ type: 'error', text: err?.message || '搬運失敗，請稍後再試' });
     } finally {
       setMoving(false);
-      setDragging(null);
-      setDropIndicator(null);
-      clearAutoExpand();
     }
   };
 
-  const getDropHintLabel = (ind: DropIndicator, drag: DragPayload): string => {
-    if (drag.dimension === 'unit') {
-      if (ind.targetDimension === 'subject') return '放開以提升為此科目的「章節」';
-      if (ind.targetDimension === 'chapter') {
-        if (ind.placement === 'inside') return '放開以移入此章節';
-        return '放開以插入並提升為「章節」';
-      }
-      return ind.placement === 'before' ? '移至此單元上方' : '移至此單元下方';
-    } else {
-      if (ind.targetDimension === 'subject') return '放開以移至此科目';
-      if (ind.targetDimension === 'chapter') {
-        if (ind.placement === 'inside') return '放開以併入成為此章節的子單元';
-        return ind.placement === 'before' ? '移至此章節上方' : '移至此章節下方';
-      }
-      return '放開以併入此章節成為子單元';
-    }
+  const handleConfirmMove = () => {
+    if (!movePlan.valid || !movePlan.targetDimension || !movePlan.targetId) return;
+    executeMove(movePlan.targetDimension, movePlan.targetId, movePlan.placement || 'inside');
   };
 
-  const handleDragEnd = () => {
-    setDragging(null);
-    setDropIndicator(null);
-    clearAutoExpand();
+  const handleQuickPromoteUnit = () => {
+    if (!activeSource || activeSource.dimension !== 'unit') return;
+    const parentChap = categories.chapters.find(
+      c => c.id === (activeSource.item.chapter_id || activeSource.item.parent_id)
+    );
+    const targetSubjId =
+      activeSource.item.subject_id || parentChap?.subject_id || parentChap?.parent_id || tgtSubjectId;
+    if (!targetSubjId) return;
+    executeMove('subject', targetSubjId, 'inside');
   };
 
   return createPortal(
     <div
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh',
         zIndex: 100020,
         background: 'rgba(15, 23, 42, 0.72)',
         backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px'
+        padding: 'max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px',
+        boxSizing: 'border-box',
+        overscrollBehavior: 'contain',
+        overflow: 'hidden'
       }}
       onClick={e => {
         if (e.target === e.currentTarget && !moving) onClose();
@@ -327,8 +380,9 @@ export default function HierarchyMoverModal({
         data-testid="hierarchy-mover-modal"
         style={{
           width: '100%',
-          maxWidth: '780px',
-          maxHeight: '86vh',
+          maxWidth: '580px',
+          maxHeight: 'min(88dvh, 88vh)',
+          margin: 'auto',
           backgroundColor: 'var(--bg-secondary, #FFFFFF)',
           color: 'var(--text-primary, #1C1917)',
           borderRadius: '14px',
@@ -342,21 +396,22 @@ export default function HierarchyMoverModal({
         {/* Header */}
         <div
           style={{
-            padding: '18px 22px',
+            padding: '16px 20px',
             borderBottom: '1px solid var(--glass-border)',
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
-            backgroundColor: 'var(--bg-primary, #FAF7F0)'
+            backgroundColor: 'var(--bg-primary, #FAF7F0)',
+            flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '9px',
                 backgroundColor: 'rgba(217, 119, 6, 0.14)',
                 border: '1px solid rgba(217, 119, 6, 0.3)',
                 color: '#B45309',
@@ -366,14 +421,14 @@ export default function HierarchyMoverModal({
                 flexShrink: 0
               }}
             >
-              <FolderTree size={20} />
+              <FolderTree size={19} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 章節與單元架構搬運
               </h3>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                像 Google Drive 一樣自由拖曳至各層架構：將<strong>單元</strong>拖至科目列或章節間隙可<strong>提升為章節</strong>；將<strong>章節</strong>拖入其他章節中央可<strong>併入為子單元</strong>；亦支援跨科目搬移與排序。
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.79rem', color: 'var(--text-secondary)' }}>
+                透過「科目 / 章節 / 小單元」選單自由調整層級與所屬位置
               </p>
             </div>
           </div>
@@ -396,90 +451,11 @@ export default function HierarchyMoverModal({
           </button>
         </div>
 
-        {/* Selected Item Quick-Action Bar */}
-        {selectedSourceItem && selectedSource && (
-          <div
-            style={{
-              padding: '10px 22px',
-              backgroundColor: 'rgba(217, 119, 6, 0.08)',
-              borderBottom: '1px solid rgba(217, 119, 6, 0.22)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem' }}>
-              <Move size={15} style={{ color: '#B45309', flexShrink: 0 }} />
-              <span style={{ color: 'var(--text-secondary)' }}>目前選取搬運：</span>
-              <span
-                style={{
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  backgroundColor: '#FEF3C7',
-                  border: '1px solid #F59E0B',
-                  color: '#92400E',
-                  fontWeight: 700
-                }}
-              >
-                {selectedSource.dimension === 'chapter' ? '章節' : '單元'} · {selectedSourceItem.name}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {selectedSource.dimension === 'unit' && (
-                <button
-                  type="button"
-                  disabled={moving}
-                  onClick={() => {
-                    const parentChap = categories.chapters.find(
-                      c => c.id === (selectedSourceItem.chapter_id || selectedSourceItem.parent_id)
-                    );
-                    const targetSubjId =
-                      selectedSourceItem.subject_id || parentChap?.subject_id || parentChap?.parent_id || initialSubjectId;
-                    if (targetSubjId) {
-                      executeMove(
-                        { dimension: 'unit', id: selectedSourceItem.id, name: selectedSourceItem.name },
-                        'subject',
-                        targetSubjId,
-                        'inside'
-                      );
-                    }
-                  }}
-                  className="btn btn-primary"
-                  style={{
-                    padding: '5px 12px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}
-                  data-testid="quick-promote-unit-btn"
-                >
-                  <ArrowUpRight size={14} />
-                  直接提升為章節
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setSelectedSource(null)}
-                className="btn btn-secondary"
-                style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-              >
-                取消選取
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Status Message Banner */}
         {statusMessage && (
           <div
             style={{
-              padding: '9px 22px',
+              padding: '10px 20px',
               backgroundColor: statusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
               borderBottom: `1px solid ${statusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
               color: statusMessage.type === 'success' ? '#047857' : '#B91C1C',
@@ -487,7 +463,8 @@ export default function HierarchyMoverModal({
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '8px',
+              flexShrink: 0
             }}
           >
             {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -495,679 +472,364 @@ export default function HierarchyMoverModal({
           </div>
         )}
 
-        {/* Tree Body */}
+        {/* Modal Body (Scrollable if viewport is very short) */}
         <div
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '16px 22px',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+            padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
-            position: 'relative'
+            gap: '16px'
           }}
         >
-          {moving && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundColor: 'rgba(255, 255, 255, 0.55)',
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontWeight: 700,
-                color: '#B45309'
-              }}
-            >
-              <Loader2 size={20} className="animate-spin" />
-              <span>正在同步架構與關聯錯題...</span>
-            </div>
-          )}
-
-          {orderedSubjects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              尚未建立任何科目，請先於書架新增科目。
-            </div>
-          ) : (
-            orderedSubjects.map(subject => {
-              const isSubjExpanded = !!expandedSubjects[subject.id];
-              const subjChapters = chaptersBySubject[subject.id] || [];
-              const isSubjDropInside =
-                dragging &&
-                dropIndicator?.targetDimension === 'subject' &&
-                dropIndicator.targetId === subject.id;
-
-              const canClickMoveToSubject =
-                selectedSource &&
-                selectedSourceItem &&
-                (selectedSource.dimension === 'unit' ||
-                  (selectedSource.dimension === 'chapter' &&
-                    (selectedSourceItem.subject_id || selectedSourceItem.parent_id) !== subject.id));
-
-              return (
-                <div
-                  key={subject.id}
+          {/* SECTION 1: SOURCE ITEM (科目 / 章節 / 小單元) */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--glass-border)',
+              backgroundColor: 'var(--bg-primary, #FAF7F0)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', fontWeight: 700, color: '#92400E' }}>
+                <Move size={15} />
+                <span>步驟 1：選擇要搬運的項目</span>
+              </div>
+              {activeSource && (
+                <span
                   style={{
-                    borderRadius: '10px',
-                    border: isSubjDropInside ? '2px solid #D97706' : '1px solid var(--glass-border)',
-                    backgroundColor: isSubjDropInside ? 'rgba(254, 243, 199, 0.45)' : 'var(--bg-primary, #FAF7F0)',
-                    transition: 'border-color 0.15s, background-color 0.15s',
-                    overflow: 'hidden'
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: '#FEF3C7',
+                    border: '1px solid #F59E0B',
+                    color: '#92400E'
                   }}
                 >
-                  {/* SUBJECT ROW (Drop target for promoting units or moving chapters across subjects) */}
-                  <div
-                    data-testid={`mover-subject-${subject.id}`}
-                    onDragOver={e => {
-                      if (!dragging) return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.dataTransfer.dropEffect = 'move';
-                      setDropIndicator({ targetDimension: 'subject', targetId: subject.id, placement: 'inside' });
-                      if (!isSubjExpanded) scheduleAutoExpand('subject', subject.id);
-                    }}
-                    onDragLeave={e => {
-                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                        clearAutoExpand();
-                      }
-                    }}
-                    onDrop={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!dragging) return;
-                      executeMove(dragging, 'subject', subject.id, 'inside');
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '10px',
-                      padding: '10px 14px',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}
-                    onClick={() => setExpandedSubjects(prev => ({ ...prev, [subject.id]: !prev[subject.id] }))}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <span style={{ color: 'var(--text-muted)', display: 'flex' }}>
-                        {isSubjExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </span>
-                      <BookOpen size={16} style={{ color: '#B45309', flexShrink: 0 }} />
-                      <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
-                        {subject.name}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.74rem',
-                          color: 'var(--text-muted)',
-                          padding: '1px 7px',
-                          borderRadius: '999px',
-                          backgroundColor: 'var(--bg-secondary, #FFFFFF)',
-                          border: '1px solid var(--glass-border)'
-                        }}
-                      >
-                        {subjChapters.length} 章節
-                      </span>
-                    </div>
+                  {activeSource.dimension === 'chapter' ? '章節' : '小單元'} · {activeSource.item.name}
+                </span>
+              )}
+            </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {isSubjDropInside && dragging && (
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            color: '#92400E',
-                            backgroundColor: '#FDE68A',
-                            padding: '2px 8px',
-                            borderRadius: '6px'
-                          }}
-                        >
-                          {getDropHintLabel(dropIndicator!, dragging)}
-                        </span>
-                      )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+              {/* Source Subject */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  1. 科目
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-src-subject"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={srcSubjectId}
+                  onChange={e => {
+                    const nextSubj = e.target.value;
+                    setSrcSubjectId(nextSubj);
+                    const firstCh = categories.chapters
+                      .filter(c => (c.subject_id || c.parent_id) === nextSubj)
+                      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
+                    setSrcChapterId(firstCh?.id || '');
+                    setSrcUnitId('');
+                    setStatusMessage(null);
+                  }}
+                >
+                  {sortedSubjects.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                      {!dragging && canClickMoveToSubject && selectedSourceItem && selectedSource && (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            executeMove(
-                              { dimension: selectedSource.dimension, id: selectedSource.id, name: selectedSourceItem.name },
-                              'subject',
-                              subject.id,
-                              'inside'
-                            );
-                          }}
-                          className="btn btn-secondary"
-                          style={{
-                            padding: '3px 9px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: '#B45309',
-                            borderColor: 'rgba(217, 119, 6, 0.45)',
-                            backgroundColor: '#FFFBEB'
-                          }}
-                        >
-                          {selectedSource.dimension === 'unit' ? '提升為此科目章節' : '移至此科目'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {/* Source Chapter */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  2. 章節
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-src-chapter"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={srcChapterId}
+                  onChange={e => {
+                    setSrcChapterId(e.target.value);
+                    setSrcUnitId('');
+                    setStatusMessage(null);
+                  }}
+                >
+                  <option value="">-- 請選擇章節 --</option>
+                  {srcChapters.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.mistake_count || 0} 題)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* CHAPTERS LIST UNDER SUBJECT */}
-                  {isSubjExpanded && (
-                    <div
-                      style={{
-                        borderTop: '1px solid var(--glass-border)',
-                        backgroundColor: 'var(--bg-secondary, #FFFFFF)',
-                        padding: '8px 12px 10px 26px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px'
-                      }}
-                    >
-                      {subjChapters.length === 0 ? (
-                        <div
-                          onDragOver={e => {
-                            if (!dragging) return;
-                            e.preventDefault();
-                            setDropIndicator({ targetDimension: 'subject', targetId: subject.id, placement: 'inside' });
-                          }}
-                          onDrop={e => {
-                            e.preventDefault();
-                            if (!dragging) return;
-                            executeMove(dragging, 'subject', subject.id, 'inside');
-                          }}
-                          style={{
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: '1px dashed var(--glass-border)',
-                            textAlign: 'center',
-                            fontSize: '0.8rem',
-                            color: 'var(--text-muted)'
-                          }}
-                        >
-                          此科目尚無章節，可將任意章節或單元拖曳至此
-                        </div>
-                      ) : (
-                        subjChapters.map(chap => {
-                          const chapUnits = unitsByChapter[chap.id] || [];
-                          const isChapExpanded = !!expandedChapters[chap.id];
-                          const isDraggingThisChap = dragging?.dimension === 'chapter' && dragging.id === chap.id;
-                          const isSelectedThisChap = selectedSource?.dimension === 'chapter' && selectedSource.id === chap.id;
+              {/* Source Unit (Optional) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  3. 小單元 (選填)
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-src-unit"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={srcUnitId}
+                  disabled={!srcChapterId || srcUnits.length === 0}
+                  onChange={e => {
+                    setSrcUnitId(e.target.value);
+                    setStatusMessage(null);
+                  }}
+                >
+                  <option value="">
+                    {!srcChapterId ? '-- 請先選章節 --' : srcUnits.length === 0 ? '-- 此章節無小單元 --' : '-- 搬運整個章節 --'}
+                  </option>
+                  {srcUnits.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.mistake_count || 0} 題)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                          const chapDrop =
-                            dragging &&
-                            !isDraggingThisChap &&
-                            dropIndicator?.targetDimension === 'chapter' &&
-                            dropIndicator.targetId === chap.id
-                              ? dropIndicator
-                              : null;
+            {/* One-click Promote Unit shortcut */}
+            {activeSource?.dimension === 'unit' && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  想直接將此小單元升級為同科目的獨立章節？
+                </span>
+                <button
+                  type="button"
+                  disabled={moving}
+                  onClick={handleQuickPromoteUnit}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: '#B45309',
+                    borderColor: 'rgba(217, 119, 6, 0.45)',
+                    backgroundColor: '#FFFBEB',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  data-testid="quick-promote-unit-btn"
+                >
+                  <ArrowUpRight size={14} />
+                  直接提升為章節
+                </button>
+              </div>
+            )}
+          </div>
 
-                          const canClickMoveIntoChap =
-                            selectedSource &&
-                            selectedSourceItem &&
-                            !(selectedSource.dimension === 'chapter' && selectedSource.id === chap.id) &&
-                            !(selectedSource.dimension === 'unit' && (selectedSourceItem.chapter_id || selectedSourceItem.parent_id) === chap.id);
+          {/* SECTION 2: TARGET DESTINATION (科目 / 章節 / 小單元) */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1.5px solid rgba(217, 119, 6, 0.35)',
+              backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <ArrowRight size={15} style={{ color: '#D97706' }} />
+              <span>步驟 2：選擇要搬移到的目標位置</span>
+            </div>
 
-                          return (
-                            <div key={chap.id} style={{ position: 'relative' }}>
-                              {/* Top Insertion Line (before chapter) */}
-                              {chapDrop?.placement === 'before' && dragging && (
-                                <div
-                                  style={{
-                                    height: '3px',
-                                    backgroundColor: '#D97706',
-                                    borderRadius: '2px',
-                                    marginBottom: '4px',
-                                    position: 'relative'
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      position: 'absolute',
-                                      right: '8px',
-                                      top: '-11px',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 700,
-                                      backgroundColor: '#D97706',
-                                      color: '#FFFFFF',
-                                      padding: '1px 7px',
-                                      borderRadius: '4px'
-                                    }}
-                                  >
-                                    {getDropHintLabel(chapDrop, dragging)}
-                                  </span>
-                                </div>
-                              )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+              {/* Target Subject */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  1. 目標科目
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-tgt-subject"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={tgtSubjectId}
+                  onChange={e => {
+                    setTgtSubjectId(e.target.value);
+                    setTgtChapterId('');
+                    setTgtUnitId('');
+                    setStatusMessage(null);
+                  }}
+                >
+                  {sortedSubjects.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                              {/* CHAPTER ROW */}
-                              <div
-                                draggable={!moving}
-                                data-testid={`mover-chapter-${chap.id}`}
-                                onDragStart={e => {
-                                  e.stopPropagation();
-                                  e.dataTransfer.effectAllowed = 'move';
-                                  e.dataTransfer.setData('text/plain', `chapter:${chap.id}`);
-                                  setDragging({
-                                    dimension: 'chapter',
-                                    id: chap.id,
-                                    name: chap.name,
-                                    subjectId: subject.id,
-                                    parentId: subject.id
-                                  });
-                                }}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={e => {
-                                  if (!dragging || isDraggingThisChap) return;
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  e.dataTransfer.dropEffect = 'move';
+              {/* Target Chapter */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  2. 目標章節 (不選則為章節層級)
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-tgt-chapter"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={tgtChapterId}
+                  onChange={e => {
+                    setTgtChapterId(e.target.value);
+                    setTgtUnitId('');
+                    setStatusMessage(null);
+                  }}
+                >
+                  <option value="">
+                    {activeSource?.dimension === 'unit'
+                      ? '-- 提升為此科目的「章節」 --'
+                      : '-- 設為此科目的「章節」 --'}
+                  </option>
+                  {tgtChapters.map(c => (
+                    <option key={c.id} value={c.id}>
+                      移入章節：{c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1);
-                                  let placement: 'before' | 'inside' | 'after' = 'inside';
-                                  if (ratio < 0.25) placement = 'before';
-                                  else if (ratio > 0.75) placement = 'after';
+              {/* Target Unit Position (Optional) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  3. 目標小單元排序 (選填)
+                </label>
+                <select
+                  className="input"
+                  data-testid="mover-tgt-unit"
+                  style={{ padding: '8px 10px', fontSize: '0.85rem', width: '100%' }}
+                  value={tgtUnitId}
+                  disabled={!tgtChapterId || tgtUnits.length === 0}
+                  onChange={e => {
+                    setTgtUnitId(e.target.value);
+                    setStatusMessage(null);
+                  }}
+                >
+                  <option value="">
+                    {!tgtChapterId
+                      ? '-- 選擇目標章節後可選 --'
+                      : tgtUnits.length === 0
+                        ? '-- 排在章節內第一位 --'
+                        : '-- 排在章節最後面 --'}
+                  </option>
+                  {tgtUnits.map(u => (
+                    <option key={u.id} value={u.id}>
+                      排在「{u.name}」之前
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                                  setDropIndicator({
-                                    targetDimension: 'chapter',
-                                    targetId: chap.id,
-                                    placement
-                                  });
-                                  if (placement === 'inside' && !isChapExpanded) {
-                                    scheduleAutoExpand('chapter', chap.id);
-                                  }
-                                }}
-                                onDragLeave={e => {
-                                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                                    clearAutoExpand();
-                                  }
-                                }}
-                                onDrop={e => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (!dragging || isDraggingThisChap) return;
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1);
-                                  let placement: 'before' | 'inside' | 'after' = 'inside';
-                                  if (ratio < 0.25) placement = 'before';
-                                  else if (ratio > 0.75) placement = 'after';
-                                  executeMove(dragging, 'chapter', chap.id, placement);
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: '8px',
-                                  padding: '8px 10px',
-                                  borderRadius: '8px',
-                                  border:
-                                    chapDrop?.placement === 'inside'
-                                      ? '2px solid #D97706'
-                                      : isSelectedThisChap
-                                        ? '1.5px solid #D97706'
-                                        : '1px solid var(--glass-border)',
-                                  backgroundColor:
-                                    chapDrop?.placement === 'inside'
-                                      ? 'rgba(254, 243, 199, 0.7)'
-                                      : isSelectedThisChap
-                                        ? '#FFFBEB'
-                                        : 'var(--bg-primary, #FAF7F0)',
-                                  opacity: isDraggingThisChap ? 0.45 : 1,
-                                  cursor: 'grab',
-                                  transition: 'background-color 0.12s, border-color 0.12s'
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                                  <GripVertical size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setExpandedChapters(prev => ({ ...prev, [chap.id]: !prev[chap.id] }));
-                                    }}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      padding: '2px',
-                                      color: 'var(--text-muted)',
-                                      cursor: 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center'
-                                    }}
-                                    title={isChapExpanded ? '收合子單元' : '展開子單元'}
-                                  >
-                                    {isChapExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                                  </button>
-                                  {isChapExpanded ? (
-                                    <FolderOpen size={16} style={{ color: '#D97706', flexShrink: 0 }} />
-                                  ) : (
-                                    <Folder size={16} style={{ color: '#D97706', flexShrink: 0 }} />
-                                  )}
-                                  <span
-                                    style={{
-                                      fontWeight: 600,
-                                      fontSize: '0.88rem',
-                                      color: 'var(--text-primary)',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap'
-                                    }}
-                                  >
-                                    {chap.name}
-                                  </span>
-                                  <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-                                    ({chapUnits.length} 單元 · {chap.mistake_count || 0} 題)
-                                  </span>
-                                </div>
+            {/* Child unit preservation note when demoting a chapter with sub-units */}
+            {activeSource?.dimension === 'chapter' && tgtChapterId && sourceChildUnitCount > 0 && (
+              <div
+                style={{
+                  fontSize: '0.78rem',
+                  color: '#92400E',
+                  backgroundColor: '#FFFBEB',
+                  border: '1px solid #FDE68A',
+                  borderRadius: '7px',
+                  padding: '8px 10px',
+                  lineHeight: 1.5
+                }}
+              >
+                提示：此章節底下包含 <strong>{sourceChildUnitCount}</strong> 個小單元，併入後會一併保留並移至目標章節底下，所有錯題皆不遺失。
+              </div>
+            )}
+          </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                  {chapDrop?.placement === 'inside' && dragging && (
-                                    <span
-                                      style={{
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        color: '#92400E',
-                                        backgroundColor: '#FDE68A',
-                                        padding: '2px 7px',
-                                        borderRadius: '5px'
-                                      }}
-                                    >
-                                      {getDropHintLabel(chapDrop, dragging)}
-                                    </span>
-                                  )}
-
-                                  {!dragging && canClickMoveIntoChap && selectedSourceItem && selectedSource && (
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        executeMove(
-                                          { dimension: selectedSource.dimension, id: selectedSource.id, name: selectedSourceItem.name },
-                                          'chapter',
-                                          chap.id,
-                                          'inside'
-                                        );
-                                      }}
-                                      className="btn btn-secondary"
-                                      style={{
-                                        padding: '3px 8px',
-                                        fontSize: '0.73rem',
-                                        fontWeight: 600,
-                                        color: '#92400E',
-                                        backgroundColor: '#FFFFFF'
-                                      }}
-                                    >
-                                      {selectedSource.dimension === 'unit' ? '移入此章節' : '併入為子單元'}
-                                    </button>
-                                  )}
-
-                                  {!dragging && !isSelectedThisChap && (
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        setSelectedSource({ dimension: 'chapter', id: chap.id });
-                                      }}
-                                      className="btn btn-text"
-                                      style={{ padding: '3px 7px', fontSize: '0.73rem', color: 'var(--text-secondary)' }}
-                                      title="選取此章節以進行點擊搬運"
-                                    >
-                                      選取
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Bottom Insertion Line (after chapter) */}
-                              {chapDrop?.placement === 'after' && dragging && (
-                                <div
-                                  style={{
-                                    height: '3px',
-                                    backgroundColor: '#D97706',
-                                    borderRadius: '2px',
-                                    marginTop: '4px',
-                                    position: 'relative'
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      position: 'absolute',
-                                      right: '8px',
-                                      top: '-11px',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 700,
-                                      backgroundColor: '#D97706',
-                                      color: '#FFFFFF',
-                                      padding: '1px 7px',
-                                      borderRadius: '4px'
-                                    }}
-                                  >
-                                    {getDropHintLabel(chapDrop, dragging)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* UNITS LIST UNDER CHAPTER */}
-                              {isChapExpanded && chapUnits.length > 0 && (
-                                <div
-                                  style={{
-                                    marginLeft: '24px',
-                                    paddingLeft: '12px',
-                                    marginTop: '4px',
-                                    marginBottom: '6px',
-                                    borderLeft: '2px solid rgba(217, 119, 6, 0.22)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px'
-                                  }}
-                                >
-                                  {chapUnits.map(unit => {
-                                    const isDraggingThisUnit = dragging?.dimension === 'unit' && dragging.id === unit.id;
-                                    const isSelectedThisUnit = selectedSource?.dimension === 'unit' && selectedSource.id === unit.id;
-                                    const unitDrop =
-                                      dragging &&
-                                      !isDraggingThisUnit &&
-                                      !(dragging.dimension === 'chapter' && dragging.id === chap.id) &&
-                                      dropIndicator?.targetDimension === 'unit' &&
-                                      dropIndicator.targetId === unit.id
-                                        ? dropIndicator
-                                        : null;
-
-                                    return (
-                                      <div key={unit.id} style={{ position: 'relative' }}>
-                                        {unitDrop?.placement === 'before' && dragging && (
-                                          <div
-                                            style={{
-                                              height: '2.5px',
-                                              backgroundColor: '#D97706',
-                                              borderRadius: '2px',
-                                              marginBottom: '3px'
-                                            }}
-                                          />
-                                        )}
-
-                                        <div
-                                          draggable={!moving}
-                                          data-testid={`mover-unit-${unit.id}`}
-                                          onDragStart={e => {
-                                            e.stopPropagation();
-                                            e.dataTransfer.effectAllowed = 'move';
-                                            e.dataTransfer.setData('text/plain', `unit:${unit.id}`);
-                                            setDragging({
-                                              dimension: 'unit',
-                                              id: unit.id,
-                                              name: unit.name,
-                                              subjectId: subject.id,
-                                              parentId: chap.id
-                                            });
-                                          }}
-                                          onDragEnd={handleDragEnd}
-                                          onDragOver={e => {
-                                            if (!dragging || isDraggingThisUnit) return;
-                                            if (dragging.dimension === 'chapter' && dragging.id === chap.id) return;
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            e.dataTransfer.dropEffect = 'move';
-
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const placement = e.clientY - rect.top < rect.height / 2 ? 'before' : 'after';
-                                            setDropIndicator({
-                                              targetDimension: 'unit',
-                                              targetId: unit.id,
-                                              placement
-                                            });
-                                          }}
-                                          onDrop={e => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (!dragging || isDraggingThisUnit) return;
-                                            if (dragging.dimension === 'chapter' && dragging.id === chap.id) return;
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const placement = e.clientY - rect.top < rect.height / 2 ? 'before' : 'after';
-                                            executeMove(dragging, 'unit', unit.id, placement);
-                                          }}
-                                          style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: '8px',
-                                            padding: '6px 10px',
-                                            borderRadius: '7px',
-                                            border: isSelectedThisUnit
-                                              ? '1.5px solid #D97706'
-                                              : '1px solid var(--glass-border)',
-                                            backgroundColor: isSelectedThisUnit ? '#FFFBEB' : 'var(--bg-secondary, #FFFFFF)',
-                                            opacity: isDraggingThisUnit ? 0.45 : 1,
-                                            cursor: 'grab'
-                                          }}
-                                        >
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                                            <GripVertical size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                            <CornerDownRight size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                            <FileText size={14} style={{ color: '#64748B', flexShrink: 0 }} />
-                                            <span
-                                              style={{
-                                                fontSize: '0.84rem',
-                                                fontWeight: isSelectedThisUnit ? 700 : 500,
-                                                color: 'var(--text-primary)',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
-                                              }}
-                                            >
-                                              {unit.name}
-                                            </span>
-                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-                                              ({unit.mistake_count || 0} 題)
-                                            </span>
-                                          </div>
-
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                            {!dragging && (
-                                              <button
-                                                type="button"
-                                                disabled={moving}
-                                                onClick={e => {
-                                                  e.stopPropagation();
-                                                  executeMove(
-                                                    { dimension: 'unit', id: unit.id, name: unit.name },
-                                                    'subject',
-                                                    subject.id,
-                                                    'inside'
-                                                  );
-                                                }}
-                                                className="btn btn-secondary"
-                                                style={{
-                                                  padding: '2px 8px',
-                                                  fontSize: '0.72rem',
-                                                  fontWeight: 600,
-                                                  color: '#B45309',
-                                                  display: 'inline-flex',
-                                                  alignItems: 'center',
-                                                  gap: '3px'
-                                                }}
-                                                title="將此單元直接提升為章節層級"
-                                                data-testid={`promote-unit-${unit.id}`}
-                                              >
-                                                <ArrowUpRight size={12} />
-                                                升為章節
-                                              </button>
-                                            )}
-
-                                            {!dragging && !isSelectedThisUnit && (
-                                              <button
-                                                type="button"
-                                                onClick={e => {
-                                                  e.stopPropagation();
-                                                  setSelectedSource({ dimension: 'unit', id: unit.id });
-                                                }}
-                                                className="btn btn-text"
-                                                style={{ padding: '2px 7px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}
-                                                title="選取此單元以移動至其他章節或科目"
-                                              >
-                                                選取
-                                              </button>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        {unitDrop?.placement === 'after' && dragging && (
-                                          <div
-                                            style={{
-                                              height: '2.5px',
-                                              backgroundColor: '#D97706',
-                                              borderRadius: '2px',
-                                              marginTop: '3px'
-                                            }}
-                                          />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+          {/* PREVIEW BANNER */}
+          <div
+            style={{
+              padding: '11px 14px',
+              borderRadius: '9px',
+              backgroundColor: movePlan.valid ? 'rgba(217, 119, 6, 0.08)' : 'rgba(148, 163, 184, 0.12)',
+              border: `1px solid ${movePlan.valid ? 'rgba(217, 119, 6, 0.3)' : 'var(--glass-border)'}`,
+              fontSize: '0.83rem',
+              color: movePlan.valid ? '#92400E' : 'var(--text-secondary)',
+              lineHeight: 1.5
+            }}
+          >
+            {movePlan.valid ? (
+              <>
+                <strong>搬運預覽：</strong>
+                {movePlan.summary}
+              </>
+            ) : (
+              <span>{movePlan.reason}</span>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
         <div
           style={{
-            padding: '12px 22px',
+            padding: '12px 20px',
             borderTop: '1px solid var(--glass-border)',
             backgroundColor: 'var(--bg-primary, #FAF7F0)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '10px'
+            gap: '10px',
+            flexShrink: 0
           }}
         >
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            所有搬運皆會自動同步關聯錯題的所屬科目、章節與單元，不遺失任何題目。
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+            搬運時將自動同步所有關聯錯題。
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={moving}
-            className="btn btn-primary"
-            style={{ padding: '7px 18px', fontSize: '0.85rem', fontWeight: 600 }}
-          >
-            完成搬運
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={moving}
+              className="btn btn-secondary"
+              style={{ padding: '7px 14px', fontSize: '0.84rem' }}
+            >
+              關閉
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmMove}
+              disabled={moving || !movePlan.valid}
+              className="btn btn-primary"
+              style={{
+                padding: '7px 18px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              data-testid="confirm-hierarchy-move-btn"
+            >
+              {moving ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>搬運中...</span>
+                </>
+              ) : (
+                <span>確認搬運</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
