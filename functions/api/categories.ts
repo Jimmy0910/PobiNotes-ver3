@@ -432,6 +432,425 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
+    // Action 2.5: Cross-level & same-level hierarchy move (Google Drive-style drag & drop)
+    if (body.action === 'move_hierarchy') {
+      const {
+        sourceDimension,
+        sourceId,
+        targetDimension,
+        targetId,
+        placement = 'inside'
+      } = body as {
+        sourceDimension: 'chapter' | 'unit';
+        sourceId: string;
+        targetDimension: 'subject' | 'chapter' | 'unit';
+        targetId: string;
+        placement?: 'inside' | 'before' | 'after';
+      };
+
+      if (!sourceDimension || !sourceId || !targetDimension || !targetId) {
+        return new Response(JSON.stringify({ error: '缺少搬運來源或目標資訊' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (sourceDimension !== 'chapter' && sourceDimension !== 'unit') {
+        return new Response(JSON.stringify({ error: '僅支援搬運章節或單元' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (sourceDimension === targetDimension && sourceId === targetId) {
+        return new Response(JSON.stringify({ error: '不可將項目搬移至自身位置' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const reorderChaptersInSubject = async (subjId: string, movedChapId: string, anchorChapId: string, pos: 'before' | 'after') => {
+        const rows = await env.DB.prepare(
+          `SELECT id FROM chapters WHERE subject_id = ? ORDER BY sort_order ASC, created_at ASC`
+        ).bind(subjId).all();
+        const ids = ((rows.results || []) as any[]).map(r => r.id).filter(cid => cid !== movedChapId);
+        const anchorIdx = ids.indexOf(anchorChapId);
+        if (anchorIdx === -1) {
+          ids.push(movedChapId);
+        } else {
+          ids.splice(pos === 'before' ? anchorIdx : anchorIdx + 1, 0, movedChapId);
+        }
+        for (let i = 0; i < ids.length; i++) {
+          await env.DB.prepare(`UPDATE chapters SET sort_order = ?, updated_at = ? WHERE id = ?`)
+            .bind((i + 1) * 10, now, ids[i]).run();
+        }
+      };
+
+      const reorderUnitsInChapter = async (chapId: string, movedUnitId: string, anchorUnitId: string, pos: 'before' | 'after') => {
+        const rows = await env.DB.prepare(
+          `SELECT id FROM units WHERE chapter_id = ? AND user_id = ? ORDER BY sort_order ASC, created_at ASC`
+        ).bind(chapId, userId).all();
+        const ids = ((rows.results || []) as any[]).map(r => r.id).filter(uid => uid !== movedUnitId);
+        const anchorIdx = ids.indexOf(anchorUnitId);
+        if (anchorIdx === -1) {
+          ids.push(movedUnitId);
+        } else {
+          ids.splice(pos === 'before' ? anchorIdx : anchorIdx + 1, 0, movedUnitId);
+        }
+        for (let i = 0; i < ids.length; i++) {
+          await env.DB.prepare(`UPDATE units SET sort_order = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
+            .bind((i + 1) * 10, now, ids[i], userId).run();
+        }
+      };
+
+      // CASE A: Moving a UNIT
+      if (sourceDimension === 'unit') {
+        const sourceUnit = await env.DB.prepare(
+          `SELECT * FROM units WHERE id = ? AND user_id = ?`
+        ).bind(sourceId, userId).first() as any;
+
+        if (!sourceUnit) {
+          return new Response(JSON.stringify({ error: '找不到指定的來源單元' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // A1: Promote UNIT -> CHAPTER (dropped inside a subject, or before/after a chapter)
+        if (targetDimension === 'subject' || (targetDimension === 'chapter' && (placement === 'before' || placement === 'after'))) {
+          let targetSubjectId = targetId;
+          let anchorChapterId: string | null = null;
+
+          if (targetDimension === 'chapter') {
+            const targetChap = await env.DB.prepare(
+              `SELECT c.id, c.subject_id FROM chapters c JOIN subjects s ON c.subject_id = s.id WHERE c.id = ? AND s.user_id = ?`
+            ).bind(targetId, userId).first() as any;
+            if (!targetChap) {
+              return new Response(JSON.stringify({ error: '找不到指定的目標章節' }), {
+                status: 404,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+            targetSubjectId = targetChap.subject_id;
+            anchorChapterId = targetChap.id;
+          } else {
+            const targetSubj = await env.DB.prepare(
+              `SELECT id FROM subjects WHERE id = ? AND user_id = ?`
+            ).bind(targetSubjectId, userId).first();
+            if (!targetSubj) {
+              return new Response(JSON.stringify({ error: '找不到指定的目標科目' }), {
+                status: 404,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          }
+
+          const maxRow = await env.DB.prepare(
+            `SELECT MAX(sort_order) as max_order FROM chapters WHERE subject_id = ?`
+          ).bind(targetSubjectId).first() as any;
+          const nextOrder = (maxRow?.max_order ?? 0) + 10;
+          const newChapterId = crypto.randomUUID();
+
+          await env.DB.prepare(
+            `INSERT INTO chapters (id, subject_id, name, color, sort_order, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            newChapterId,
+            targetSubjectId,
+            sourceUnit.name,
+            sourceUnit.color || 'default',
+            nextOrder,
+            sourceUnit.is_active ?? 1,
+            sourceUnit.created_at || now,
+            now
+          ).run();
+
+          await env.DB.prepare(
+            `UPDATE mistakes
+             SET subject_id = ?, chapter_id = ?, unit_id = NULL, updated_at = ?
+             WHERE unit_id = ? AND (user_id = ? OR user_id IS NULL)`
+          ).bind(targetSubjectId, newChapterId, now, sourceId, userId).run();
+
+          await env.DB.prepare(`DELETE FROM units WHERE id = ? AND user_id = ?`).bind(sourceId, userId).run();
+
+          if (anchorChapterId && (placement === 'before' || placement === 'after')) {
+            await reorderChaptersInSubject(targetSubjectId, newChapterId, anchorChapterId, placement);
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            movedItem: {
+              id: newChapterId,
+              dimension: 'chapter',
+              parent_id: targetSubjectId,
+              subject_id: targetSubjectId,
+              name: sourceUnit.name
+            }
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // A2: Move UNIT -> CHAPTER (inside) or UNIT -> UNIT (reorder / cross-chapter move)
+        let targetChapterId = targetId;
+        let targetSubjectId = sourceUnit.subject_id;
+        let anchorUnitId: string | null = null;
+
+        if (targetDimension === 'unit') {
+          const targetUnit = await env.DB.prepare(
+            `SELECT id, chapter_id, subject_id FROM units WHERE id = ? AND user_id = ?`
+          ).bind(targetId, userId).first() as any;
+          if (!targetUnit) {
+            return new Response(JSON.stringify({ error: '找不到指定的目標單元' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          targetChapterId = targetUnit.chapter_id;
+          targetSubjectId = targetUnit.subject_id;
+          anchorUnitId = targetUnit.id;
+        } else {
+          const targetChap = await env.DB.prepare(
+            `SELECT c.id, c.subject_id FROM chapters c JOIN subjects s ON c.subject_id = s.id WHERE c.id = ? AND s.user_id = ?`
+          ).bind(targetId, userId).first() as any;
+          if (!targetChap) {
+            return new Response(JSON.stringify({ error: '找不到指定的目標章節' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          targetChapterId = targetChap.id;
+          targetSubjectId = targetChap.subject_id;
+        }
+
+        const maxUnitRow = await env.DB.prepare(
+          `SELECT MAX(sort_order) as max_order FROM units WHERE chapter_id = ? AND user_id = ?`
+        ).bind(targetChapterId, userId).first() as any;
+        const appendOrder = (maxUnitRow?.max_order ?? 0) + 10;
+
+        await env.DB.prepare(
+          `UPDATE units SET chapter_id = ?, subject_id = ?, sort_order = ?, updated_at = ? WHERE id = ? AND user_id = ?`
+        ).bind(
+          targetChapterId,
+          targetSubjectId,
+          targetChapterId === sourceUnit.chapter_id ? (sourceUnit.sort_order ?? appendOrder) : appendOrder,
+          now,
+          sourceId,
+          userId
+        ).run();
+
+        if (targetChapterId !== sourceUnit.chapter_id || targetSubjectId !== sourceUnit.subject_id) {
+          await env.DB.prepare(
+            `UPDATE mistakes
+             SET subject_id = ?, chapter_id = ?, updated_at = ?
+             WHERE unit_id = ? AND (user_id = ? OR user_id IS NULL)`
+          ).bind(targetSubjectId, targetChapterId, now, sourceId, userId).run();
+        }
+
+        if (anchorUnitId) {
+          await reorderUnitsInChapter(targetChapterId, sourceId, anchorUnitId, placement === 'before' ? 'before' : 'after');
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          movedItem: {
+            id: sourceId,
+            dimension: 'unit',
+            parent_id: targetChapterId,
+            subject_id: targetSubjectId,
+            name: sourceUnit.name
+          }
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // CASE B: Moving a CHAPTER
+      const sourceChapter = await env.DB.prepare(
+        `SELECT c.* FROM chapters c JOIN subjects s ON c.subject_id = s.id WHERE c.id = ? AND s.user_id = ?`
+      ).bind(sourceId, userId).first() as any;
+
+      if (!sourceChapter) {
+        return new Response(JSON.stringify({ error: '找不到指定的來源章節' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // B1: Move CHAPTER -> SUBJECT (inside) or CHAPTER -> CHAPTER (before/after reorder or cross-subject)
+      if (targetDimension === 'subject' || (targetDimension === 'chapter' && (placement === 'before' || placement === 'after'))) {
+        let targetSubjectId = targetId;
+        let anchorChapterId: string | null = null;
+
+        if (targetDimension === 'chapter') {
+          const targetChap = await env.DB.prepare(
+            `SELECT c.id, c.subject_id FROM chapters c JOIN subjects s ON c.subject_id = s.id WHERE c.id = ? AND s.user_id = ?`
+          ).bind(targetId, userId).first() as any;
+          if (!targetChap) {
+            return new Response(JSON.stringify({ error: '找不到指定的目標章節' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          targetSubjectId = targetChap.subject_id;
+          anchorChapterId = targetChap.id;
+        } else {
+          const targetSubj = await env.DB.prepare(
+            `SELECT id FROM subjects WHERE id = ? AND user_id = ?`
+          ).bind(targetSubjectId, userId).first();
+          if (!targetSubj) {
+            return new Response(JSON.stringify({ error: '找不到指定的目標科目' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
+        const maxChapRow = await env.DB.prepare(
+          `SELECT MAX(sort_order) as max_order FROM chapters WHERE subject_id = ?`
+        ).bind(targetSubjectId).first() as any;
+        const appendOrder = (maxChapRow?.max_order ?? 0) + 10;
+
+        await env.DB.prepare(
+          `UPDATE chapters SET subject_id = ?, sort_order = ?, updated_at = ? WHERE id = ?`
+        ).bind(
+          targetSubjectId,
+          targetSubjectId === sourceChapter.subject_id ? (sourceChapter.sort_order ?? appendOrder) : appendOrder,
+          now,
+          sourceId
+        ).run();
+
+        if (targetSubjectId !== sourceChapter.subject_id) {
+          await env.DB.prepare(
+            `UPDATE units SET subject_id = ?, updated_at = ? WHERE chapter_id = ? AND user_id = ?`
+          ).bind(targetSubjectId, now, sourceId, userId).run();
+          await env.DB.prepare(
+            `UPDATE mistakes SET subject_id = ?, updated_at = ? WHERE chapter_id = ? AND (user_id = ? OR user_id IS NULL)`
+          ).bind(targetSubjectId, now, sourceId, userId).run();
+        }
+
+        if (anchorChapterId && (placement === 'before' || placement === 'after')) {
+          await reorderChaptersInSubject(targetSubjectId, sourceId, anchorChapterId, placement);
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          movedItem: {
+            id: sourceId,
+            dimension: 'chapter',
+            parent_id: targetSubjectId,
+            subject_id: targetSubjectId,
+            name: sourceChapter.name
+          }
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // B2: Demote CHAPTER -> UNIT (dropped inside another chapter, or onto/around a unit)
+      let targetChapterId = targetId;
+      let targetSubjectId = sourceChapter.subject_id;
+      let anchorUnitId: string | null = null;
+
+      if (targetDimension === 'unit') {
+        const targetUnit = await env.DB.prepare(
+          `SELECT id, chapter_id, subject_id FROM units WHERE id = ? AND user_id = ?`
+        ).bind(targetId, userId).first() as any;
+        if (!targetUnit) {
+          return new Response(JSON.stringify({ error: '找不到指定的目標單元' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        targetChapterId = targetUnit.chapter_id;
+        targetSubjectId = targetUnit.subject_id;
+        anchorUnitId = targetUnit.id;
+      } else {
+        const targetChap = await env.DB.prepare(
+          `SELECT c.id, c.subject_id FROM chapters c JOIN subjects s ON c.subject_id = s.id WHERE c.id = ? AND s.user_id = ?`
+        ).bind(targetId, userId).first() as any;
+        if (!targetChap) {
+          return new Response(JSON.stringify({ error: '找不到指定的目標章節' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        targetChapterId = targetChap.id;
+        targetSubjectId = targetChap.subject_id;
+      }
+
+      if (targetChapterId === sourceId) {
+        return new Response(JSON.stringify({ error: '不可將章節併入自己底下' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const maxUnitRow = await env.DB.prepare(
+        `SELECT MAX(sort_order) as max_order FROM units WHERE chapter_id = ? AND user_id = ?`
+      ).bind(targetChapterId, userId).first() as any;
+      const nextUnitOrder = (maxUnitRow?.max_order ?? 0) + 10;
+      const newUnitId = crypto.randomUUID();
+
+      await env.DB.prepare(
+        `INSERT INTO units (id, user_id, subject_id, chapter_id, name, color, sort_order, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        newUnitId,
+        userId,
+        targetSubjectId,
+        targetChapterId,
+        sourceChapter.name,
+        sourceChapter.color || 'default',
+        nextUnitOrder,
+        sourceChapter.is_active ?? 1,
+        sourceChapter.created_at || now,
+        now
+      ).run();
+
+      // Direct chapter mistakes (without a unit) now belong to the newly demoted unit
+      await env.DB.prepare(
+        `UPDATE mistakes
+         SET subject_id = ?, chapter_id = ?, unit_id = ?, updated_at = ?
+         WHERE chapter_id = ? AND (unit_id IS NULL OR unit_id = '') AND (user_id = ? OR user_id IS NULL)`
+      ).bind(targetSubjectId, targetChapterId, newUnitId, now, sourceId, userId).run();
+
+      // Any existing child units of sourceChapter are preserved and moved under targetChapterId
+      const childUnitsRes = await env.DB.prepare(
+        `SELECT id FROM units WHERE chapter_id = ? AND user_id = ?`
+      ).bind(sourceId, userId).all();
+      const childUnits = (childUnitsRes.results || []) as any[];
+
+      if (childUnits.length > 0) {
+        await env.DB.prepare(
+          `UPDATE units SET chapter_id = ?, subject_id = ?, updated_at = ? WHERE chapter_id = ? AND user_id = ?`
+        ).bind(targetChapterId, targetSubjectId, now, sourceId, userId).run();
+
+        await env.DB.prepare(
+          `UPDATE mistakes
+           SET subject_id = ?, chapter_id = ?, updated_at = ?
+           WHERE chapter_id = ? AND unit_id IS NOT NULL AND unit_id != '' AND (user_id = ? OR user_id IS NULL)`
+        ).bind(targetSubjectId, targetChapterId, now, sourceId, userId).run();
+      }
+
+      // Reassign chapter-scoped error reasons to targetChapterId
+      await env.DB.prepare(
+        `UPDATE categories SET parent_id = ?, updated_at = ? WHERE parent_id = ? AND user_id = ?`
+      ).bind(targetChapterId, now, sourceId, userId).run();
+
+      await env.DB.prepare(`DELETE FROM chapters WHERE id = ?`).bind(sourceId).run();
+
+      if (anchorUnitId) {
+        await reorderUnitsInChapter(targetChapterId, newUnitId, anchorUnitId, placement === 'before' ? 'before' : 'after');
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        movedItem: {
+          id: newUnitId,
+          dimension: 'unit',
+          parent_id: targetChapterId,
+          subject_id: targetSubjectId,
+          name: sourceChapter.name
+        },
+        movedChildUnitCount: childUnits.length
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Action 3: Standard update (name, color, is_active, parent_id, sort_order)
     const { id, dimension, name, color, is_active, parent_id, sort_order } = body;
     if (!id || !dimension) {
@@ -495,6 +914,11 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
         id,
         userId
       ).run();
+      if (nextChapterId !== existing.chapter_id || nextSubjectId !== existing.subject_id) {
+        await env.DB.prepare(
+          `UPDATE mistakes SET subject_id = ?, chapter_id = ?, updated_at = ? WHERE unit_id = ? AND (user_id = ? OR user_id IS NULL)`
+        ).bind(nextSubjectId, nextChapterId, now, id, userId).run();
+      }
     } else {
       const existing = await env.DB.prepare(`SELECT * FROM categories WHERE id = ? AND user_id = ?`).bind(id, userId).first() as any;
       if (!existing) return new Response(JSON.stringify({ error: 'Category not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });

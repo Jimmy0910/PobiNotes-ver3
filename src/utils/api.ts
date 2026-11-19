@@ -267,8 +267,300 @@ async function handleLocalFallback<T = any>(
       else if (dimension === 'unit') categories.units.push(newItem);
       else if (dimension === 'error_reason') categories.errorReasons.push(newItem);
       else if (dimension === 'familiarity') categories.familiarities.push(newItem);
+      categories.items = [
+        ...categories.subjects,
+        ...categories.chapters,
+        ...categories.units,
+        ...categories.familiarities,
+        ...categories.errorReasons
+      ];
       saveLocalCategories(categories);
       return { success: true, item: newItem } as any as T;
+    }
+    if (method === 'PUT') {
+      const now = Date.now();
+      const syncItems = () => {
+        categories.items = [
+          ...categories.subjects,
+          ...categories.chapters,
+          ...categories.units,
+          ...categories.familiarities,
+          ...categories.errorReasons
+        ];
+        saveLocalCategories(categories);
+      };
+
+      if (bodyData?.action === 'reorder') {
+        const { dimension, orderedIds } = bodyData;
+        const list =
+          dimension === 'subject' ? categories.subjects
+          : dimension === 'chapter' ? categories.chapters
+          : dimension === 'unit' ? categories.units
+          : dimension === 'familiarity' ? categories.familiarities
+          : categories.errorReasons;
+        if (Array.isArray(orderedIds)) {
+          orderedIds.forEach((oid: string, idx: number) => {
+            const item = list.find(i => i.id === oid);
+            if (item) {
+              item.sort_order = (idx + 1) * 10;
+              item.updated_at = now;
+            }
+          });
+          list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+          syncItems();
+        }
+        return { success: true } as any as T;
+      }
+
+      if (bodyData?.action === 'move_hierarchy') {
+        const {
+          sourceDimension,
+          sourceId,
+          targetDimension,
+          targetId,
+          placement = 'inside'
+        } = bodyData;
+        const mistakes = getLocalMistakes();
+
+        const reorderLocalChapters = (subjId: string, movedId: string, anchorId: string, pos: 'before' | 'after') => {
+          const peers = categories.chapters
+            .filter(c => (c.subject_id || c.parent_id) === subjId && c.id !== movedId)
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+          const movedObj = categories.chapters.find(c => c.id === movedId);
+          if (!movedObj) return;
+          const idx = peers.findIndex(c => c.id === anchorId);
+          if (idx === -1) peers.push(movedObj);
+          else peers.splice(pos === 'before' ? idx : idx + 1, 0, movedObj);
+          peers.forEach((c, i) => {
+            c.sort_order = (i + 1) * 10;
+            c.updated_at = now;
+          });
+          categories.chapters.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        };
+
+        const reorderLocalUnits = (chapId: string, movedId: string, anchorId: string, pos: 'before' | 'after') => {
+          const peers = categories.units
+            .filter(u => (u.chapter_id || u.parent_id) === chapId && u.id !== movedId)
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+          const movedObj = categories.units.find(u => u.id === movedId);
+          if (!movedObj) return;
+          const idx = peers.findIndex(u => u.id === anchorId);
+          if (idx === -1) peers.push(movedObj);
+          else peers.splice(pos === 'before' ? idx : idx + 1, 0, movedObj);
+          peers.forEach((u, i) => {
+            u.sort_order = (i + 1) * 10;
+            u.updated_at = now;
+          });
+          categories.units.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        };
+
+        if (sourceDimension === 'unit') {
+          const uIdx = categories.units.findIndex(u => u.id === sourceId);
+          if (uIdx === -1) throw new Error('找不到指定的來源單元');
+          const sourceUnit = categories.units[uIdx];
+
+          if (targetDimension === 'subject' || (targetDimension === 'chapter' && (placement === 'before' || placement === 'after'))) {
+            const targetChap = targetDimension === 'chapter' ? categories.chapters.find(c => c.id === targetId) : null;
+            const targetSubjectId = targetDimension === 'chapter' ? (targetChap?.subject_id || targetChap?.parent_id || '') : targetId;
+            const targetSubj = categories.subjects.find(s => s.id === targetSubjectId);
+            if (!targetSubj) throw new Error('找不到指定的目標科目');
+
+            const newChapterId = `local-chapter-${now}-${Math.random().toString(36).slice(2, 6)}`;
+            const maxOrder = categories.chapters
+              .filter(c => (c.subject_id || c.parent_id) === targetSubjectId)
+              .reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+
+            const newChapter = {
+              id: newChapterId,
+              dimension: 'chapter' as const,
+              parent_id: targetSubjectId,
+              subject_id: targetSubjectId,
+              name: sourceUnit.name,
+              color: sourceUnit.color || 'default',
+              sort_order: maxOrder + 10,
+              is_active: sourceUnit.is_active ?? 1,
+              created_at: sourceUnit.created_at || now,
+              updated_at: now,
+              mistake_count: sourceUnit.mistake_count || 0
+            };
+
+            categories.chapters.push(newChapter);
+            categories.units.splice(uIdx, 1);
+
+            mistakes.forEach(m => {
+              if (m.unit_id === sourceId) {
+                m.subject_id = targetSubjectId;
+                m.subject_name = targetSubj.name;
+                m.chapter_id = newChapterId;
+                m.chapter_name = newChapter.name;
+                m.unit_id = null;
+                m.unit_name = null;
+                m.updated_at = now;
+              }
+            });
+
+            if (targetChap && (placement === 'before' || placement === 'after')) {
+              reorderLocalChapters(targetSubjectId, newChapterId, targetChap.id, placement);
+            }
+
+            saveLocalMistakes(mistakes);
+            syncItems();
+            return {
+              success: true,
+              movedItem: { id: newChapterId, dimension: 'chapter', parent_id: targetSubjectId, subject_id: targetSubjectId, name: newChapter.name }
+            } as any as T;
+          }
+
+          // Move unit into chapter or alongside another unit
+          const targetUnit = targetDimension === 'unit' ? categories.units.find(u => u.id === targetId) : null;
+          const targetChapterId = targetUnit ? (targetUnit.chapter_id || targetUnit.parent_id || '') : targetId;
+          const targetChap = categories.chapters.find(c => c.id === targetChapterId);
+          if (!targetChap) throw new Error('找不到指定的目標章節');
+          const targetSubjectId = targetChap.subject_id || targetChap.parent_id || '';
+          const targetSubj = categories.subjects.find(s => s.id === targetSubjectId);
+
+          sourceUnit.parent_id = targetChapterId;
+          sourceUnit.chapter_id = targetChapterId;
+          sourceUnit.subject_id = targetSubjectId;
+          sourceUnit.updated_at = now;
+
+          mistakes.forEach(m => {
+            if (m.unit_id === sourceId) {
+              m.subject_id = targetSubjectId;
+              m.subject_name = targetSubj?.name || m.subject_name;
+              m.chapter_id = targetChapterId;
+              m.chapter_name = targetChap.name;
+              m.updated_at = now;
+            }
+          });
+
+          if (targetUnit) {
+            reorderLocalUnits(targetChapterId, sourceId, targetUnit.id, placement === 'before' ? 'before' : 'after');
+          }
+
+          saveLocalMistakes(mistakes);
+          syncItems();
+          return {
+            success: true,
+            movedItem: { id: sourceId, dimension: 'unit', parent_id: targetChapterId, subject_id: targetSubjectId, name: sourceUnit.name }
+          } as any as T;
+        }
+
+        if (sourceDimension === 'chapter') {
+          const cIdx = categories.chapters.findIndex(c => c.id === sourceId);
+          if (cIdx === -1) throw new Error('找不到指定的來源章節');
+          const sourceChap = categories.chapters[cIdx];
+
+          if (targetDimension === 'subject' || (targetDimension === 'chapter' && (placement === 'before' || placement === 'after'))) {
+            const targetChap = targetDimension === 'chapter' ? categories.chapters.find(c => c.id === targetId) : null;
+            const targetSubjectId = targetDimension === 'chapter' ? (targetChap?.subject_id || targetChap?.parent_id || '') : targetId;
+            const targetSubj = categories.subjects.find(s => s.id === targetSubjectId);
+            if (!targetSubj) throw new Error('找不到指定的目標科目');
+
+            sourceChap.parent_id = targetSubjectId;
+            sourceChap.subject_id = targetSubjectId;
+            sourceChap.updated_at = now;
+
+            categories.units.forEach(u => {
+              if (u.parent_id === sourceId || u.chapter_id === sourceId) {
+                u.subject_id = targetSubjectId;
+                u.updated_at = now;
+              }
+            });
+
+            mistakes.forEach(m => {
+              if (m.chapter_id === sourceId) {
+                m.subject_id = targetSubjectId;
+                m.subject_name = targetSubj.name;
+                m.updated_at = now;
+              }
+            });
+
+            if (targetChap && (placement === 'before' || placement === 'after')) {
+              reorderLocalChapters(targetSubjectId, sourceId, targetChap.id, placement);
+            }
+
+            saveLocalMistakes(mistakes);
+            syncItems();
+            return {
+              success: true,
+              movedItem: { id: sourceId, dimension: 'chapter', parent_id: targetSubjectId, subject_id: targetSubjectId, name: sourceChap.name }
+            } as any as T;
+          }
+
+          // Demote chapter -> unit
+          const targetUnit = targetDimension === 'unit' ? categories.units.find(u => u.id === targetId) : null;
+          const targetChapterId = targetUnit ? (targetUnit.chapter_id || targetUnit.parent_id || '') : targetId;
+          if (targetChapterId === sourceId) throw new Error('不可將章節併入自己底下');
+          const targetChap = categories.chapters.find(c => c.id === targetChapterId);
+          if (!targetChap) throw new Error('找不到指定的目標章節');
+          const targetSubjectId = targetChap.subject_id || targetChap.parent_id || '';
+          const targetSubj = categories.subjects.find(s => s.id === targetSubjectId);
+
+          const newUnitId = `local-unit-${now}-${Math.random().toString(36).slice(2, 6)}`;
+          const maxUnitOrder = categories.units
+            .filter(u => (u.chapter_id || u.parent_id) === targetChapterId)
+            .reduce((m, u) => Math.max(m, u.sort_order ?? 0), 0);
+
+          const newUnit = {
+            id: newUnitId,
+            dimension: 'unit' as const,
+            parent_id: targetChapterId,
+            chapter_id: targetChapterId,
+            subject_id: targetSubjectId,
+            name: sourceChap.name,
+            color: sourceChap.color || 'default',
+            sort_order: maxUnitOrder + 10,
+            is_active: sourceChap.is_active ?? 1,
+            created_at: sourceChap.created_at || now,
+            updated_at: now,
+            mistake_count: sourceChap.mistake_count || 0
+          };
+
+          categories.units.push(newUnit);
+
+          let movedChildUnitCount = 0;
+          categories.units.forEach(u => {
+            if (u.id !== newUnitId && (u.parent_id === sourceId || u.chapter_id === sourceId)) {
+              u.parent_id = targetChapterId;
+              u.chapter_id = targetChapterId;
+              u.subject_id = targetSubjectId;
+              u.updated_at = now;
+              movedChildUnitCount++;
+            }
+          });
+
+          mistakes.forEach(m => {
+            if (m.chapter_id === sourceId) {
+              m.subject_id = targetSubjectId;
+              m.subject_name = targetSubj?.name || m.subject_name;
+              m.chapter_id = targetChapterId;
+              m.chapter_name = targetChap.name;
+              if (!m.unit_id) {
+                m.unit_id = newUnitId;
+                m.unit_name = newUnit.name;
+              }
+              m.updated_at = now;
+            }
+          });
+
+          categories.chapters.splice(cIdx, 1);
+
+          if (targetUnit) {
+            reorderLocalUnits(targetChapterId, newUnitId, targetUnit.id, placement === 'before' ? 'before' : 'after');
+          }
+
+          saveLocalMistakes(mistakes);
+          syncItems();
+          return {
+            success: true,
+            movedItem: { id: newUnitId, dimension: 'unit', parent_id: targetChapterId, subject_id: targetSubjectId, name: newUnit.name },
+            movedChildUnitCount
+          } as any as T;
+        }
+      }
+
+      return { success: true } as any as T;
     }
   }
 

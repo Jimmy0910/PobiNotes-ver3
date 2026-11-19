@@ -20,8 +20,10 @@ import {
   GripVertical,
   ExternalLink,
   Lock,
-  CheckCircle2
+  CheckCircle2,
+  Move
 } from 'lucide-react';
+import HierarchyMoverModal from './HierarchyMoverModal';
 
 interface CategoryManagerProps {
   categories: CategoriesBundle;
@@ -79,6 +81,10 @@ export default function CategoryManager({
   const [deleteMode, setDeleteMode] = useState<'reassign' | 'unassign' | 'disable' | 'purge'>('reassign');
   const [reassignTargetId, setReassignTargetId] = useState<string>('');
   const [deleting, setDeleting] = useState(false);
+
+  // Google Drive-style Hierarchy Mover Modal state
+  const [moverOpen, setMoverOpen] = useState(false);
+  const [moverFocusedItem, setMoverFocusedItem] = useState<{ dimension: 'chapter' | 'unit'; id: string } | null>(null);
 
   const getDimensionList = (dim: CategoryDimension): CategoryItem[] => {
     switch (dim) {
@@ -380,17 +386,45 @@ export default function CategoryManager({
           </p>
         </div>
 
-        {/* Search input */}
-        <div style={{ position: 'relative', minWidth: '250px' }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="input"
-            style={{ paddingLeft: '36px', height: '38px', fontSize: '0.88rem' }}
-            placeholder="搜尋分類名稱或父層..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+        {/* Search input & Hierarchy Mover */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              setMoverFocusedItem(null);
+              setMoverOpen(true);
+            }}
+            style={{
+              height: '38px',
+              padding: '0 14px',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              color: '#92400E',
+              borderColor: 'rgba(217, 119, 6, 0.4)',
+              backgroundColor: '#FFFBEB',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            data-testid="cat-manager-open-mover-btn"
+            title="像 Google Drive 一樣拖曳調整各層章節與單元架構"
+          >
+            <FolderTree size={16} />
+            <span>架構拖曳搬運</span>
+          </button>
+
+          <div style={{ position: 'relative', minWidth: '250px' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="input"
+              style={{ paddingLeft: '36px', height: '38px', fontSize: '0.88rem' }}
+              placeholder="搜尋分類名稱或父層..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -878,6 +912,27 @@ export default function CategoryManager({
                         </div>
                       ) : (
                         <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                          {(item.dimension === 'chapter' || item.dimension === 'unit') && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{
+                                padding: '5px 9px',
+                                fontSize: '0.78rem',
+                                color: '#92400E',
+                                borderColor: 'rgba(217, 119, 6, 0.35)',
+                                backgroundColor: '#FFFBEB'
+                              }}
+                              onClick={() => {
+                                setMoverFocusedItem({ dimension: item.dimension as 'chapter' | 'unit', id: item.id });
+                                setMoverOpen(true);
+                              }}
+                              data-testid={`cat-move-${item.dimension}-${item.id}`}
+                              title={item.dimension === 'unit' ? '搬運此單元（支援提升為章節或移至其他章節）' : '搬運此章節（支援跨科目或併入為子單元）'}
+                            >
+                              <Move size={13} /> 搬運
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -1080,6 +1135,22 @@ export default function CategoryManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Google Drive-style Hierarchy Mover Modal */}
+      {moverOpen && (
+        <HierarchyMoverModal
+          categories={categories}
+          initialSubjectId={parentSubjectFilter !== 'ALL' && parentSubjectFilter !== 'GLOBAL' ? parentSubjectFilter : null}
+          focusedItem={moverFocusedItem}
+          onClose={() => {
+            setMoverOpen(false);
+            setMoverFocusedItem(null);
+          }}
+          onMoved={async () => {
+            await onRefresh();
+          }}
+        />
       )}
     </div>
   );

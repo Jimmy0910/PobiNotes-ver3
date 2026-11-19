@@ -12,10 +12,15 @@ import {
 import { apiRequest } from '../utils/api';
 import MistakeEditor from './MistakeEditor';
 import ImageAnnotatorModal from './ImageAnnotatorModal';
+import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
 import {
   ArrowLeft,
   BookOpen,
   FolderPlus,
+  FolderTree,
+  Move,
+  ArrowUpRight,
+  CheckCircle2,
   Tag,
   Printer,
   Sparkles,
@@ -232,6 +237,89 @@ export default function NotebookOpenView({
   const [showAddUnitModal, setShowAddUnitModal] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Google Drive-style Hierarchy Mover Modal & Direct Rail Drag-and-Drop state
+  const [moverModalOpen, setMoverModalOpen] = useState(false);
+  const [moverFocusedItem, setMoverFocusedItem] = useState<{ dimension: 'chapter' | 'unit'; id: string } | null>(null);
+  const [draggedRailItem, setDraggedRailItem] = useState<{ dimension: 'chapter' | 'unit'; id: string; name: string } | null>(null);
+  const [railDropTarget, setRailDropTarget] = useState<string | null>(null);
+  const [moveToast, setMoveToast] = useState<string | null>(null);
+
+  const showTemporaryToast = (msg: string) => {
+    setMoveToast(msg);
+    window.setTimeout(() => {
+      setMoveToast(prev => (prev === msg ? null : prev));
+    }, 4000);
+  };
+
+  const openMoverFor = (item: { dimension: 'chapter' | 'unit'; id: string } | null) => {
+    setMoverFocusedItem(item);
+    setMoverModalOpen(true);
+  };
+
+  const handleHierarchyMoved = async (result: HierarchyMoveResult) => {
+    await onRefreshAll?.();
+    if (result.newSubjectId !== subjectId) {
+      if (selectedChapterId === result.sourceId || selectedUnitId === result.sourceId) {
+        setSelectedChapterId(null);
+        setSelectedUnitId(null);
+      }
+      return;
+    }
+    if (result.newDimension === 'chapter') {
+      setSelectedChapterId(result.newId);
+      setSelectedUnitId(null);
+    } else if (result.newDimension === 'unit') {
+      setSelectedChapterId(result.newParentId);
+      setSelectedUnitId(result.newId);
+    }
+  };
+
+  const handleDirectRailMove = async (
+    source: { dimension: 'chapter' | 'unit'; id: string; name: string },
+    targetDimension: 'subject' | 'chapter' | 'unit',
+    targetId: string,
+    placement: 'inside' | 'before' | 'after' = 'inside'
+  ) => {
+    if (source.dimension === targetDimension && source.id === targetId) return;
+    try {
+      const res = await apiRequest<{
+        success: boolean;
+        movedItem?: { id: string; dimension: 'chapter' | 'unit'; parent_id: string; subject_id: string; name: string };
+      }>('/api/categories', {
+        method: 'PUT',
+        body: {
+          action: 'move_hierarchy',
+          sourceDimension: source.dimension,
+          sourceId: source.id,
+          targetDimension,
+          targetId,
+          placement
+        }
+      });
+      await onRefreshAll?.();
+      const moved = res.movedItem;
+      if (moved) {
+        if (source.dimension === 'unit' && moved.dimension === 'chapter') {
+          setSelectedChapterId(moved.id);
+          setSelectedUnitId(null);
+          showTemporaryToast(`已將單元「${source.name}」提升為章節層級`);
+        } else if (source.dimension === 'unit' && moved.dimension === 'unit') {
+          setSelectedChapterId(moved.parent_id);
+          setSelectedUnitId(moved.id);
+          const targetChap = categories.chapters.find(c => c.id === moved.parent_id);
+          showTemporaryToast(`已將單元「${source.name}」移至「${targetChap?.name || '目標章節'}」`);
+        } else if (source.dimension === 'chapter' && moved.dimension === 'chapter') {
+          showTemporaryToast(`已更新章節「${source.name}」順序`);
+        }
+      }
+    } catch (err: any) {
+      alert(err?.message || '搬運失敗');
+    } finally {
+      setDraggedRailItem(null);
+      setRailDropTarget(null);
+    }
+  };
 
   // Lightbox & Annotator state
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
@@ -694,7 +782,39 @@ export default function NotebookOpenView({
           </div>
         </div>
 
-        {/* ROW 3: CHAPTER HORIZONTAL TABS RAIL WITH DEDICATED "+ 新增大章節" BUTTON AT THE END */}
+        {/* MOVE TOAST NOTIFICATION */}
+        {moveToast && (
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#047857',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={16} />
+              <span>{moveToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMoveToast(null)}
+              style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
+              title="關閉提示"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
+        {/* ROW 3: CHAPTER HORIZONTAL TABS RAIL WITH INDEPENDENT MOVE & "+ 新增大章節" */}
         <div
           style={{
             display: 'flex',
@@ -732,66 +852,197 @@ export default function NotebookOpenView({
             <span>全部 ({subjectMistakes.length})</span>
           </button>
 
-          {/* Chapter Tabs */}
+          {/* Chapter Tabs (Draggable + Independent Move Button) */}
           {subjectChapters.map(chap => {
             const isSelected = selectedChapterId === chap.id;
             const count = subjectMistakes.filter(m => m.chapter_id === chap.id).length;
+            const isDropHighlighted = railDropTarget === `chapter:${chap.id}`;
             return (
-              <button
+              <div
                 key={chap.id}
-                type="button"
-                onClick={() => {
-                  setSelectedChapterId(chap.id);
-                  setSelectedUnitId(null);
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', `chapter:${chap.id}`);
+                  setDraggedRailItem({ dimension: 'chapter', id: chap.id, name: chap.name });
+                }}
+                onDragEnd={() => {
+                  setDraggedRailItem(null);
+                  setRailDropTarget(null);
+                }}
+                onDragOver={e => {
+                  if (!draggedRailItem || (draggedRailItem.dimension === 'chapter' && draggedRailItem.id === chap.id)) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setRailDropTarget(`chapter:${chap.id}`);
+                }}
+                onDragLeave={() => {
+                  setRailDropTarget(prev => (prev === `chapter:${chap.id}` ? null : prev));
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (!draggedRailItem) return;
+                  if (draggedRailItem.dimension === 'unit') {
+                    handleDirectRailMove(draggedRailItem, 'chapter', chap.id, 'inside');
+                  } else if (draggedRailItem.dimension === 'chapter' && draggedRailItem.id !== chap.id) {
+                    handleDirectRailMove(draggedRailItem, 'chapter', chap.id, 'before');
+                  }
                 }}
                 style={{
                   flexShrink: 0,
-                  padding: '8px 16px',
                   borderRadius: '8px 8px 0 0',
-                  border: isSelected ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                  border: isDropHighlighted
+                    ? '2px dashed #D97706'
+                    : isSelected
+                      ? '1.5px solid #D97706'
+                      : '1px solid var(--glass-border)',
                   borderBottom: isSelected ? '2px solid #FFFBEB' : '1px solid var(--glass-border)',
-                  backgroundColor: isSelected ? '#FFFBEB' : '#FFFFFF',
+                  backgroundColor: isDropHighlighted
+                    ? '#FEF3C7'
+                    : isSelected
+                      ? '#FFFBEB'
+                      : '#FFFFFF',
                   color: isSelected ? '#92400E' : 'var(--text-secondary)',
-                  fontWeight: isSelected ? 700 : 500,
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: isSelected ? '0 -2px 6px rgba(180, 83, 9, 0.08)' : 'none'
+                  boxShadow: isSelected ? '0 -2px 6px rgba(180, 83, 9, 0.08)' : 'none',
+                  opacity: draggedRailItem?.dimension === 'chapter' && draggedRailItem.id === chap.id ? 0.5 : 1,
+                  transition: 'background-color 0.12s, border-color 0.12s'
                 }}
               >
-                <span>{chap.name}</span>
-                <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>({count})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedChapterId(chap.id);
+                    setSelectedUnitId(null);
+                  }}
+                  style={{
+                    padding: '8px 6px 8px 14px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'inherit',
+                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>{chap.name}</span>
+                  <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>({count})</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid={`move-chapter-${chap.id}`}
+                  onClick={e => {
+                    e.stopPropagation();
+                    openMoverFor({ dimension: 'chapter', id: chap.id });
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '6px 8px 6px 4px',
+                    color: isSelected ? '#B45309' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: '4px'
+                  }}
+                  title={`搬運章節「${chap.name}」（拖曳至各層架構、併入其他章節或跨科目）`}
+                >
+                  <Move size={13} />
+                </button>
+              </div>
             );
           })}
 
-          {/* DEDICATED DISTINCT BUTTON: + 新增大章節 (SEPARATED AT THE END) */}
-          <button
-            type="button"
-            onClick={() => {
-              setNewItemName('');
-              setShowAddChapterModal(true);
-            }}
-            className="btn btn-secondary"
-            style={{
-              flexShrink: 0,
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'var(--accent-primary)',
-              marginLeft: 'auto'
-            }}
-            title="在此學科下新增一個大章節"
-          >
-            <FolderPlus size={15} />
-            <span>+ 新增大章節</span>
-          </button>
+          {/* DROP ZONE WHEN DRAGGING A UNIT: PROMOTE TO CHAPTER */}
+          {draggedRailItem?.dimension === 'unit' && (
+            <div
+              data-testid="promote-unit-dropzone"
+              onDragOver={e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setRailDropTarget('promote-to-chapter');
+              }}
+              onDragLeave={() => {
+                setRailDropTarget(prev => (prev === 'promote-to-chapter' ? null : prev));
+              }}
+              onDrop={e => {
+                e.preventDefault();
+                if (draggedRailItem?.dimension === 'unit') {
+                  handleDirectRailMove(draggedRailItem, 'subject', subjectId, 'inside');
+                }
+              }}
+              style={{
+                flexShrink: 0,
+                padding: '7px 14px',
+                borderRadius: '8px 8px 0 0',
+                border: '2px dashed #D97706',
+                backgroundColor: railDropTarget === 'promote-to-chapter' ? '#FDE68A' : '#FFFBEB',
+                color: '#92400E',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'background-color 0.12s'
+              }}
+            >
+              <ArrowUpRight size={15} />
+              <span>拖曳至此提升為章節</span>
+            </div>
+          )}
+
+          {/* RIGHT-ALIGNED RAIL ACTIONS: 架構搬運 + 新增大章節 */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
+            <button
+              type="button"
+              data-testid="open-hierarchy-mover-btn"
+              onClick={() => openMoverFor(null)}
+              className="btn btn-secondary"
+              style={{
+                padding: '6px 11px',
+                borderRadius: '6px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                color: '#92400E',
+                borderColor: 'rgba(217, 119, 6, 0.35)',
+                backgroundColor: '#FFFBEB'
+              }}
+              title="開啟 Google Drive 風格架構搬運視窗，自由拖曳調整章節與單元層級"
+            >
+              <FolderTree size={14} />
+              <span>架構搬運</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setNewItemName('');
+                setShowAddChapterModal(true);
+              }}
+              className="btn btn-secondary"
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: 'var(--accent-primary)'
+              }}
+              title="在此學科下新增一個大章節"
+            >
+              <FolderPlus size={15} />
+              <span>+ 新增大章節</span>
+            </button>
+          </div>
         </div>
 
         {/* ROW 4: SUB-UNITS TABS RAIL (ONLY WHEN A CHAPTER IS SELECTED) */}
@@ -808,7 +1059,7 @@ export default function NotebookOpenView({
               border: '1px solid var(--glass-border)'
             }}
           >
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', marginRight: '4px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', marginRight: '4px', flexShrink: 0 }}>
               細部單元：
             </span>
 
@@ -833,25 +1084,91 @@ export default function NotebookOpenView({
             {currentChapterUnits.map(unit => {
               const isSelected = selectedUnitId === unit.id;
               const count = subjectMistakes.filter(m => m.unit_id === unit.id).length;
+              const isDropHighlighted = railDropTarget === `unit:${unit.id}`;
               return (
-                <button
+                <div
                   key={unit.id}
-                  type="button"
-                  onClick={() => setSelectedUnitId(unit.id)}
+                  draggable
+                  onDragStart={e => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', `unit:${unit.id}`);
+                    setDraggedRailItem({ dimension: 'unit', id: unit.id, name: unit.name });
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRailItem(null);
+                    setRailDropTarget(null);
+                  }}
+                  onDragOver={e => {
+                    if (!draggedRailItem || draggedRailItem.dimension !== 'unit' || draggedRailItem.id === unit.id) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setRailDropTarget(`unit:${unit.id}`);
+                  }}
+                  onDragLeave={() => {
+                    setRailDropTarget(prev => (prev === `unit:${unit.id}` ? null : prev));
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (draggedRailItem?.dimension === 'unit' && draggedRailItem.id !== unit.id) {
+                      handleDirectRailMove(draggedRailItem, 'unit', unit.id, 'before');
+                    }
+                  }}
                   style={{
                     flexShrink: 0,
-                    padding: '4px 10px',
                     borderRadius: '999px',
-                    fontSize: '0.78rem',
-                    fontWeight: isSelected ? 700 : 500,
-                    border: isSelected ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                    backgroundColor: isSelected ? '#FDE68A' : '#FFFFFF',
+                    border: isDropHighlighted
+                      ? '2px dashed #D97706'
+                      : isSelected
+                        ? '1.5px solid #D97706'
+                        : '1px solid var(--glass-border)',
+                    backgroundColor: isDropHighlighted
+                      ? '#FEF3C7'
+                      : isSelected
+                        ? '#FDE68A'
+                        : '#FFFFFF',
                     color: '#1C1917',
-                    cursor: 'pointer'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    opacity: draggedRailItem?.dimension === 'unit' && draggedRailItem.id === unit.id ? 0.5 : 1,
+                    transition: 'background-color 0.12s, border-color 0.12s'
                   }}
                 >
-                  {unit.name} ({count})
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUnitId(unit.id)}
+                    style={{
+                      padding: '4px 4px 4px 10px',
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '0.78rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      color: 'inherit',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {unit.name} ({count})
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`move-unit-${unit.id}`}
+                    onClick={e => {
+                      e.stopPropagation();
+                      openMoverFor({ dimension: 'unit', id: unit.id });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '3px 8px 3px 3px',
+                      color: isSelected ? '#92400E' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                    title={`搬運單元「${unit.name}」（支援提升為章節或移至其他章節）`}
+                  >
+                    <Move size={12} />
+                  </button>
+                </div>
               );
             })}
 
@@ -1455,6 +1772,20 @@ export default function NotebookOpenView({
           title={`手帳紅筆標註｜${annotatingData.mistake.title}（${annotatingData.isQuestion ? '題目圖' : '詳解圖'}）`}
           onClose={() => setAnnotatingData(null)}
           onSaveAnnotatedImage={handleSaveAnnotatedImage}
+        />
+      )}
+
+      {/* GOOGLE DRIVE-STYLE HIERARCHY MOVER MODAL */}
+      {moverModalOpen && (
+        <HierarchyMoverModal
+          categories={categories}
+          initialSubjectId={subjectId}
+          focusedItem={moverFocusedItem}
+          onClose={() => {
+            setMoverModalOpen(false);
+            setMoverFocusedItem(null);
+          }}
+          onMoved={handleHierarchyMoved}
         />
       )}
     </div>
