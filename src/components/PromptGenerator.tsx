@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import {
   type CategoriesBundle,
   type FilterState,
@@ -152,6 +153,7 @@ export default function PromptGenerator({
   filter,
   preselectedMistakeIds
 }: PromptGeneratorProps) {
+  const { showToast, confirmDialog } = useUiFeedback();
   const filteredMistakes = useMemo(
     () => filterMistakes(mistakes, filter, categories),
     [mistakes, filter, categories]
@@ -378,7 +380,7 @@ export default function PromptGenerator({
 
   const handleSaveCurrentTemplate = async (saveAsNew: boolean) => {
     if (!templateName.trim() || !templateContent.trim()) {
-      alert('請填寫模板名稱與提詞模板內容');
+      showToast('請填寫模板名稱與提詞模板內容', 'error');
       return;
     }
     setSaving(true);
@@ -430,20 +432,28 @@ export default function PromptGenerator({
         await fetchSavedTemplates();
       }
     } catch (e: any) {
-      alert(e.message || '儲存提詞模板失敗');
+      showToast(e.message || '儲存提詞模板失敗', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteSavedTemplate = async (tpl: PromptTemplateItem) => {
-    if (!confirm(`確定要${tpl.isBuiltIn ? '還原此預設模板' : '刪除此自訂模板'}嗎？`)) return;
+    const ok = await confirmDialog({
+      title: tpl.isBuiltIn ? '還原預設模板' : '刪除自訂模板',
+      message: `確定要${tpl.isBuiltIn ? '還原此預設模板' : '刪除此自訂模板'}嗎？`,
+      confirmText: tpl.isBuiltIn ? '確認還原' : '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest(`/api/prompt-templates?id=${tpl.id}`, { method: 'DELETE' });
       await fetchSavedTemplates();
       handleSelectTemplate(BUILTIN_PROMPT_TEMPLATES[0]);
+      showToast(tpl.isBuiltIn ? '已還原預設模板' : '已刪除自訂模板', 'success');
     } catch (e: any) {
-      alert(e.message || '刪除失敗');
+      showToast(e.message || '刪除失敗', 'error');
     }
   };
 

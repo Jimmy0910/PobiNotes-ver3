@@ -15,6 +15,7 @@ import {
   Type
 } from 'lucide-react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 
 interface ImageAnnotatorModalProps {
   imageUrl: string;
@@ -35,6 +36,7 @@ export default function ImageAnnotatorModal({
   onSaveAnnotatedImage,
   title = '手帳紅筆訂正與標註'
 }: ImageAnnotatorModalProps) {
+  const { showToast, confirmDialog } = useUiFeedback();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -115,8 +117,15 @@ export default function ImageAnnotatorModal({
     }
   };
 
-  const handleClearAll = () => {
-    if (!confirm('確定要清除所有手寫筆跡與標註嗎？')) return;
+  const handleClearAll = async () => {
+    const ok = await confirmDialog({
+      title: '清除筆跡確認',
+      message: '確定要清除所有手寫筆跡與標註嗎？',
+      confirmText: '確認清除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     const canvas = canvasRef.current;
     if (!canvas || historyRef.current.length === 0) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -350,7 +359,7 @@ export default function ImageAnnotatorModal({
         onClose();
       }, 600);
     } catch (err: any) {
-      alert(err.message || '儲存標註圖片時發生錯誤');
+      showToast(err.message || '儲存標註圖片時發生錯誤', 'error');
     } finally {
       setIsSaving(false);
     }

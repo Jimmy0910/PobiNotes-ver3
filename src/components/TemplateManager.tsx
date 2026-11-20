@@ -1,5 +1,6 @@
 import React, { Component, useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import { isLegacyMasteryField } from '../types';
 import { Plus, Trash2, ArrowUp, ArrowDown, Save, List } from 'lucide-react';
 
@@ -141,6 +142,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
 }
 
 function TemplateManager() {
+  const { showToast, confirmDialog } = useUiFeedback();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   
@@ -378,11 +380,11 @@ function TemplateManager() {
 
   const handleSave = async () => {
     if (!templateName.trim()) {
-      alert('請輸入模板名稱！');
+      showToast('請輸入模板名稱', 'error');
       return;
     }
     if (questionFields.length === 0) {
-      alert('題目區必須至少有一個欄位！');
+      showToast('題目區必須至少有一個欄位', 'error');
       return;
     }
 
@@ -401,7 +403,7 @@ function TemplateManager() {
           method: 'PUT',
           body: { id: selectedTemplateId, ...payload }
         });
-        alert('模板更新成功！');
+        showToast('模板更新成功', 'success');
       } else {
         // Create template
         const res = await apiRequest('/api/templates', {
@@ -409,16 +411,23 @@ function TemplateManager() {
           body: payload
         });
         setSelectedTemplateId(res.template.id);
-        alert('模板儲存成功！');
+        showToast('模板儲存成功', 'success');
       }
       fetchTemplates();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '儲存失敗');
+      showToast(e instanceof Error ? e.message : '儲存失敗', 'error');
     }
   };
 
   const handleDeleteTemplate = async (id: string, name: string) => {
-    if (!confirm(`確定要刪除「${name}」模板嗎？`)) return;
+    const ok = await confirmDialog({
+      title: '刪除模板確認',
+      message: `確定要刪除「${name}」模板嗎？`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest(`/api/templates?id=${id}`, {
         method: 'DELETE'
@@ -430,9 +439,9 @@ function TemplateManager() {
         setQuestionFields([]);
         setAnswerFields([]);
       }
-      alert('模板已刪除！');
+      showToast('模板已刪除', 'success');
     } catch (e) {
-      alert(e instanceof Error ? e.message : '刪除失敗');
+      showToast(e instanceof Error ? e.message : '刪除失敗', 'error');
     }
   };
 

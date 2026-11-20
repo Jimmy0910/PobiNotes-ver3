@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import {
   Printer,
   ArrowLeft,
@@ -73,6 +74,7 @@ type LayoutColumn = 'one' | 'two';
 type ScratchSpace = 'none' | 'medium' | 'large';
 
 export default function ExportPDF({ mistakeIds, initialMistakes, onBack, onImageClick }: ExportPDFProps) {
+  const { showToast } = useUiFeedback();
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -237,7 +239,7 @@ export default function ExportPDF({ mistakeIds, initialMistakes, onBack, onImage
 
   const handleGeneratePdf = async () => {
     if (mistakes.length === 0) {
-      alert('目前沒有選取可匯出的錯題，請先在書架或錯題庫中挑選或建立題目！');
+      showToast('目前沒有選取可匯出的錯題，請先在書架或錯題庫中挑選或建立題目', 'info');
       return;
     }
     const element = document.getElementById('print-sheet-preview');
@@ -338,7 +340,7 @@ export default function ExportPDF({ mistakeIds, initialMistakes, onBack, onImage
 
   const handlePrint = () => {
     if (mistakes.length === 0) {
-      alert('目前沒有選取可列印的錯題，請先在書架或錯題庫中挑選或建立題目！');
+      showToast('目前沒有選取可列印的錯題，請先在書架或錯題庫中挑選或建立題目', 'info');
       return;
     }
     window.print();

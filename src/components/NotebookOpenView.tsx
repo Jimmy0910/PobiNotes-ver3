@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import type {
-  CategoriesBundle,
-  MistakeRecord
+import {
+  type CategoriesBundle,
+  type MistakeRecord,
+  buildNextReviewMeta,
+  getMistakeReviewMeta
 } from '../types';
 import {
   parseNotebookStyle,
@@ -13,6 +15,8 @@ import { apiRequest } from '../utils/api';
 import MistakeEditor from './MistakeEditor';
 import ImageAnnotatorModal from './ImageAnnotatorModal';
 import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
+import SharePackModal from './SharePackModal';
+import { useUiFeedback } from './UiFeedbackProvider';
 import {
   ArrowLeft,
   BookOpen,
@@ -21,6 +25,9 @@ import {
   Move,
   ArrowUpRight,
   CheckCircle2,
+  Share2,
+  Clock,
+  ArrowRight,
   Tag,
   Printer,
   Sparkles,
@@ -222,8 +229,10 @@ export default function NotebookOpenView({
   onUpdateMistake
 }: NotebookOpenViewProps) {
   // Navigation & Filter states
+  const { showToast, confirmDialog } = useUiFeedback();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selfTestMode, setSelfTestMode] = useState<boolean>(false); // 自測模式：預設展開解析，切換後隱藏解析
   const [expandedMistakeIds, setExpandedMistakeIds] = useState<Record<string, boolean>>({});
@@ -314,7 +323,7 @@ export default function NotebookOpenView({
         }
       }
     } catch (err: any) {
-      alert(err?.message || '搬運失敗');
+      showToast(err?.message || '搬運失敗', 'error');
     } finally {
       setDraggedRailItem(null);
       setRailDropTarget(null);
@@ -409,20 +418,53 @@ export default function NotebookOpenView({
     setShowEditor(true);
   };
 
-  // Delete mistake with confirmation
-  const handleDeleteMistake = async (id: string, title: string) => {
-    if (!confirm(`確定要刪除錯題「${title}」嗎？此動作將移至回收桶。`)) return;
+  // Delete mistake with custom confirmation & 5-second Undo toast
+  const handleDeleteMistake = async (mistake: MistakeRecord) => {
+    const ok = await confirmDialog({
+      title: '刪除錯題確認',
+      message: `確定要刪除錯題「${mistake.title}」嗎？刪除後 5 秒內可於通知列點擊復原。`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
-      await apiRequest(`/api/mistakes?id=${id}`, {
+      await apiRequest(`/api/mistakes?id=${mistake.id}`, {
         method: 'DELETE'
       });
       await onRefreshAll?.();
+      showToast(`已刪除錯題「${mistake.title}」`, 'info', {
+        undoLabel: '復原',
+        onUndo: async () => {
+          try {
+            await apiRequest('/api/mistakes', {
+              method: 'POST',
+              body: {
+                subjectId: mistake.subject_id,
+                chapterId: mistake.chapter_id,
+                unitId: mistake.unit_id,
+                familiarityId: mistake.familiarity_id,
+                errorReasonIds: mistake.error_reason_ids || [],
+                tags: mistake.tags || [],
+                mistakeDate: mistake.mistake_date,
+                templateId: mistake.template_id || 'default-exam',
+                title: mistake.title,
+                data: mistake.data
+              }
+            });
+            await onRefreshAll?.();
+            showToast(`已復原錯題「${mistake.title}」`, 'success');
+          } catch {
+            showToast('復原錯題失敗', 'error');
+          }
+        }
+      });
     } catch (err: any) {
-      alert('刪除失敗：' + (err.message || String(err)));
+      showToast('刪除失敗：' + (err.message || String(err)), 'error');
     }
   };
 
-  // Cycle Familiarity directly on mistake card
+  // Cycle Familiarity directly on mistake card and append attempt history
   const handleCycleFamiliarity = async (mistake: MistakeRecord) => {
     const activeFams = categories.familiarities.filter(f => f.is_active === 1);
     if (activeFams.length === 0) return;
@@ -432,12 +474,18 @@ export default function NotebookOpenView({
     );
     const nextIndex = (currentIndex + 1) % activeFams.length;
     const nextFam = activeFams[nextIndex];
+    const nextReviewMeta = buildNextReviewMeta(mistake, nextFam.id, nextFam.name);
+    const nextData = {
+      ...mistake.data,
+      reviewMeta: nextReviewMeta
+    };
 
     const updated = {
       ...mistake,
       familiarity_id: nextFam.id,
       familiarity_name: nextFam.name,
-      familiarity_color: nextFam.color
+      familiarity_color: nextFam.color,
+      data: nextData
     };
     onUpdateMistake?.(updated);
 
@@ -446,12 +494,15 @@ export default function NotebookOpenView({
         method: 'PUT',
         body: {
           id: mistake.id,
-          familiarity_id: nextFam.id
+          familiarity_id: nextFam.id,
+          data: nextData
         }
       });
       await onRefreshAll?.();
+      showToast(`已更新掌握度為「${nextFam.name}」（下次複習：${nextReviewMeta.nextReviewDate}）`, 'success');
     } catch (e) {
       console.error('更新掌握度失敗', e);
+      showToast('更新掌握度失敗', 'error');
     }
   };
 
@@ -720,6 +771,30 @@ export default function NotebookOpenView({
               title="管理本學科專屬錯因標籤"
             >
               <Tag size={15} /> 錯因標籤
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (filteredMistakes.length === 0) {
+                  showToast('目前篩選範圍內沒有可分享的錯題', 'info');
+                  return;
+                }
+                setShowShareModal(true);
+              }}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 12px',
+                fontSize: '0.84rem',
+                fontWeight: 600
+              }}
+              title="將目前範圍的錯題產生唯讀分享連結"
+              data-testid="notebook-share-pack-btn"
+            >
+              <Share2 size={15} /> 分享錯題包
             </button>
 
             {/* HIGH-CONTRAST PRIMARY ACTION: + 新增錯題 (PROMINENT AND UNMISTAKABLE) */}
@@ -1337,7 +1412,7 @@ export default function NotebookOpenView({
                       {/* Delete Button */}
                       <button
                         type="button"
-                        onClick={() => handleDeleteMistake(m.id, m.title)}
+                        onClick={() => handleDeleteMistake(m)}
                         className="btn btn-secondary"
                         style={{ padding: '6px 8px', color: 'var(--danger)' }}
                         title="刪除此錯題"
@@ -1346,6 +1421,54 @@ export default function NotebookOpenView({
                       </button>
                     </div>
                   </div>
+
+                  {/* Attempt History / Progress Trajectory */}
+                  {(() => {
+                    const reviewMeta = getMistakeReviewMeta(m);
+                    if (reviewMeta.history.length === 0) return null;
+                    return (
+                      <div
+                        data-testid={`attempt-history-${m.id}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          padding: '6px 10px',
+                          borderRadius: '7px',
+                          backgroundColor: '#FAF7F0',
+                          border: '1px solid rgba(180, 83, 9, 0.14)',
+                          fontSize: '0.75rem',
+                          color: '#57534E'
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                          <Clock size={12} style={{ color: '#B45309' }} />
+                          <span style={{ fontWeight: 700, color: '#92400E' }}>進步軌跡：</span>
+                          {reviewMeta.history.slice(-5).map((attempt, aIdx, arr) => (
+                            <span key={attempt.timestamp + '-' + aIdx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <span
+                                style={{
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#FFFFFF',
+                                  border: '1px solid var(--glass-border)',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {attempt.date.slice(5)} {attempt.familiarityName}
+                              </span>
+                              {aIdx < arr.length - 1 && <ArrowRight size={11} style={{ color: '#A8A29E' }} />}
+                            </span>
+                          ))}
+                        </div>
+                        <span style={{ color: '#78716C', fontVariantNumeric: 'tabular-nums' }}>
+                          下次複習：{reviewMeta.nextReviewDate}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Question Content (Text & Images) */}
                   {(extracted.qDesc || extracted.qImages.length > 0) && (
@@ -1786,6 +1909,15 @@ export default function NotebookOpenView({
             setMoverFocusedItem(null);
           }}
           onMoved={handleHierarchyMoved}
+        />
+      )}
+
+      {/* SHARE READ-ONLY MISTAKE PACK MODAL */}
+      {showShareModal && (
+        <SharePackModal
+          defaultTitle={`${activeSubject.name}${selectedChapterId ? ` - ${subjectChapters.find(c => c.id === selectedChapterId)?.name || ''}` : ''} 錯題分享包`}
+          mistakes={filteredMistakes}
+          onClose={() => setShowShareModal(false)}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import { compressImage } from '../utils/compress';
 import type { CategoriesBundle, Field, FieldOption, MistakeRecord } from '../types';
 import { getEffectiveFamiliarityId, isLegacyMasteryField } from '../types';
@@ -49,6 +50,7 @@ export default function MistakeEditor({
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
   // Core metadata fields (Requirement 5)
+  const { showToast } = useUiFeedback();
   const [title, setTitle] = useState('');
   const [mistakeDate, setMistakeDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [subjectId, setSubjectId] = useState<string>('');
@@ -335,7 +337,7 @@ export default function MistakeEditor({
         setAnswerData(prev => ({ ...prev, [fieldId]: savedKey }));
       }
     } catch (e) {
-      alert('圖片處理失敗：' + (e instanceof Error ? e.message : String(e)));
+      showToast('圖片處理失敗：' + (e instanceof Error ? e.message : String(e)), 'error');
     } finally {
       setUploadingFields(prev => ({ ...prev, [fieldId]: false }));
     }
@@ -387,7 +389,7 @@ export default function MistakeEditor({
 
   const handleSave = async () => {
     if (!title.trim()) {
-      alert('請輸入錯題名稱！');
+      showToast('請輸入錯題名稱', 'error');
       return;
     }
 
@@ -404,7 +406,8 @@ export default function MistakeEditor({
       templateId: selectedTemplateId,
       data: {
         questionData,
-        answerData
+        answerData,
+        ...(mistake?.data?.reviewMeta ? { reviewMeta: mistake.data.reviewMeta } : {})
       }
     };
 
@@ -420,9 +423,10 @@ export default function MistakeEditor({
           body: payload
         });
       }
+      showToast(mistake ? '已更新錯題內容' : '已新增錯題', 'success');
       onSaveSuccess();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '儲存失敗');
+      showToast(e instanceof Error ? e.message : '儲存失敗', 'error');
     } finally {
       setLoading(false);
     }

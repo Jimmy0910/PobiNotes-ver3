@@ -40,6 +40,20 @@ export interface Field {
   hideLabel?: boolean;
 }
 
+export interface ReviewAttempt {
+  date: string; // YYYY-MM-DD
+  timestamp: number;
+  familiarityId: string | null;
+  familiarityName: string;
+}
+
+export interface MistakeReviewMeta {
+  nextReviewDate: string; // YYYY-MM-DD
+  lastReviewedAt?: number;
+  reviewCount: number;
+  history: ReviewAttempt[];
+}
+
 export interface MistakeRecord {
   id: string;
   user_id?: string;
@@ -71,6 +85,7 @@ export interface MistakeRecord {
   data: {
     questionData: { [fieldId: string]: any };
     answerData: { [fieldId: string]: any };
+    reviewMeta?: MistakeReviewMeta;
   };
   created_at: number;
   updated_at?: number;
@@ -412,4 +427,85 @@ export function filterMistakes(
 
     return true;
   });
+}
+
+export function getTodayDateStr(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function addDaysToDateStr(dateStr: string, days: number): string {
+  const parts = dateStr.split('-').map(Number);
+  const d = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date();
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function getReviewIntervalDays(familiarityName?: string | null): number {
+  const name = (familiarityName || '').trim();
+  if (name.includes('順') || name.includes('精熟') || name.includes('掌握') || name === '會') {
+    return 14;
+  }
+  if (name.includes('誤解')) {
+    return 5;
+  }
+  if (name.includes('卡') || name.includes('稍微')) {
+    return 3;
+  }
+  return 1; // 不會 or uncategorized
+}
+
+export function getMistakeReviewMeta(m: MistakeRecord): MistakeReviewMeta {
+  const existing = m.data?.reviewMeta;
+  if (existing && typeof existing.nextReviewDate === 'string') {
+    return {
+      nextReviewDate: existing.nextReviewDate,
+      lastReviewedAt: existing.lastReviewedAt,
+      reviewCount: typeof existing.reviewCount === 'number' ? existing.reviewCount : (existing.history?.length || 0),
+      history: Array.isArray(existing.history) ? existing.history : []
+    };
+  }
+  const baseDate = m.mistake_date || new Date(m.created_at || Date.now()).toISOString().slice(0, 10);
+  const interval = getReviewIntervalDays(m.familiarity_name);
+  return {
+    nextReviewDate: addDaysToDateStr(baseDate, interval),
+    reviewCount: 0,
+    history: []
+  };
+}
+
+export function isMistakeDueForReview(m: MistakeRecord, todayStr = getTodayDateStr()): boolean {
+  const meta = getMistakeReviewMeta(m);
+  return meta.nextReviewDate <= todayStr;
+}
+
+export function buildNextReviewMeta(
+  m: MistakeRecord,
+  familiarityId: string | null,
+  familiarityName: string
+): MistakeReviewMeta {
+  const todayStr = getTodayDateStr();
+  const prev = getMistakeReviewMeta(m);
+  const interval = getReviewIntervalDays(familiarityName);
+  const nextReviewDate = addDaysToDateStr(todayStr, interval);
+  const now = Date.now();
+  const newAttempt: ReviewAttempt = {
+    date: todayStr,
+    timestamp: now,
+    familiarityId,
+    familiarityName
+  };
+  const nextHistory = [...prev.history, newAttempt].slice(-20);
+  return {
+    nextReviewDate,
+    lastReviewedAt: now,
+    reviewCount: prev.reviewCount + 1,
+    history: nextHistory
+  };
 }

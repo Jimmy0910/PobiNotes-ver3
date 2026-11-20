@@ -5,9 +5,16 @@ import {
   type CategoryDimension,
   type FilterState,
   type MistakeRecord,
-  createEmptyFilterState
+  createEmptyFilterState,
+  isMistakeDueForReview
 } from './types';
 import AuthPage from './components/AuthPage';
+import LandingPage from './components/LandingPage';
+import OnboardingModal from './components/OnboardingModal';
+import DailyReviewModal from './components/DailyReviewModal';
+import BackupRestoreModal from './components/BackupRestoreModal';
+import SharedPackView from './components/SharedPackView';
+import { useUiFeedback } from './components/UiFeedbackProvider';
 import type { AppViewType } from './components/Dashboard';
 import OverviewDashboard from './components/OverviewDashboard';
 import CategoryManager from './components/CategoryManager';
@@ -58,8 +65,20 @@ const EMPTY_CATEGORIES: CategoriesBundle = {
 };
 
 export default function App() {
+  const { showToast } = useUiFeedback();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAuthView, setShowAuthView] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showDailyReview, setShowDailyReview] = useState(false);
+  const [showBackupRestore, setShowBackupRestore] = useState(false);
+  const [sharedPackId, setSharedPackId] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('share');
+    } catch {
+      return null;
+    }
+  });
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
       const saved = localStorage.getItem('theme');
@@ -164,14 +183,34 @@ export default function App() {
     checkSession();
   }, []);
 
+  const dueMistakes = useMemo(() => {
+    return allMistakes.filter(m => isMistakeDueForReview(m));
+  }, [allMistakes]);
+
   // Load categories and mistakes whenever user logs in
   useEffect(() => {
     if (user) {
-      refreshAllData().finally(() => setLoading(false));
+      refreshAllData().then(() => {
+        try {
+          const doneKey = `pobi_onboarding_done_${user.id}`;
+          const alreadyDone = localStorage.getItem(doneKey) === '1';
+          if (!alreadyDone && user.id !== 'demo-guest') {
+            // Check after data loads if mistakes are empty
+            apiRequest('/api/mistakes')
+              .then(list => {
+                if (Array.isArray(list) && list.length === 0) {
+                  setShowOnboarding(true);
+                }
+              })
+              .catch(() => {});
+          }
+        } catch {}
+      }).finally(() => setLoading(false));
     } else {
       setCategories(EMPTY_CATEGORIES);
       setAllMistakes([]);
       setAnalyticsFilter(createEmptyFilterState());
+      setShowOnboarding(false);
     }
   }, [user, refreshAllData]);
 
@@ -201,7 +240,67 @@ export default function App() {
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
+    setShowAuthView(false);
     setActiveView('bookshelf');
+  };
+
+  const handleEnterDemo = async () => {
+    try {
+      const demoUser: User = { id: 'demo-guest', username: '體驗訪客', is_admin: 0 };
+      localStorage.setItem('pobi_local_user', JSON.stringify(demoUser));
+      localStorage.setItem('pobi_onboarding_done_demo-guest', '1');
+      const existingRaw = localStorage.getItem('pobi_local_mistakes');
+      const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+      if (!Array.isArray(existingList) || existingList.length === 0) {
+        const yesterday = new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10);
+        const seedMistakes: MistakeRecord[] = [
+          {
+            id: 'demo-m-1',
+            user_id: 'demo-guest',
+            title: '【體驗範例】二次函數閉區間極值判別',
+            subject_id: 'subj-math',
+            subject_name: '數學',
+            chapter_id: 'chap-math-1',
+            chapter_name: '數與式',
+            unit_id: null,
+            unit_name: null,
+            familiarity_id: 'fam-2',
+            familiarity_name: '卡',
+            familiarity_color: 'warning',
+            error_reason_ids: ['err-2'],
+            error_reason_names: ['觀念模糊'],
+            tags: ['學測必考', '極值'],
+            mistake_date: yesterday,
+            template_id: 'default-exam',
+            template_fields: {
+              questionFields: [{ id: 'q_desc', label: '題幹內容', type: 'textarea' }],
+              answerFields: [{ id: 'a_desc', label: '完整解析', type: 'textarea' }]
+            },
+            data: {
+              questionData: {
+                q_desc: '已知 f(x) = x^2 - 4x + 7，求在閉區間 [0, 3] 上的最大值與最小值。'
+              },
+              answerData: {
+                a_desc: '配方得 f(x) = (x - 2)^2 + 3，頂點 x = 2 在區間 [0, 3] 內，故最小值為 f(2) = 3；比較端點 f(0) = 7、f(3) = 4，最大值為 7。'
+              },
+              reviewMeta: {
+                nextReviewDate: yesterday,
+                reviewCount: 1,
+                history: [{ date: yesterday, timestamp: Date.now() - 86400000 * 2, familiarityId: 'fam-3', familiarityName: '不會' }]
+              }
+            },
+            created_at: Date.now() - 86400000 * 2,
+            updated_at: Date.now() - 86400000 * 2
+          }
+        ];
+        localStorage.setItem('pobi_local_mistakes', JSON.stringify(seedMistakes));
+      }
+      setUser(demoUser);
+      setActiveView('bookshelf');
+      showToast('已進入免註冊 Demo 體驗模式，可自由試用書架、閃卡複習與架構搬運', 'info');
+    } catch {
+      setShowAuthView(true);
+    }
   };
 
   const handleLogout = async () => {
@@ -346,6 +445,22 @@ export default function App() {
     }
   };
 
+  if (sharedPackId) {
+    return (
+      <SharedPackView
+        shareId={sharedPackId}
+        onGoHome={() => {
+          setSharedPackId(null);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('share');
+            window.history.replaceState({}, '', url.toString());
+          } catch {}
+        }}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div style={{
@@ -364,9 +479,27 @@ export default function App() {
   }
 
   if (!user) {
+    if (!showAuthView) {
+      return (
+        <LandingPage
+          onEnterDemo={handleEnterDemo}
+          onGoToAuth={() => setShowAuthView(true)}
+        />
+      );
+    }
     return (
       <>
         <div className="bg-ambient-lights" />
+        <div style={{ position: 'fixed', top: '16px', left: '16px', zIndex: 50 }}>
+          <button
+            type="button"
+            onClick={() => setShowAuthView(false)}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+          >
+            返回首頁
+          </button>
+        </div>
         <AuthPage onLoginSuccess={handleLoginSuccess} />
       </>
     );
@@ -597,6 +730,9 @@ export default function App() {
                 setBatchImportStage('review');
                 setShowBatchImportModal(true);
               }}
+              onOpenDailyReview={() => setShowDailyReview(true)}
+              onOpenBackupRestore={() => setShowBackupRestore(true)}
+              dueReviewCount={dueMistakes.length}
             />
           </div>
         )}
@@ -917,6 +1053,48 @@ export default function App() {
         initialStage={batchImportStage}
         unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
       />
+
+      {/* First-Time Onboarding Modal */}
+      {showOnboarding && user && (
+        <OnboardingModal
+          categories={categories}
+          onComplete={async () => {
+            try {
+              localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
+            } catch {}
+            setShowOnboarding(false);
+            await refreshAllData();
+            showToast('初始書架已建立完成，祝你複習順利！', 'success');
+          }}
+          onSkip={() => {
+            try {
+              localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
+            } catch {}
+            setShowOnboarding(false);
+          }}
+        />
+      )}
+
+      {/* Daily Spaced Repetition Flashcard Review Modal */}
+      {showDailyReview && (
+        <DailyReviewModal
+          dueMistakes={dueMistakes}
+          categories={categories}
+          onClose={() => setShowDailyReview(false)}
+          onReviewUpdated={handleUpdateSingleMistake}
+          onRefreshAll={refreshAllData}
+        />
+      )}
+
+      {/* One-Click Full Backup & Restore Modal */}
+      {showBackupRestore && (
+        <BackupRestoreModal
+          categories={categories}
+          mistakes={allMistakes}
+          onClose={() => setShowBackupRestore(false)}
+          onRestored={refreshAllData}
+        />
+      )}
       </div>
     </div>
   );

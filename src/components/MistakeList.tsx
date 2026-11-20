@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import {
   type CategoriesBundle,
   type Field,
@@ -68,6 +69,7 @@ export default function MistakeList({
   externalOpenEditor = false,
   onClearExternalOpenEditor
 }: MistakeListProps) {
+  const { showToast, confirmDialog } = useUiFeedback();
   const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -163,7 +165,14 @@ export default function MistakeList({
   }, [subjectId, chapterId, unitId, categories]);
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`確定要刪除錯題「${title}」嗎？`)) return;
+    const ok = await confirmDialog({
+      title: '刪除錯題確認',
+      message: `確定要刪除錯題「${title}」嗎？`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest(`/api/mistakes?id=${id}`, {
         method: 'DELETE'
@@ -171,8 +180,9 @@ export default function MistakeList({
       setMistakes(prev => prev.filter(m => m.id !== id));
       setSelectedIds(prev => prev.filter(item => item !== id));
       await onRefreshAll?.();
+      showToast(`已刪除錯題「${title}」`, 'success');
     } catch (e) {
-      alert(e instanceof Error ? e.message : '刪除失敗');
+      showToast(e instanceof Error ? e.message : '刪除失敗', 'error');
     }
   };
 

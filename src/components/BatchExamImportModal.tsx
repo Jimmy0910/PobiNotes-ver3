@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { CategoriesBundle, MistakeRecord } from '../types';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import { compressImage } from '../utils/compress';
 import { packageImagesToZip, triggerFileDownload } from '../utils/zipPacker';
 import {
@@ -157,6 +158,7 @@ export default function BatchExamImportModal({
   initialStage = 'prompt',
   unreviewedMistakes = []
 }: BatchExamImportModalProps) {
+  const { showToast } = useUiFeedback();
   const [activeTab, setActiveTab] = useState<'prompt' | 'import' | 'review' | 'completed'>(initialStage);
 
   // Sync tab with initialStage when modal is reopened
@@ -308,7 +310,7 @@ export default function BatchExamImportModal({
     const sName = customSubjInput.trim();
     const cName = customChapInput.trim();
     if (!sName) {
-      alert('請先輸入科目名稱');
+      showToast('請先輸入科目名稱', 'error');
       return;
     }
     setCustomScopePool(prev => {
@@ -357,7 +359,7 @@ export default function BatchExamImportModal({
   // Handle packaging all current images into a single ZIP archive for external AI
   const handlePackageAndDownloadZip = async () => {
     if (questionImages.length === 0 && answerImages.length === 0) {
-      alert('請先在題目區或解析區上傳圖片，才能進行打包。');
+      showToast('請先在題目區或解析區上傳圖片，才能進行打包。', 'info');
       return;
     }
     setPackagingZip(true);
@@ -380,7 +382,7 @@ export default function BatchExamImportModal({
       setZipSuccessMsg(`已成功將 ${questionImages.length} 張題目圖與 ${answerImages.length} 張解析圖打包為 ${filename}！`);
       setTimeout(() => setZipSuccessMsg(''), 7000);
     } catch (err: any) {
-      alert('圖片打包失敗：' + (err.message || String(err)));
+      showToast('圖片打包失敗：' + (err.message || String(err)), 'error');
     } finally {
       setPackagingZip(false);
       setZipProgressText('');
@@ -762,7 +764,7 @@ ${scopeInstruction}
     const sName = targetSubjectName.trim();
     const cName = targetChapterName.trim();
     if (!sName) {
-      alert('請先輸入或選擇要套用的科目名稱');
+      showToast('請先輸入或選擇要套用的科目名稱', 'error');
       return;
     }
     const finalChap = cName || '一般章節';
@@ -1055,7 +1057,7 @@ ${scopeInstruction}
       onBatchImportComplete(persistedMistakes);
       setActiveTab('completed');
     } catch (err: any) {
-      alert('批次寫入錯題本時發生錯誤：' + (err.message || String(err)));
+      showToast('批次寫入錯題本時發生錯誤：' + (err.message || String(err)), 'error');
     } finally {
       setSubmittingBatch(false);
     }

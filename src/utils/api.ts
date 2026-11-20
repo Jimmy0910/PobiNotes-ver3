@@ -754,6 +754,46 @@ async function handleLocalFallback<T = any>(
     return { success: true } as any as T;
   }
 
+  if (pathname === '/api/share') {
+    const SHARE_KEY = 'pobi_local_shared_packs';
+    const readPacks = (): Record<string, any> => {
+      try {
+        const raw = localStorage.getItem(SHARE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    };
+    if (method === 'POST') {
+      const packs = readPacks();
+      const shareId = `demo${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      let creatorName = 'PobiNotes 學習者';
+      try {
+        const rawU = localStorage.getItem(STORAGE_KEYS.USER);
+        if (rawU) creatorName = JSON.parse(rawU)?.username || creatorName;
+      } catch {}
+      packs[shareId] = {
+        id: shareId,
+        title: String(bodyData?.title || '精華錯題分享包').trim(),
+        creatorName,
+        createdAt: Date.now(),
+        items: Array.isArray(bodyData?.items) ? bodyData.items : []
+      };
+      try {
+        localStorage.setItem(SHARE_KEY, JSON.stringify(packs));
+      } catch {}
+      return { success: true, shareId } as any as T;
+    }
+    if (method === 'GET') {
+      const id = searchParams.get('id') || '';
+      const packs = readPacks();
+      if (packs[id]) {
+        return { success: true, pack: packs[id] } as any as T;
+      }
+      throw new Error('找不到此錯題分享連結或連結已失效');
+    }
+  }
+
   if (pathname === '/api/feedback') {
     return [] as any as T;
   }

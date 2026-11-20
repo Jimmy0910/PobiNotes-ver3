@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import { Users, MessageSquare, Trash2, Star, Loader2, RefreshCw, UserPlus } from 'lucide-react';
 
 interface AdminUser {
@@ -19,6 +20,7 @@ interface FeedbackItem {
 }
 
 export default function AdminPanel() {
+  const { showToast, confirmDialog } = useUiFeedback();
   const [activeTab, setActiveTab] = useState<'users' | 'feedback'>('users');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
@@ -95,25 +97,40 @@ export default function AdminPanel() {
   }, [activeTab]);
 
   const handleDeleteUser = async (userId: string, username: string) => {
-    if (!confirm(`確定要刪除用戶「${username}」嗎？此操作無法復原！`)) return;
+    const ok = await confirmDialog({
+      title: '刪除用戶確認',
+      message: `確定要刪除用戶「${username}」嗎？此操作無法復原！`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest(`/api/admin/users/${userId}`, { method: 'DELETE' });
       setUsers(prev => prev.filter(u => u.id !== userId));
+      showToast(`已刪除用戶「${username}」`, 'success');
     } catch (e: any) {
-      alert(e.message || '刪除用戶失敗');
+      showToast(e.message || '刪除用戶失敗', 'error');
     }
   };
 
   const handleClearMistakes = async (userId?: string, username?: string) => {
     const targetName = username ? `用戶「${username}」的` : '目前帳號的全部';
-    if (!confirm(`確定要清空${targetName}錯題記錄嗎？此操作將清除所有錯題資料！`)) return;
+    const ok = await confirmDialog({
+      title: '清空錯題資料確認',
+      message: `確定要清空${targetName}錯題記錄嗎？此操作將清除所有錯題資料！`,
+      confirmText: '確認清空',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
     try {
       const endpoint = userId ? `/api/mistakes?all=true&userId=${userId}` : '/api/mistakes?all=true';
       await apiRequest(endpoint, { method: 'DELETE' });
-      alert(`已成功清空${targetName}錯題記錄！頁面將重新載入以更新數據。`);
-      window.location.reload();
+      showToast(`已成功清空${targetName}錯題記錄，即將重新載入`, 'success');
+      window.setTimeout(() => window.location.reload(), 900);
     } catch (e: any) {
-      alert(e.message || '清空失敗');
+      showToast(e.message || '清空失敗', 'error');
     }
   };
 

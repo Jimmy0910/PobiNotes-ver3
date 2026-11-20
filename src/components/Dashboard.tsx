@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import type { CategoriesBundle } from '../types';
 import {
   Folder,
@@ -63,6 +64,7 @@ export default function Dashboard({
   collapsed,
   onToggleCollapse
 }: DashboardProps) {
+  const { showToast, confirmDialog, promptDialog } = useUiFeedback();
   const [expandedSubjects, setExpandedSubjects] = useState<{ [subjectId: string]: boolean }>({});
   const [expandedChapters, setExpandedChapters] = useState<{ [chapterId: string]: boolean }>({});
 
@@ -145,13 +147,13 @@ export default function Dashboard({
     let parentId: string | null = null;
     if (errScopeType === 'subject') {
       if (!errSubjectId) {
-        alert('請先選擇要設定錯因的「科目」！');
+        showToast('請先選擇要設定錯因的「科目」', 'error');
         return;
       }
       parentId = errSubjectId;
     } else if (errScopeType === 'chapter') {
       if (!errChapterId) {
-        alert('請先選擇要設定錯因的「科目」與「章節」！');
+        showToast('請先選擇要設定錯因的「科目」與「章節」', 'error');
         return;
       }
       parentId = errChapterId;
@@ -169,15 +171,20 @@ export default function Dashboard({
       });
       setNewErrorReasonText('');
       await onRefreshCategories();
+      showToast('已新增錯因標籤', 'success');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '新增錯因失敗');
+      showToast(err instanceof Error ? err.message : '新增錯因失敗', 'error');
     } finally {
       setAddingErrorReason(false);
     }
   };
 
   const handleSidebarRenameErrorReason = async (reasonId: string, currentName: string) => {
-    const nextName = prompt('修改錯因標籤名稱：', currentName);
+    const nextName = await promptDialog({
+      title: '修改錯因標籤名稱',
+      defaultValue: currentName,
+      confirmText: '儲存'
+    });
     if (!nextName || nextName.trim() === currentName) return;
     try {
       await apiRequest('/api/categories', {
@@ -190,12 +197,18 @@ export default function Dashboard({
       });
       await onRefreshCategories();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '修改錯因失敗');
+      showToast(err instanceof Error ? err.message : '修改錯因失敗', 'error');
     }
   };
 
   const handleSidebarDeleteErrorReason = async (reasonId: string, name: string) => {
-    if (!confirm(`確定要刪除錯因標籤「${name}」嗎？（既有錯題不會被刪除，僅會移除此錯因標記）`)) return;
+    const ok = await confirmDialog({
+      title: '刪除錯因標籤',
+      message: `確定要刪除錯因標籤「${name}」嗎？（既有錯題不會被刪除，僅會移除此錯因標記）`,
+      confirmText: '確認刪除',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest('/api/categories', {
         method: 'DELETE',
@@ -206,7 +219,7 @@ export default function Dashboard({
       });
       await onRefreshCategories();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除錯因失敗');
+      showToast(err instanceof Error ? err.message : '刪除錯因失敗', 'error');
     }
   };
 
@@ -230,12 +243,16 @@ export default function Dashboard({
       setShowAddSubject(false);
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '新增科目失敗');
+      showToast(e instanceof Error ? e.message : '新增科目失敗', 'error');
     }
   };
 
   const handleRenameSubject = async (subjectId: string, currentName: string) => {
-    const name = prompt('重命名科目：', currentName);
+    const name = await promptDialog({
+      title: '重命名科目',
+      defaultValue: currentName,
+      confirmText: '儲存'
+    });
     if (!name || name.trim() === currentName) return;
     try {
       await apiRequest('/api/subjects', {
@@ -244,12 +261,18 @@ export default function Dashboard({
       });
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '修改失敗');
+      showToast(e instanceof Error ? e.message : '修改失敗', 'error');
     }
   };
 
   const handleDeleteSubject = async (subjectId: string, name: string) => {
-    if (!confirm(`確定要刪除「${name}」科目嗎？（底下錯題將保留並轉為未分類，或可至「分類管理」進階搬移）`)) return;
+    const ok = await confirmDialog({
+      title: '刪除科目確認',
+      message: `確定要刪除「${name}」科目嗎？（底下錯題將保留並轉為未分類，或可至「分類管理」進階搬移）`,
+      confirmText: '確認刪除',
+      danger: true
+    });
+    if (!ok) return;
     try {
       await apiRequest(`/api/subjects?id=${subjectId}&mode=unassign`, {
         method: 'DELETE'
@@ -259,7 +282,7 @@ export default function Dashboard({
       }
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '刪除失敗');
+      showToast(e instanceof Error ? e.message : '刪除失敗', 'error');
     }
   };
 
@@ -276,12 +299,16 @@ export default function Dashboard({
       setExpandedSubjects(prev => ({ ...prev, [subjectId]: true }));
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '新增章節失敗');
+      showToast(e instanceof Error ? e.message : '新增章節失敗', 'error');
     }
   };
 
   const handleRenameChapter = async (chapterId: string, currentName: string) => {
-    const name = prompt('重命名章節：', currentName);
+    const name = await promptDialog({
+      title: '重命名章節',
+      defaultValue: currentName,
+      confirmText: '儲存'
+    });
     if (!name || name.trim() === currentName) return;
     try {
       await apiRequest('/api/chapters', {
@@ -290,7 +317,7 @@ export default function Dashboard({
       });
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '修改失敗');
+      showToast(e instanceof Error ? e.message : '修改失敗', 'error');
     }
   };
 
@@ -316,7 +343,7 @@ export default function Dashboard({
       setDeleteChapterTarget(null);
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '刪除失敗');
+      showToast(e instanceof Error ? e.message : '刪除失敗', 'error');
     } finally {
       setDeletingChapter(false);
     }
@@ -335,7 +362,7 @@ export default function Dashboard({
       setExpandedChapters(prev => ({ ...prev, [chapterId]: true }));
       await onRefreshCategories();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '新增單元失敗');
+      showToast(e instanceof Error ? e.message : '新增單元失敗', 'error');
     }
   };
 

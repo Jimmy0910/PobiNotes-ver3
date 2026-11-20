@@ -1067,3 +1067,21 @@ select optgroup {
   background: #FBBF24;
   color: #0F172A;
 }
+
+/* CategoryManager responsive table -> card layout on tablet, iPad landscape & mobile (<= 1200px) */
+.cat-desktop-table {
+  display: block;
+}
+.cat-mobile-cards {
+  display: none;
+}
+@media (max-width: 1200px) {
+  .cat-desktop-table {
+    display: none !important;
+  }
+  .cat-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

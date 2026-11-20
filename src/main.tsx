@@ -4,9 +4,12 @@ import './index.css'
 import './styles/pobiStudio.css'
 import './styles/binderTheme.css'
 import App from './App.tsx'
+import { UiFeedbackProvider } from './components/UiFeedbackProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <UiFeedbackProvider>
+      <App />
+    </UiFeedbackProvider>
   </StrictMode>,
 )

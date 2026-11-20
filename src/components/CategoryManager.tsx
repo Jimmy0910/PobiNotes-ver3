@@ -21,9 +21,11 @@ import {
   ExternalLink,
   Lock,
   CheckCircle2,
-  Move
+  Move,
+  MoreHorizontal
 } from 'lucide-react';
 import HierarchyMoverModal from './HierarchyMoverModal';
+import { useUiFeedback } from './UiFeedbackProvider';
 
 interface CategoryManagerProps {
   categories: CategoriesBundle;
@@ -55,7 +57,9 @@ export default function CategoryManager({
   onRefresh,
   onDrilldownCategory
 }: CategoryManagerProps) {
+  const { showToast } = useUiFeedback();
   const [activeDim, setActiveDim] = useState<CategoryDimension>('subject');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [parentSubjectFilter, setParentSubjectFilter] = useState<string>('ALL');
   const [parentChapterFilter, setParentChapterFilter] = useState<string>('ALL');
@@ -158,7 +162,7 @@ export default function CategoryManager({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) {
-      alert('請輸入分類名稱');
+      showToast('請輸入分類名稱', 'error');
       return;
     }
 
@@ -166,13 +170,13 @@ export default function CategoryManager({
     if (activeDim === 'chapter') {
       parentId = newParentSubjectId || (parentSubjectFilter !== 'ALL' ? parentSubjectFilter : (categories.subjects[0]?.id || ''));
       if (!parentId) {
-        alert('請先建立並選擇所屬科目');
+        showToast('請先建立並選擇所屬科目', 'error');
         return;
       }
     } else if (activeDim === 'unit') {
       parentId = newParentChapterId || (parentChapterFilter !== 'ALL' ? parentChapterFilter : '');
       if (!parentId) {
-        alert('請選擇所屬章節');
+        showToast('請選擇所屬章節', 'error');
         return;
       }
     } else if (activeDim === 'error_reason') {
@@ -198,8 +202,9 @@ export default function CategoryManager({
       });
       setNewName('');
       await onRefresh();
+      showToast('已新增分類', 'success');
     } catch (err: any) {
-      alert(err.message || '新增分類失敗');
+      showToast(err.message || '新增分類失敗', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -214,7 +219,7 @@ export default function CategoryManager({
 
   const handleSaveEdit = async (item: CategoryItem) => {
     if (!editName.trim()) {
-      alert('分類名稱不可為空');
+      showToast('分類名稱不可為空', 'error');
       return;
     }
     try {
@@ -230,8 +235,9 @@ export default function CategoryManager({
       });
       setEditingId(null);
       await onRefresh();
+      showToast('已儲存分類修改', 'success');
     } catch (err: any) {
-      alert(err.message || '儲存修改失敗');
+      showToast(err.message || '儲存修改失敗', 'error');
     }
   };
 
@@ -246,8 +252,9 @@ export default function CategoryManager({
         }
       });
       await onRefresh();
+      showToast(item.is_active === 1 ? `已停用「${item.name}」` : `已啟用「${item.name}」`, 'success');
     } catch (err: any) {
-      alert(err.message || '切換啟用狀態失敗');
+      showToast(err.message || '切換啟用狀態失敗', 'error');
     }
   };
 
@@ -272,7 +279,7 @@ export default function CategoryManager({
       });
       await onRefresh();
     } catch (err: any) {
-      alert(err.message || '更新排序失敗');
+      showToast(err.message || '更新排序失敗', 'error');
     }
   };
 
@@ -298,7 +305,7 @@ export default function CategoryManager({
       });
       await onRefresh();
     } catch (err: any) {
-      alert(err.message || '拖曳排序失敗');
+      showToast(err.message || '拖曳排序失敗', 'error');
     }
   };
 
@@ -312,8 +319,9 @@ export default function CategoryManager({
         }
       });
       await onRefresh();
+      showToast(mode === 'single' ? '已切換為錯因單選互斥模式' : '已切換為錯因多選模式', 'success');
     } catch (err: any) {
-      alert(err.message || '更新錯因模式失敗');
+      showToast(err.message || '更新錯因模式失敗', 'error');
     }
   };
 
@@ -351,8 +359,9 @@ export default function CategoryManager({
       });
       setDeleteTarget(null);
       await onRefresh();
+      showToast(`已刪除分類「${deleteTarget.name}」`, 'success');
     } catch (err: any) {
-      alert(err.message || '刪除分類失敗');
+      showToast(err.message || '刪除分類失敗', 'error');
     } finally {
       setDeleting(false);
     }
@@ -693,8 +702,8 @@ export default function CategoryManager({
           </form>
         )}
 
-        {/* Category Table */}
-        <div style={{ overflowX: 'auto', marginTop: '4px' }}>
+        {/* Category Table (Desktop > 1024px) */}
+        <div className="cat-desktop-table" style={{ overflowX: 'auto', marginTop: '4px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', textAlign: 'left' }}>
@@ -993,6 +1002,312 @@ export default function CategoryManager({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Category Cards (Tablet & Mobile <= 1024px) */}
+        <div className="cat-mobile-cards" style={{ marginTop: '4px' }}>
+          {currentList.map((item, idx) => {
+            const isEditing = editingId === item.id;
+            const isMenuOpen = openMenuId === item.id;
+            return (
+              <div
+                key={item.id}
+                data-testid={`category-card-${item.name}`}
+                style={{
+                  borderRadius: '10px',
+                  border: '1px solid var(--glass-border)',
+                  backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+                  padding: '14px 16px',
+                  opacity: item.is_active === 1 ? 1 : 0.62,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  position: 'relative'
+                }}
+              >
+                {/* Card Top: Index, Name Badge, Status, Mistake Count */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0 }}>
+                      #{idx + 1}
+                    </span>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
+                        <input
+                          type="text"
+                          className="input"
+                          style={{ flex: '1 1 140px', padding: '5px 8px', fontSize: '0.86rem' }}
+                          value={editName}
+                          onChange={e => {
+                            if (item.dimension !== 'familiarity') setEditName(e.target.value);
+                          }}
+                          readOnly={item.dimension === 'familiarity'}
+                          autoFocus={item.dimension !== 'familiarity'}
+                        />
+                        <select
+                          className="input"
+                          style={{ width: 'auto', padding: '5px 8px', fontSize: '0.8rem' }}
+                          value={editColor}
+                          onChange={e => setEditColor(e.target.value)}
+                        >
+                          {COLOR_OPTIONS.map(c => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          fontSize: '0.88rem',
+                          ...getBadgeStyle(item.color)
+                        }}
+                      >
+                        {item.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '3px 8px',
+                        borderRadius: '999px',
+                        whiteSpace: 'nowrap',
+                        background: item.is_active === 1 ? 'rgba(16, 185, 129, 0.14)' : 'rgba(156, 163, 175, 0.16)',
+                        color: item.is_active === 1 ? '#047857' : 'var(--text-muted)',
+                        fontWeight: 600
+                      }}
+                    >
+                      {item.is_active === 1 ? '啟用中' : '已停用'}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => onDrilldownCategory(item.dimension, item.id)}
+                      className="btn btn-text"
+                      style={{ padding: '2px 6px', fontSize: '0.82rem', whiteSpace: 'nowrap', color: item.mistake_count > 0 ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                    >
+                      <span>{item.mistake_count} 題</span>
+                      {item.mistake_count > 0 && <ExternalLink size={12} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card Meta: Parent + Dates */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  <span>所屬：{getParentName(item)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    修改：{new Date(item.updated_at || item.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                {/* Card Actions: Move + Edit directly exposed, secondary actions in "..." menu */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--glass-border)', paddingTop: '10px' }}>
+                  {isEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                        onClick={() => setEditingId(null)}
+                      >
+                        <X size={14} /> 取消
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                        onClick={() => handleSaveEdit(item)}
+                      >
+                        <Check size={14} /> 儲存
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {(item.dimension === 'chapter' || item.dimension === 'unit') && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            color: '#92400E',
+                            borderColor: 'rgba(217, 119, 6, 0.4)',
+                            backgroundColor: '#FFFBEB',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMoverFocusedItem({ dimension: item.dimension as 'chapter' | 'unit', id: item.id });
+                            setMoverOpen(true);
+                          }}
+                          data-testid={`cat-card-move-${item.dimension}-${item.id}`}
+                        >
+                          <Move size={14} /> 搬運
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          startEditing(item);
+                        }}
+                      >
+                        <Edit2 size={14} /> {item.dimension === 'familiarity' ? '調色' : '編輯'}
+                      </button>
+
+                      {item.dimension === 'familiarity' ? (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '4px 6px' }}>
+                          <Lock size={12} /> 核心鎖定
+                        </span>
+                      ) : (
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 10px', fontSize: '0.82rem' }}
+                            onClick={() => setOpenMenuId(prev => (prev === item.id ? null : item.id))}
+                            aria-label="更多操作"
+                            title="更多操作（排序、停用、刪除）"
+                            data-testid={`cat-card-more-${item.id}`}
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+
+                          {isMenuOpen && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                bottom: 'calc(100% + 6px)',
+                                minWidth: '148px',
+                                backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '10px',
+                                boxShadow: '0 10px 28px rgba(15, 23, 42, 0.18)',
+                                padding: '6px',
+                                zIndex: 30,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px'
+                              }}
+                            >
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleMoveOrder(idx, 'up');
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.82rem',
+                                  color: idx === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                                  cursor: idx === 0 ? 'default' : 'pointer',
+                                  textAlign: 'left'
+                                }}
+                              >
+                                <ArrowUp size={14} /> 往上排序
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === currentList.length - 1}
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleMoveOrder(idx, 'down');
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.82rem',
+                                  color: idx === currentList.length - 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                                  cursor: idx === currentList.length - 1 ? 'default' : 'pointer',
+                                  textAlign: 'left'
+                                }}
+                              >
+                                <ArrowDown size={14} /> 往下排序
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleToggleActive(item);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.82rem',
+                                  color: item.is_active === 1 ? '#B45309' : '#047857',
+                                  cursor: 'pointer',
+                                  textAlign: 'left'
+                                }}
+                              >
+                                <Power size={14} /> {item.is_active === 1 ? '停用分類' : '啟用分類'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  openDeleteModal(item);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  border: 'none',
+                                  background: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.82rem',
+                                  color: '#DC2626',
+                                  cursor: 'pointer',
+                                  textAlign: 'left'
+                                }}
+                              >
+                                <Trash2 size={14} /> 刪除分類
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {currentList.length === 0 && (
+            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+              目前此維度沒有符合條件的分類項目，請由上方表單新增。
+            </div>
+          )}
         </div>
       </div>
 

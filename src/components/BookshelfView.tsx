@@ -18,7 +18,10 @@ import {
   LayoutDashboard,
   Check,
   X,
-  Sparkles
+  Sparkles,
+  RotateCcw,
+  Archive,
+  ArrowRight
 } from 'lucide-react';
 
 interface BookshelfViewProps {
@@ -35,6 +38,9 @@ interface BookshelfViewProps {
   onSwitchToClassicDashboard?: () => void;
   onOpenBatchImport?: () => void;
   onOpenFastReview?: () => void;
+  onOpenDailyReview?: () => void;
+  onOpenBackupRestore?: () => void;
+  dueReviewCount?: number;
 }
 
 export default function BookshelfView({
@@ -48,7 +54,10 @@ export default function BookshelfView({
   theme,
   currentUser,
   onSwitchToClassicDashboard,
-  onOpenBatchImport
+  onOpenBatchImport,
+  onOpenDailyReview,
+  onOpenBackupRestore,
+  dueReviewCount = 0
 }: BookshelfViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -176,6 +185,19 @@ export default function BookshelfView({
             帳號與回饋
           </button>
 
+          {onOpenBackupRestore && (
+            <button
+              type="button"
+              onClick={onOpenBackupRestore}
+              className="notebook-tool-btn"
+              title="一鍵完整備份與還原（JSON / ZIP）"
+              data-testid="bookshelf-backup-btn"
+            >
+              <Archive className="w-4 h-4" />
+              備份與還原
+            </button>
+          )}
+
           {onSwitchToClassicDashboard && (
             <button
               type="button"
@@ -192,6 +214,79 @@ export default function BookshelfView({
 
       {/* Main Bookshelf Stage */}
       <main className="bookshelf-stage">
+        {/* Spaced Repetition Daily Review Banner */}
+        {onOpenDailyReview && mistakes.length > 0 && (
+          <section
+            data-testid="daily-review-banner"
+            style={{
+              marginBottom: '18px',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              backgroundColor: dueReviewCount > 0 ? '#FFFBEB' : 'var(--bg-secondary, #FFFFFF)',
+              border: dueReviewCount > 0 ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+              boxShadow: '0 4px 14px rgba(60, 40, 20, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '14px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: dueReviewCount > 0 ? 'rgba(217, 119, 6, 0.16)' : 'rgba(16, 185, 129, 0.14)',
+                  color: dueReviewCount > 0 ? '#B45309' : '#047857',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <RotateCcw size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#1C1917' }}>
+                  {dueReviewCount > 0
+                    ? `今日待複習：${dueReviewCount} 題（間隔重複排程）`
+                    : '今日排程複習已全部完成'}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#57534E', marginTop: '2px' }}>
+                  {dueReviewCount > 0
+                    ? '依熟悉度自動排程（不會 1 天、卡 3 天、誤解 5 天、順 14 天），點此用閃卡模式快速重測。'
+                    : '系統將依您每次的熟練度自動在下次到期時提醒複習。'}
+                </div>
+              </div>
+            </div>
+
+            {dueReviewCount > 0 && (
+              <button
+                type="button"
+                onClick={onOpenDailyReview}
+                className="btn btn-primary"
+                style={{
+                  padding: '9px 18px',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
+                  color: '#FFFFFF',
+                  border: '1px solid #B45309'
+                }}
+                data-testid="start-daily-review-btn"
+              >
+                <span>開始今日複習</span>
+                <ArrowRight size={15} />
+              </button>
+            )}
+          </section>
+        )}
+
         <section className={`shelf-unit ${theme === 'dark' ? 'shelf-unit-dark' : 'shelf-unit-light'}`}>
           <div className="shelf-books-row">
             {/* Subject Book Covers */}

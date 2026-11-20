@@ -12,6 +12,9 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
   
   const isApiRequest = url.pathname.startsWith('/api/');
   const isAuthRequest = url.pathname.startsWith('/api/auth/login') || url.pathname.startsWith('/api/auth/register');
+  const isPublicReadRequest =
+    request.method === 'GET' &&
+    (url.pathname === '/api/share' || url.pathname.startsWith('/api/images/'));
   
   const jwtSecret = env.JWT_SECRET || 'local-dev-jwt-secret-key-12345';
   
@@ -56,8 +59,8 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
     });
   }
 
-  // Block unauthorized API requests (excluding login/register)
-  if (isApiRequest && !isAuthRequest && !user) {
+  // Block unauthorized API requests (excluding login/register and public read-only share/image endpoints)
+  if (isApiRequest && !isAuthRequest && !isPublicReadRequest && !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized. Please login.' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
