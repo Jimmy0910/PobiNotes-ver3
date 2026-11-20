@@ -129,8 +129,8 @@ export default function PobiFlashcardGuideModal({
         <div style={{ padding: '18px 20px 12px 20px', display: 'flex', alignItems: 'flex-start', gap: '14px', flexShrink: 0 }}>
           <div
             style={{
-              width: '56px',
-              height: '56px',
+              width: '68px',
+              height: '68px',
               borderRadius: '50%',
               border: '2px solid #D97706',
               backgroundColor: '#FFFBEB',
@@ -139,7 +139,7 @@ export default function PobiFlashcardGuideModal({
               boxShadow: '0 4px 12px rgba(180, 83, 9, 0.16)'
             }}
           >
-            <img src="/logo.png" alt="比熊 POBI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src="/pobi-mascot.jpg" alt="比熊 POBI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%' }} />
           </div>
           <div
             style={{

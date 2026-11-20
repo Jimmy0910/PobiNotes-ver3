@@ -307,16 +307,17 @@ export default function PobiTutorialModal({
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
             <div
               style={{
-                width: '60px',
-                height: '60px',
+                width: '72px',
+                height: '72px',
                 borderRadius: '50%',
                 border: '2px solid #D97706',
                 backgroundColor: '#FFFBEB',
                 overflow: 'hidden',
-                flexShrink: 0
+                flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(180, 83, 9, 0.16)'
               }}
             >
-              <img src="/logo.png" alt="比熊 POBI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src="/pobi-mascot.jpg" alt="比熊 POBI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%' }} />
             </div>
             <div
               style={{

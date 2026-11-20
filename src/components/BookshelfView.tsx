@@ -541,7 +541,7 @@ export default function BookshelfView({
                           }}
                           title={`更多操作：分享、重新命名或刪除《${subject.name}》`}
                         >
-                          <MoreVertical size={14} />
+                          <MoreVertical size={15} color="#FFFFFF" stroke="#FFFFFF" strokeWidth={2.4} style={{ color: '#FFFFFF' }} />
                         </button>
                       </div>
                     </div>
