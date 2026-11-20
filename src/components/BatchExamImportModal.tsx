@@ -1106,13 +1106,42 @@ ${scopeInstruction}
           boxShadow: '0 20px 48px rgba(60, 40, 20, 0.22)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          position: 'relative'
         }}
       >
+        {/* Prominent Pinned Top-Right Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          data-testid="batch-modal-close-btn"
+          style={{
+            position: 'absolute',
+            top: '14px',
+            right: '16px',
+            zIndex: 25,
+            width: '36px',
+            height: '36px',
+            borderRadius: '999px',
+            border: '1.5px solid #D97706',
+            backgroundColor: '#FFFBEB',
+            color: '#92400E',
+            boxShadow: '0 2px 8px rgba(180, 83, 9, 0.18)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="關閉視窗"
+          aria-label="關閉批次匯入視窗"
+        >
+          <X size={20} strokeWidth={2.4} />
+        </button>
+
         {/* Modal Header */}
         <div
           style={{
-            padding: '16px 22px',
+            padding: '16px 64px 16px 22px',
             borderBottom: '1px solid var(--glass-border)',
             display: 'flex',
             alignItems: 'center',
@@ -1143,7 +1172,7 @@ ${scopeInstruction}
                 AI 考卷批次歸納與極速審核
               </h2>
               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                1. 多選科目與章節範圍設計提詞 -&gt; 2. 選圖與調整順序/多圖配對 -&gt; 3. 極速審核寫入錯題本
+                1. 設計提詞 -&gt; 2. 上傳圖片 / AI 分析 -&gt; 3. 調整順序與配對 -&gt; 4. 極速審核寫入錯題本
               </p>
             </div>
           </div>
@@ -1255,25 +1284,6 @@ ${scopeInstruction}
                 4. 極速審核入庫
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '6px',
-                borderRadius: '6px',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="關閉"
-            >
-              <X size={20} />
-            </button>
           </div>
         </div>
 
