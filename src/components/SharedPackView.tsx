@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
+import { resolveImgUrl } from '../utils/mistakeMedia';
 import { BookOpen, Eye, EyeOff, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface SharedPackItem {
@@ -24,19 +25,8 @@ interface SharedPackData {
   items: SharedPackItem[];
 }
 
-function resolveImg(key?: string): string {
-  if (!key || typeof key !== 'string') return '';
-  if (
-    key.startsWith('data:') ||
-    key.startsWith('blob:') ||
-    key.startsWith('http://') ||
-    key.startsWith('https://') ||
-    key.startsWith('/api/images/')
-  ) {
-    return key;
-  }
-  return `/api/images/${key}`;
-}
+const UNCAT_CHAPTER = '__UNCAT_CHAPTER__';
+const UNCAT_UNIT = '__UNCAT_UNIT__';
 
 interface SharedPackViewProps {
   shareId: string;
@@ -49,6 +39,64 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
   const [error, setError] = useState('');
   const [hideAnswers, setHideAnswers] = useState(false);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+
+  // Derive chapter list with counts
+  const chapterGroups = useMemo(() => {
+    if (!pack?.items) return [];
+    const counts = new Map<string, number>();
+    const order: string[] = [];
+    for (const item of pack.items) {
+      const key = (item.chapterName || '').trim() || UNCAT_CHAPTER;
+      if (!counts.has(key)) order.push(key);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return order.map(key => ({
+      key,
+      label: key === UNCAT_CHAPTER ? '未分類章節' : key,
+      count: counts.get(key) || 0
+    }));
+  }, [pack]);
+
+  // Derive unit list under selected chapter
+  const unitGroups = useMemo(() => {
+    if (!pack?.items || !selectedChapter) return [];
+    const counts = new Map<string, number>();
+    const order: string[] = [];
+    let hasNamedUnit = false;
+    for (const item of pack.items) {
+      const chapKey = (item.chapterName || '').trim() || UNCAT_CHAPTER;
+      if (chapKey !== selectedChapter) continue;
+      const uName = (item.unitName || '').trim();
+      if (uName) hasNamedUnit = true;
+      const uKey = uName || UNCAT_UNIT;
+      if (!counts.has(uKey)) order.push(uKey);
+      counts.set(uKey, (counts.get(uKey) || 0) + 1);
+    }
+    if (!hasNamedUnit) return [];
+    return order.map(key => ({
+      key,
+      label: key === UNCAT_UNIT ? '未指定單元' : key,
+      count: counts.get(key) || 0
+    }));
+  }, [pack, selectedChapter]);
+
+  // Filtered items by selected chapter and unit
+  const visibleItems = useMemo(() => {
+    if (!pack?.items) return [];
+    return pack.items.filter(item => {
+      if (selectedChapter) {
+        const chapKey = (item.chapterName || '').trim() || UNCAT_CHAPTER;
+        if (chapKey !== selectedChapter) return false;
+      }
+      if (selectedUnit) {
+        const uKey = (item.unitName || '').trim() || UNCAT_UNIT;
+        if (uKey !== selectedUnit) return false;
+      }
+      return true;
+    });
+  }, [pack, selectedChapter, selectedUnit]);
 
   useEffect(() => {
     let active = true;
@@ -146,7 +194,132 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
               </button>
             </div>
 
-            {pack.items.map((item, idx) => {
+            {/* Chapter Tabs Rail */}
+            {chapterGroups.length > 0 && (
+              <div
+                data-testid="shared-chapter-tabs"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  padding: '6px 2px',
+                  borderBottom: '2px solid rgba(180, 83, 9, 0.2)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedChapter(null);
+                    setSelectedUnit(null);
+                  }}
+                  style={{
+                    flexShrink: 0,
+                    padding: '7px 14px',
+                    borderRadius: '8px 8px 0 0',
+                    border: selectedChapter === null ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                    borderBottom: selectedChapter === null ? '2px solid #FFFBEB' : '1px solid var(--glass-border)',
+                    backgroundColor: selectedChapter === null ? '#FFFBEB' : '#FFFFFF',
+                    color: selectedChapter === null ? '#92400E' : 'var(--text-secondary)',
+                    fontWeight: selectedChapter === null ? 700 : 500,
+                    fontSize: '0.86rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  全部章節 ({pack.items.length})
+                </button>
+                {chapterGroups.map(chap => {
+                  const isActive = selectedChapter === chap.key;
+                  return (
+                    <button
+                      key={chap.key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChapter(chap.key);
+                        setSelectedUnit(null);
+                      }}
+                      style={{
+                        flexShrink: 0,
+                        padding: '7px 14px',
+                        borderRadius: '8px 8px 0 0',
+                        border: isActive ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                        borderBottom: isActive ? '2px solid #FFFBEB' : '1px solid var(--glass-border)',
+                        backgroundColor: isActive ? '#FFFBEB' : '#FFFFFF',
+                        color: isActive ? '#92400E' : 'var(--text-secondary)',
+                        fontWeight: isActive ? 700 : 500,
+                        fontSize: '0.86rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {chap.label} ({chap.count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Sub-Units Pills Rail */}
+            {selectedChapter && unitGroups.length > 0 && (
+              <div
+                data-testid="shared-unit-pills"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  overflowX: 'auto',
+                  padding: '8px 12px',
+                  backgroundColor: 'rgba(180, 83, 9, 0.05)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--glass-border)'
+                }}
+              >
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', flexShrink: 0 }}>
+                  細部單元：
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit(null)}
+                  style={{
+                    flexShrink: 0,
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.78rem',
+                    fontWeight: selectedUnit === null ? 700 : 500,
+                    border: selectedUnit === null ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                    backgroundColor: selectedUnit === null ? '#FDE68A' : '#FFFFFF',
+                    color: '#1C1917',
+                    cursor: 'pointer'
+                  }}
+                >
+                  全部單元
+                </button>
+                {unitGroups.map(unit => {
+                  const isActive = selectedUnit === unit.key;
+                  return (
+                    <button
+                      key={unit.key}
+                      type="button"
+                      onClick={() => setSelectedUnit(unit.key)}
+                      style={{
+                        flexShrink: 0,
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        fontSize: '0.78rem',
+                        fontWeight: isActive ? 700 : 500,
+                        border: isActive ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
+                        backgroundColor: isActive ? '#FDE68A' : '#FFFFFF',
+                        color: '#1C1917',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {unit.label} ({unit.count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {visibleItems.map((item, idx) => {
               const showAns = !hideAnswers || !!revealedIds[item.id];
               return (
                 <article
@@ -178,7 +351,7 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
                   {Array.isArray(item.qImages) && item.qImages.length > 0 && (
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {item.qImages.map((src, i) => (
-                        <img key={i} src={resolveImg(src)} alt="題目圖" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+                        <img key={i} src={resolveImgUrl(src)} alt="題目圖" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
                       ))}
                     </div>
                   )}
@@ -195,7 +368,7 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
                         {Array.isArray(item.aImages) && item.aImages.length > 0 && (
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             {item.aImages.map((src, i) => (
-                              <img key={i} src={resolveImg(src)} alt="解析圖" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid #10B981' }} />
+                              <img key={i} src={resolveImgUrl(src)} alt="解析圖" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid #10B981' }} />
                             ))}
                           </div>
                         )}
