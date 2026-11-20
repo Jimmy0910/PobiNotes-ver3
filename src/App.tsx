@@ -10,7 +10,7 @@ import {
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
-import OnboardingModal from './components/OnboardingModal';
+import PobiTutorialModal from './components/PobiTutorialModal';
 import DailyReviewModal from './components/DailyReviewModal';
 import BackupRestoreModal from './components/BackupRestoreModal';
 import SharedPackView from './components/SharedPackView';
@@ -69,8 +69,10 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAuthView, setShowAuthView] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPobiTutorial, setShowPobiTutorial] = useState(false);
+  const [isNewUserTutorial, setIsNewUserTutorial] = useState(false);
   const [showDailyReview, setShowDailyReview] = useState(false);
+  const [customReviewQueue, setCustomReviewQueue] = useState<MistakeRecord[] | null>(null);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [sharedPackId, setSharedPackId] = useState<string | null>(() => {
     try {
@@ -199,7 +201,8 @@ export default function App() {
             apiRequest('/api/mistakes')
               .then(list => {
                 if (Array.isArray(list) && list.length === 0) {
-                  setShowOnboarding(true);
+                  setIsNewUserTutorial(true);
+                  setShowPobiTutorial(true);
                 }
               })
               .catch(() => {});
@@ -210,7 +213,7 @@ export default function App() {
       setCategories(EMPTY_CATEGORIES);
       setAllMistakes([]);
       setAnalyticsFilter(createEmptyFilterState());
-      setShowOnboarding(false);
+      setShowPobiTutorial(false);
     }
   }, [user, refreshAllData]);
 
@@ -730,7 +733,28 @@ export default function App() {
                 setBatchImportStage('review');
                 setShowBatchImportModal(true);
               }}
-              onOpenDailyReview={() => setShowDailyReview(true)}
+              onOpenDailyReview={() => {
+                setCustomReviewQueue(null);
+                setShowDailyReview(true);
+              }}
+              onStartCustomReview={picked => {
+                setCustomReviewQueue(picked);
+                setShowDailyReview(true);
+              }}
+              onOpenAiTutor={subjId => {
+                if (subjId) {
+                  setSelectedSubjectId(subjId);
+                  setSelectedPromptIds(allMistakes.filter(m => m.subject_id === subjId).map(m => m.id));
+                } else {
+                  setSelectedPromptIds([]);
+                }
+                setActiveView('prompt');
+              }}
+              onOpenPobiTutorial={() => {
+                setIsNewUserTutorial(false);
+                setShowPobiTutorial(true);
+              }}
+              onRefreshAll={refreshAllData}
               onOpenBackupRestore={() => setShowBackupRestore(true)}
               dueReviewCount={dueMistakes.length}
             />
@@ -1054,33 +1078,30 @@ export default function App() {
         unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
       />
 
-      {/* First-Time Onboarding Modal */}
-      {showOnboarding && user && (
-        <OnboardingModal
+      {/* POBI Interactive Tutorial Modal (Auto-plays for new accounts, replayable anytime) */}
+      {showPobiTutorial && user && (
+        <PobiTutorialModal
           categories={categories}
-          onComplete={async () => {
+          isNewUser={isNewUserTutorial}
+          onClose={() => {
             try {
               localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
             } catch {}
-            setShowOnboarding(false);
-            await refreshAllData();
-            showToast('初始書架已建立完成，祝你複習順利！', 'success');
+            setShowPobiTutorial(false);
           }}
-          onSkip={() => {
-            try {
-              localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
-            } catch {}
-            setShowOnboarding(false);
-          }}
+          onRefreshAll={refreshAllData}
         />
       )}
 
-      {/* Daily Spaced Repetition Flashcard Review Modal */}
+      {/* Daily Spaced Repetition / POBI Flashcard Review Modal */}
       {showDailyReview && (
         <DailyReviewModal
-          dueMistakes={dueMistakes}
+          dueMistakes={customReviewQueue && customReviewQueue.length > 0 ? customReviewQueue : dueMistakes}
           categories={categories}
-          onClose={() => setShowDailyReview(false)}
+          onClose={() => {
+            setShowDailyReview(false);
+            setCustomReviewQueue(null);
+          }}
           onReviewUpdated={handleUpdateSingleMistake}
           onRefreshAll={refreshAllData}
         />

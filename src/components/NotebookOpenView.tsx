@@ -16,6 +16,7 @@ import MistakeEditor from './MistakeEditor';
 import ImageAnnotatorModal from './ImageAnnotatorModal';
 import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
 import SharePackModal from './SharePackModal';
+import CategoryManager from './CategoryManager';
 import { useUiFeedback } from './UiFeedbackProvider';
 import {
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
   FolderPlus,
   FolderTree,
   Move,
+  MoreVertical,
   ArrowUpRight,
   CheckCircle2,
   Share2,
@@ -221,7 +223,6 @@ export default function NotebookOpenView({
   mistakes,
   onBackToBookshelf,
   onOpenExportPDF,
-  onOpenTagManager,
   onOpenPromptGenerator,
   onAddChapter,
   onAddUnit,
@@ -229,10 +230,13 @@ export default function NotebookOpenView({
   onUpdateMistake
 }: NotebookOpenViewProps) {
   // Navigation & Filter states
-  const { showToast, confirmDialog } = useUiFeedback();
+  const { showToast, confirmDialog, promptDialog } = useUiFeedback();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [sharePackOverride, setSharePackOverride] = useState<{ title: string; mistakes: MistakeRecord[] } | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
+  const [chapterMenu, setChapterMenu] = useState<{ chapId: string; chapName: string; x: number; y: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selfTestMode, setSelfTestMode] = useState<boolean>(false); // 自測模式：預設展開解析，切換後隱藏解析
   const [expandedMistakeIds, setExpandedMistakeIds] = useState<Record<string, boolean>>({});
@@ -264,6 +268,52 @@ export default function NotebookOpenView({
   const openMoverFor = (item: { dimension: 'chapter' | 'unit'; id: string } | null) => {
     setMoverFocusedItem(item);
     setMoverModalOpen(true);
+  };
+
+  const handleRenameChapter = async (chapId: string, currentName: string) => {
+    const nextName = await promptDialog({
+      title: '重新命名章節',
+      label: '請輸入新的章節名稱',
+      defaultValue: currentName,
+      confirmText: '儲存名稱'
+    });
+    if (!nextName || !nextName.trim() || nextName.trim() === currentName) return;
+    try {
+      await apiRequest('/api/chapters', {
+        method: 'PUT',
+        body: { id: chapId, name: nextName.trim() }
+      });
+      await onRefreshAll?.();
+      showToast(`已將章節重新命名為「${nextName.trim()}」`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || '重新命名失敗', 'error');
+    }
+  };
+
+  const handleDeleteChapter = async (chapId: string, chapName: string) => {
+    const count = subjectMistakes.filter(m => m.chapter_id === chapId).length;
+    const ok = await confirmDialog({
+      title: '刪除章節確認',
+      message:
+        count > 0
+          ? `確定要刪除章節「${chapName}」嗎？此章節下有 ${count} 道錯題，刪除後錯題會安全保留於《${activeSubject.name}》未分類章節中。`
+          : `確定要刪除章節「${chapName}」嗎？`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await apiRequest(`/api/chapters?id=${chapId}&mode=unassign`, { method: 'DELETE' });
+      if (selectedChapterId === chapId) {
+        setSelectedChapterId(null);
+        setSelectedUnitId(null);
+      }
+      await onRefreshAll?.();
+      showToast(`已刪除章節「${chapName}」`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || '刪除章節失敗', 'error');
+    }
   };
 
   const handleHierarchyMoved = async (result: HierarchyMoveResult) => {
@@ -758,7 +808,7 @@ export default function NotebookOpenView({
 
             <button
               type="button"
-              onClick={() => onOpenTagManager(subjectId)}
+              onClick={() => setShowCategoryModal(true)}
               className="btn btn-secondary"
               style={{
                 display: 'inline-flex',
@@ -768,9 +818,10 @@ export default function NotebookOpenView({
                 fontSize: '0.84rem',
                 fontWeight: 600
               }}
-              title="管理本學科專屬錯因標籤"
+              title="管理本學科分類、章節、單元與錯因標籤"
+              data-testid="notebook-open-category-manager-btn"
             >
-              <Tag size={15} /> 錯因標籤
+              <Tag size={15} /> 分類與標籤管理
             </button>
 
             <button
@@ -1009,10 +1060,20 @@ export default function NotebookOpenView({
                 </button>
                 <button
                   type="button"
-                  data-testid={`move-chapter-${chap.id}`}
+                  data-testid={`chapter-menu-${chap.id}`}
                   onClick={e => {
                     e.stopPropagation();
-                    openMoverFor({ dimension: 'chapter', id: chap.id });
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setChapterMenu(prev =>
+                      prev?.chapId === chap.id
+                        ? null
+                        : {
+                            chapId: chap.id,
+                            chapName: chap.name,
+                            x: Math.min(rect.left, window.innerWidth - 190),
+                            y: rect.bottom + 6
+                          }
+                    );
                   }}
                   style={{
                     background: 'none',
@@ -1024,9 +1085,9 @@ export default function NotebookOpenView({
                     alignItems: 'center',
                     borderRadius: '4px'
                   }}
-                  title={`搬運章節「${chap.name}」（拖曳至各層架構、併入其他章節或跨科目）`}
+                  title={`更多操作：分享、重新命名、搬移或刪除「${chap.name}」`}
                 >
-                  <Move size={13} />
+                  <MoreVertical size={14} />
                 </button>
               </div>
             );
@@ -1865,28 +1926,211 @@ export default function NotebookOpenView({
         )}
 
       {/* LIGHTBOX FOR FULL IMAGE PREVIEW */}
-      {lightboxImageUrl && (
-        <div
-          onClick={() => setLightboxImageUrl(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100000,
-            background: 'rgba(0, 0, 0, 0.88)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            cursor: 'zoom-out'
-          }}
-        >
-          <img
-            src={lightboxImageUrl}
-            alt="放大預覽"
-            style={{ maxWidth: '95vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: '8px' }}
-          />
-        </div>
-      )}
+      {lightboxImageUrl &&
+        createPortal(
+          <div
+            onClick={() => setLightboxImageUrl(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100dvh',
+              zIndex: 100050,
+              background: 'rgba(0, 0, 0, 0.88)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              cursor: 'zoom-out'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImageUrl(null)}
+              style={{
+                position: 'fixed',
+                top: 'max(18px, env(safe-area-inset-top))',
+                right: '20px',
+                background: 'rgba(255, 255, 255, 0.16)',
+                border: '1px solid rgba(255, 255, 255, 0.35)',
+                color: '#FFFFFF',
+                borderRadius: '999px',
+                width: '38px',
+                height: '38px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              title="關閉預覽"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={lightboxImageUrl}
+              alt="放大預覽"
+              style={{ maxWidth: '95vw', maxHeight: '90dvh', objectFit: 'contain', borderRadius: '8px' }}
+            />
+          </div>,
+          document.body
+        )}
+
+      {/* CHAPTER VERTICAL 3-DOT MENU PORTAL */}
+      {chapterMenu &&
+        createPortal(
+          <div
+            onClick={() => setChapterMenu(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 100030 }}
+          >
+            <div
+              data-testid="chapter-context-menu"
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: `${chapterMenu.y}px`,
+                left: `${Math.max(12, chapterMenu.x)}px`,
+                minWidth: '180px',
+                backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '10px',
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.2)',
+                padding: '6px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const chapMistakes = subjectMistakes.filter(m => m.chapter_id === chapterMenu.chapId);
+                  const targetName = chapterMenu.chapName;
+                  setChapterMenu(null);
+                  if (chapMistakes.length === 0) {
+                    showToast(`章節「${targetName}」內目前沒有錯題可供分享`, 'info');
+                    return;
+                  }
+                  setSharePackOverride({
+                    title: `${activeSubject.name} - ${targetName} 錯題分享包`,
+                    mistakes: chapMistakes
+                  });
+                  setShowShareModal(true);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Share2 size={14} style={{ color: '#2563EB' }} /> 分享此章節題目包
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { chapId, chapName } = chapterMenu;
+                  setChapterMenu(null);
+                  handleRenameChapter(chapId, chapName);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Edit2 size={14} /> 重新命名
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { chapId } = chapterMenu;
+                  setChapterMenu(null);
+                  openMoverFor({ dimension: 'chapter', id: chapId });
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: '#92400E', cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}
+              >
+                <Move size={14} /> 搬移
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { chapId, chapName } = chapterMenu;
+                  setChapterMenu(null);
+                  handleDeleteChapter(chapId, chapName);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: '#DC2626', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Trash2 size={14} /> 刪除
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* EMBEDDED CATEGORY & TAG MANAGER MODAL (MERGED FROM SIDEBAR) */}
+      {showCategoryModal &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100dvh',
+              zIndex: 100025,
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px',
+              boxSizing: 'border-box'
+            }}
+            onClick={e => {
+              if (e.target === e.currentTarget) setShowCategoryModal(false);
+            }}
+          >
+            <div
+              data-testid="embedded-category-manager-modal"
+              style={{
+                width: '100%',
+                maxWidth: '1080px',
+                height: 'min(88dvh, 88vh)',
+                backgroundColor: 'var(--bg-primary, #FAF7F0)',
+                borderRadius: '14px',
+                border: '1px solid var(--glass-border)',
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--glass-border)', backgroundColor: 'var(--bg-secondary, #FFFFFF)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '1.02rem' }}>
+                  <FolderTree size={18} style={{ color: '#B45309' }} />
+                  <span>分類與標籤管理</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                  title="關閉視窗"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <CategoryManager
+                  categories={categories}
+                  onRefresh={async () => {
+                    await onRefreshAll?.();
+                  }}
+                  onDrilldownCategory={() => {
+                    setShowCategoryModal(false);
+                  }}
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* IMAGE ANNOTATOR MODAL (RED PEN & HIGHLIGHTER) */}
       {annotatingData && (
@@ -1915,9 +2159,15 @@ export default function NotebookOpenView({
       {/* SHARE READ-ONLY MISTAKE PACK MODAL */}
       {showShareModal && (
         <SharePackModal
-          defaultTitle={`${activeSubject.name}${selectedChapterId ? ` - ${subjectChapters.find(c => c.id === selectedChapterId)?.name || ''}` : ''} 錯題分享包`}
-          mistakes={filteredMistakes}
-          onClose={() => setShowShareModal(false)}
+          defaultTitle={
+            sharePackOverride?.title ||
+            `${activeSubject.name}${selectedChapterId ? ` - ${subjectChapters.find(c => c.id === selectedChapterId)?.name || ''}` : ''} 錯題分享包`
+          }
+          mistakes={sharePackOverride?.mistakes || filteredMistakes}
+          onClose={() => {
+            setShowShareModal(false);
+            setSharePackOverride(null);
+          }}
         />
       )}
     </div>

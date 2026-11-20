@@ -38,7 +38,7 @@ interface BatchExamImportModalProps {
   onRefreshCategories: () => Promise<void>;
   onBatchImportComplete: (importedMistakes: MistakeRecord[]) => void;
   onOpenZoomedImage?: (url: string) => void;
-  initialStage?: 'prompt' | 'import' | 'review';
+  initialStage?: 'prompt' | 'import' | 'upload' | 'match' | 'review';
   unreviewedMistakes?: MistakeRecord[];
 }
 
@@ -159,12 +159,14 @@ export default function BatchExamImportModal({
   unreviewedMistakes = []
 }: BatchExamImportModalProps) {
   const { showToast } = useUiFeedback();
-  const [activeTab, setActiveTab] = useState<'prompt' | 'import' | 'review' | 'completed'>(initialStage);
+  const [activeTab, setActiveTab] = useState<'prompt' | 'upload' | 'match' | 'review' | 'completed'>(
+    initialStage === 'import' ? 'upload' : initialStage
+  );
 
   // Sync tab with initialStage when modal is reopened
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialStage === 'review' ? 'review' : 'prompt');
+      setActiveTab(initialStage === 'review' ? 'review' : initialStage === 'import' ? 'upload' : 'prompt');
     }
   }, [isOpen, initialStage]);
 
@@ -525,7 +527,7 @@ ${scopeInstruction}
       if (autoClearAfterBatch) {
         handleClearStep1Scope();
       }
-      setActiveTab('import');
+      setActiveTab('upload');
     }
   };
 
@@ -984,7 +986,7 @@ ${scopeInstruction}
           errorReasonIds: item.error_reason_ids || [],
           tags: ['考卷批次匯入'],
           mistakeDate: todayStr,
-          templateId: 'default_template',
+          templateId: null,
           data: {
             questionData: {
               q_desc: questionText,
@@ -1186,10 +1188,10 @@ ${scopeInstruction}
                 type="button"
                 onClick={() => setActiveTab('prompt')}
                 style={{
-                  padding: '5px 12px',
+                  padding: '5px 10px',
                   borderRadius: '6px',
                   border: 'none',
-                  fontSize: '0.82rem',
+                  fontSize: '0.8rem',
                   fontWeight: activeTab === 'prompt' ? 700 : 500,
                   backgroundColor: activeTab === 'prompt' ? '#FFFFFF' : 'transparent',
                   color: activeTab === 'prompt' ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -1197,34 +1199,51 @@ ${scopeInstruction}
                   cursor: 'pointer'
                 }}
               >
-                1. 設計提詞 (多選範圍)
+                1. 設計提詞
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('import')}
+                onClick={() => setActiveTab('upload')}
                 style={{
-                  padding: '5px 12px',
+                  padding: '5px 10px',
                   borderRadius: '6px',
                   border: 'none',
-                  fontSize: '0.82rem',
-                  fontWeight: activeTab === 'import' ? 700 : 500,
-                  backgroundColor: activeTab === 'import' ? '#FFFFFF' : 'transparent',
-                  color: activeTab === 'import' ? 'var(--text-primary)' : 'var(--text-muted)',
-                  boxShadow: activeTab === 'import' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: activeTab === 'upload' ? 700 : 500,
+                  backgroundColor: activeTab === 'upload' ? '#FFFFFF' : 'transparent',
+                  color: activeTab === 'upload' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  boxShadow: activeTab === 'upload' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   cursor: 'pointer'
                 }}
               >
-                2. 選圖與調整配對
+                2. 上傳圖片 / AI 分析
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('match')}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: activeTab === 'match' ? 700 : 500,
+                  backgroundColor: activeTab === 'match' ? '#FFFFFF' : 'transparent',
+                  color: activeTab === 'match' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  boxShadow: activeTab === 'match' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                3. 調整配對 {parsedQuestions.length > 0 ? `(${parsedQuestions.length})` : ''}
               </button>
               <button
                 type="button"
                 onClick={() => reviewItems.length > 0 && setActiveTab('review')}
                 disabled={reviewItems.length === 0}
                 style={{
-                  padding: '5px 12px',
+                  padding: '5px 10px',
                   borderRadius: '6px',
                   border: 'none',
-                  fontSize: '0.82rem',
+                  fontSize: '0.8rem',
                   fontWeight: activeTab === 'review' ? 700 : 500,
                   backgroundColor: activeTab === 'review' ? '#FFFFFF' : 'transparent',
                   color: activeTab === 'review' ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -1233,7 +1252,7 @@ ${scopeInstruction}
                   opacity: reviewItems.length > 0 ? 1 : 0.6
                 }}
               >
-                3. 極速卡片審核
+                4. 極速審核入庫
               </button>
             </div>
 
@@ -1567,8 +1586,8 @@ ${scopeInstruction}
             </div>
           )}
 
-          {/* TAB 2: 雙區選圖、AI JSON 解析與手動順序/多圖配對調整工作台 */}
-          {activeTab === 'import' && (
+          {/* TAB 2: 上傳圖片與外部 AI JSON 分析 */}
+          {activeTab === 'upload' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Header Action Bar with Sample Data Button & Auto-Clear Step 2 Button */}
               <div
@@ -2057,6 +2076,78 @@ ${scopeInstruction}
               </div>
 
               {/* Interactive Order & Multi-Image Pairing Workbench */}
+              {/* Stage 2 Footer Navigation */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderTop: '1px solid var(--glass-border)',
+                  paddingTop: '16px',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setActiveTab('prompt')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <ArrowLeft size={16} /> 返回第 1 步：設計提詞
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setActiveTab('match')}
+                  disabled={parsedQuestions.length === 0}
+                  style={{
+                    padding: '10px 24px',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  data-testid="batch-goto-match-btn"
+                >
+                  下一步：調整順序與圖片配對 ({parsedQuestions.length} 題) <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: 調整順序與圖片配對工作台 */}
+          {activeTab === 'match' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} className="animate-fade-in">
+              {parsedQuestions.length === 0 && (
+                <div
+                  style={{
+                    padding: '32px 20px',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--glass-border)',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.94rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    尚未解析出任何題目，請先於第 2 步上傳圖片並貼上外部 AI 回傳的 JSON，或手動新增配對題目。
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setActiveTab('upload')}>
+                      <ArrowLeft size={15} /> 返回第 2 步上傳與分析
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={handleAddManualQuestion}>
+                      <Plus size={15} /> 手動新增配對題目
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {parsedQuestions.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {/* Quick Batch Target Bar: 把這些錯題全部放在 [某科目] [某章節] */}
@@ -2482,10 +2573,10 @@ ${scopeInstruction}
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setActiveTab('prompt')}
+                  onClick={() => setActiveTab('upload')}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <ArrowLeft size={16} /> 返回查看提詞
+                  <ArrowLeft size={16} /> 返回第 2 步：上傳與分析
                 </button>
 
                 <button
@@ -2501,8 +2592,9 @@ ${scopeInstruction}
                     alignItems: 'center',
                     gap: '8px'
                   }}
+                  data-testid="batch-goto-review-btn"
                 >
-                  確認順序與配對，進入極速審核 <ArrowRight size={18} />
+                  確認配對，進入第 4 步：極速審核 <ArrowRight size={18} />
                 </button>
               </div>
             </div>
@@ -2529,10 +2621,10 @@ ${scopeInstruction}
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => setActiveTab('import')}
+                    onClick={() => setActiveTab('match')}
                     style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                   >
-                    <ArrowLeft size={13} /> 返回調整配對
+                    <ArrowLeft size={13} /> 返回第 3 步調整配對
                   </button>
                   <span
                     style={{

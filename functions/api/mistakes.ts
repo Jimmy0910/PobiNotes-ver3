@@ -331,17 +331,23 @@ export const onRequestPost: PagesFunction<Env, any, UserContext> = async (contex
       }
     }
 
-    // Verify or resolve template ownership
+    // Verify or resolve template ownership (gracefully fall back for built-in/legacy default IDs)
     let resolvedTemplateId = templateId;
-    if (resolvedTemplateId) {
+    const isGenericDefaultId =
+      !resolvedTemplateId ||
+      resolvedTemplateId === 'default' ||
+      resolvedTemplateId === 'default_template' ||
+      resolvedTemplateId === 'default-exam';
+
+    if (!isGenericDefaultId) {
       const template = await env.DB.prepare('SELECT id FROM templates WHERE id = ? AND user_id = ?')
         .bind(resolvedTemplateId, userId)
         .first();
       if (!template) {
-        return new Response(JSON.stringify({ error: 'Template not found or access denied.' }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        const firstTpl = await env.DB.prepare('SELECT id FROM templates WHERE user_id = ? ORDER BY created_at DESC LIMIT 1')
+          .bind(userId)
+          .first() as any;
+        resolvedTemplateId = firstTpl?.id || 'default';
       }
     } else {
       const firstTpl = await env.DB.prepare('SELECT id FROM templates WHERE user_id = ? ORDER BY created_at DESC LIMIT 1')

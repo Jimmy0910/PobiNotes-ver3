@@ -4,9 +4,7 @@ import {
   FileText,
   Printer,
   BarChart2,
-  FolderTree,
   FileCode,
-  Sparkles,
   Shield,
   PanelLeftClose,
   PanelLeftOpen,
@@ -51,7 +49,7 @@ export default function BinderSpineNav({
       label: '我的書架',
       testId: 'nav-bookshelf',
       icon: <BookOpen size={18} strokeWidth={1.8} />,
-      active: activeView === 'bookshelf' || activeView === 'notebook'
+      active: activeView === 'bookshelf' || activeView === 'notebook' || activeView === 'prompt' || activeView === 'categories'
     },
     {
       id: 'all' as AppViewType,
@@ -82,25 +80,11 @@ export default function BinderSpineNav({
       active: activeView === 'guide'
     },
     {
-      id: 'categories' as AppViewType,
-      label: '分類管理',
-      testId: 'nav-categories',
-      icon: <FolderTree size={18} strokeWidth={1.8} />,
-      active: activeView === 'categories'
-    },
-    {
       id: 'templates' as AppViewType,
       label: '模板管理',
       testId: 'nav-templates',
       icon: <FileCode size={18} strokeWidth={1.8} />,
       active: activeView === 'templates'
-    },
-    {
-      id: 'prompt' as AppViewType,
-      label: 'AI 提詞',
-      testId: 'nav-prompt',
-      icon: <Sparkles size={18} strokeWidth={1.8} />,
-      active: activeView === 'prompt'
     }
   ];
 

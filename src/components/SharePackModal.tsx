@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
 import type { MistakeRecord } from '../types';
+import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import { useUiFeedback } from './UiFeedbackProvider';
 import { X, Share2, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 
@@ -12,22 +13,7 @@ interface SharePackModalProps {
 }
 
 function serializeMistakeForShare(m: MistakeRecord) {
-  const qData = m.data?.questionData || {};
-  const aData = m.data?.answerData || {};
-  const qDesc = qData.q_desc || qData.desc || qData.q_text || qData.text || '';
-  const aDesc = aData.a_desc || aData.desc || aData.a_text || aData.text || aData.key_concept || '';
-
-  const qImages: string[] = [];
-  if (Array.isArray(qData.q_images)) qData.q_images.forEach((x: any) => typeof x === 'string' && x.trim() && qImages.push(x.trim()));
-  for (const k of ['q_image', 'q_img', 'image']) {
-    if (typeof qData[k] === 'string' && qData[k].trim()) qImages.push(qData[k].trim());
-  }
-
-  const aImages: string[] = [];
-  if (Array.isArray(aData.a_images)) aData.a_images.forEach((x: any) => typeof x === 'string' && x.trim() && aImages.push(x.trim()));
-  for (const k of ['a_image', 'a_img']) {
-    if (typeof aData[k] === 'string' && aData[k].trim()) aImages.push(aData[k].trim());
-  }
+  const { qDesc, qImages, aDesc, aImages } = extractMistakeMediaAndText(m);
 
   return {
     id: m.id,
@@ -37,10 +23,10 @@ function serializeMistakeForShare(m: MistakeRecord) {
     unitName: m.unit_name || '',
     familiarityName: m.familiarity_name || '',
     errorReasons: Array.isArray(m.error_reason_names) ? m.error_reason_names : [],
-    qDesc: typeof qDesc === 'string' ? qDesc.trim() : '',
-    qImages: Array.from(new Set(qImages)),
-    aDesc: typeof aDesc === 'string' ? aDesc.trim() : '',
-    aImages: Array.from(new Set(aImages))
+    qDesc,
+    qImages,
+    aDesc,
+    aImages
   };
 }
 

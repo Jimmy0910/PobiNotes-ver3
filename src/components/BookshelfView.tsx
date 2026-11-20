@@ -1,5 +1,10 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { CategoriesBundle, MistakeRecord } from '../types';
+import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
+import SharePackModal from './SharePackModal';
+import PobiFlashcardGuideModal from './PobiFlashcardGuideModal';
 import {
   parseNotebookStyle,
   serializeNotebookStyle,
@@ -21,7 +26,12 @@ import {
   Sparkles,
   RotateCcw,
   Archive,
-  ArrowRight
+  ArrowRight,
+  MoreVertical,
+  Share2,
+  Edit2,
+  Trash2,
+  Play
 } from 'lucide-react';
 
 interface BookshelfViewProps {
@@ -40,6 +50,10 @@ interface BookshelfViewProps {
   onOpenFastReview?: () => void;
   onOpenDailyReview?: () => void;
   onOpenBackupRestore?: () => void;
+  onOpenAiTutor?: (subjectId: string | null) => void;
+  onStartCustomReview?: (selectedMistakes: MistakeRecord[]) => void;
+  onOpenPobiTutorial?: () => void;
+  onRefreshAll?: () => Promise<void>;
   dueReviewCount?: number;
 }
 
@@ -57,14 +71,75 @@ export default function BookshelfView({
   onOpenBatchImport,
   onOpenDailyReview,
   onOpenBackupRestore,
+  onOpenAiTutor,
+  onStartCustomReview,
+  onOpenPobiTutorial,
+  onRefreshAll,
   dueReviewCount = 0
 }: BookshelfViewProps) {
+  const { showToast, confirmDialog, promptDialog } = useUiFeedback();
+  const [shelfMode, setShelfMode] = useState<'edit' | 'flashcard' | 'ai_tutor'>('edit');
+  const [bookMenu, setBookMenu] = useState<{ subjectId: string; subjectName: string; x: number; y: number } | null>(null);
+  const [shareSubject, setShareSubject] = useState<{ title: string; mistakes: MistakeRecord[] } | null>(null);
+  const [pobiGuideSubjectId, setPobiGuideSubjectId] = useState<string | null | undefined>(undefined);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [selectedPalette, setSelectedPalette] = useState('navy');
   const [selectedIcon, setSelectedIcon] = useState('BookOpen');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const handleBookClick = (subjectId: string) => {
+    if (shelfMode === 'flashcard') {
+      setPobiGuideSubjectId(subjectId);
+    } else if (shelfMode === 'ai_tutor') {
+      onOpenAiTutor?.(subjectId);
+    } else {
+      onOpenNotebook(subjectId);
+    }
+  };
+
+  const handleRenameSubject = async (subjectId: string, currentName: string) => {
+    const nextName = await promptDialog({
+      title: '重新命名錯題本',
+      label: '請輸入新的科目名稱',
+      defaultValue: currentName,
+      confirmText: '儲存名稱'
+    });
+    if (!nextName || !nextName.trim() || nextName.trim() === currentName) return;
+    try {
+      await apiRequest('/api/subjects', {
+        method: 'PUT',
+        body: { id: subjectId, name: nextName.trim() }
+      });
+      await onRefreshAll?.();
+      showToast(`已將錯題本重新命名為「${nextName.trim()}」`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || '重新命名失敗', 'error');
+    }
+  };
+
+  const handleDeleteSubject = async (subjectId: string, subjectName: string) => {
+    const count = mistakes.filter(m => m.subject_id === subjectId).length;
+    const ok = await confirmDialog({
+      title: '刪除錯題本確認',
+      message:
+        count > 0
+          ? `確定要刪除《${subjectName}》錯題本嗎？此本包含 ${count} 道錯題，刪除後錯題會安全保留為未分類。`
+          : `確定要刪除《${subjectName}》錯題本嗎？`,
+      confirmText: '確認刪除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await apiRequest(`/api/subjects?id=${subjectId}&mode=unassign`, { method: 'DELETE' });
+      await onRefreshAll?.();
+      showToast(`已刪除《${subjectName}》錯題本`, 'success');
+    } catch (err: any) {
+      showToast(err?.message || '刪除失敗', 'error');
+    }
+  };
 
   // Calculate stats per subject
   const subjectStats = useMemo(() => {
@@ -185,6 +260,19 @@ export default function BookshelfView({
             帳號與回饋
           </button>
 
+          {onOpenPobiTutorial && (
+            <button
+              type="button"
+              onClick={onOpenPobiTutorial}
+              className="notebook-tool-btn"
+              title="重播 POBI 比熊互動教學"
+              data-testid="bookshelf-pobi-tutorial-btn"
+            >
+              <Play className="w-4 h-4" />
+              POBI 教學
+            </button>
+          )}
+
           {onOpenBackupRestore && (
             <button
               type="button"
@@ -214,6 +302,81 @@ export default function BookshelfView({
 
       {/* Main Bookshelf Stage */}
       <main className="bookshelf-stage">
+        {/* 3-Mode Bookshelf Switcher */}
+        <section
+          data-testid="bookshelf-mode-switcher"
+          style={{
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: '0 2px 8px rgba(60, 40, 20, 0.04)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {[
+              { id: 'edit' as const, label: '1. 檢視與編輯模式', icon: BookOpen },
+              { id: 'flashcard' as const, label: '2. 閃卡複習模式', icon: RotateCcw },
+              { id: 'ai_tutor' as const, label: '3. 外部 AI 學習家教', icon: Sparkles }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = shelfMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  data-testid={`shelf-mode-${tab.id}`}
+                  onClick={() => setShelfMode(tab.id)}
+                  className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '7px 14px',
+                    fontSize: '0.84rem',
+                    fontWeight: isActive ? 700 : 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Icon size={15} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            {shelfMode === 'edit' && <span>點擊任一本書封，翻開手帳檢視、新增或搬移章節錯題</span>}
+            {shelfMode === 'flashcard' && (
+              <button
+                type="button"
+                onClick={() => setPobiGuideSubjectId(null)}
+                className="btn btn-secondary"
+                style={{ padding: '5px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#92400E', backgroundColor: '#FFFBEB', borderColor: '#D97706' }}
+                data-testid="pobi-ask-review-btn"
+              >
+                讓 POBI 幫你挑科目與章節
+              </button>
+            )}
+            {shelfMode === 'ai_tutor' && (
+              <button
+                type="button"
+                onClick={() => onOpenAiTutor?.(null)}
+                className="btn btn-secondary"
+                style={{ padding: '5px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#6D28D9', backgroundColor: '#F5F3FF', borderColor: '#7C3AED' }}
+                data-testid="open-all-ai-tutor-btn"
+              >
+                開啟全科 AI 提詞工坊
+              </button>
+            )}
+          </div>
+        </section>
+
         {/* Spaced Repetition Daily Review Banner */}
         {onOpenDailyReview && mistakes.length > 0 && (
           <section
@@ -300,14 +463,20 @@ export default function BookshelfView({
                 <div
                   key={subject.id}
                   className="book-item-wrapper"
-                  onClick={() => onOpenNotebook(subject.id)}
-                  title={`點擊翻開《${subject.name}》手帳`}
+                  onClick={() => handleBookClick(subject.id)}
+                  title={
+                    shelfMode === 'flashcard'
+                      ? `點擊讓 POBI 引導複習《${subject.name}》`
+                      : shelfMode === 'ai_tutor'
+                        ? `點擊開啟《${subject.name}》外部 AI 學習家教`
+                        : `點擊翻開《${subject.name}》手帳`
+                  }
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onOpenNotebook(subject.id);
+                      handleBookClick(subject.id);
                     }
                   }}
                 >
@@ -338,15 +507,53 @@ export default function BookshelfView({
                       <div className="book-badge-icon">
                         <IconComp className="w-4 h-4 text-amber-200" />
                       </div>
-                      <span className="book-mistake-pill">
-                        {stats.total} 題
-                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', zIndex: 5 }}>
+                        <span className="book-mistake-pill">
+                          {stats.total} 題
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={`book-menu-${subject.id}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setBookMenu(prev =>
+                              prev?.subjectId === subject.id
+                                ? null
+                                : {
+                                    subjectId: subject.id,
+                                    subjectName: subject.name,
+                                    x: Math.min(rect.left - 110, window.innerWidth - 180),
+                                    y: rect.bottom + 6
+                                  }
+                            );
+                          }}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.28)',
+                            border: '1px solid rgba(255, 255, 255, 0.25)',
+                            color: '#FFFFFF',
+                            borderRadius: '6px',
+                            padding: '3px 4px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title={`更多操作：分享、重新命名或刪除《${subject.name}》`}
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Book Body Title with Hot-stamped Foil & Series Tag */}
                     <div className="book-body">
                       <div className="book-series-tag">
-                        VOL. {(index + 1).toString().padStart(2, '0')} · ACADEMIC
+                        {shelfMode === 'flashcard'
+                          ? 'POBI 閃卡複習'
+                          : shelfMode === 'ai_tutor'
+                            ? '外部 AI 家教'
+                            : `VOL. ${(index + 1).toString().padStart(2, '0')} · ACADEMIC`}
                       </div>
                       <h2
                         className="book-title"
@@ -701,6 +908,97 @@ export default function BookshelfView({
             </form>
           </div>
         </div>
+      )}
+
+      {/* BOOK COVER VERTICAL 3-DOT MENU PORTAL */}
+      {bookMenu &&
+        createPortal(
+          <div onClick={() => setBookMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 100030 }}>
+            <div
+              data-testid="book-context-menu"
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: `${bookMenu.y}px`,
+                left: `${Math.max(12, bookMenu.x)}px`,
+                minWidth: '170px',
+                backgroundColor: 'var(--bg-secondary, #FFFFFF)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '10px',
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.22)',
+                padding: '6px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const subjMistakes = mistakes.filter(m => m.subject_id === bookMenu.subjectId);
+                  const subjName = bookMenu.subjectName;
+                  setBookMenu(null);
+                  if (subjMistakes.length === 0) {
+                    showToast(`《${subjName}》目前尚未收錄錯題可供分享`, 'info');
+                    return;
+                  }
+                  setShareSubject({
+                    title: `《${subjName}》錯題本分享包`,
+                    mistakes: subjMistakes
+                  });
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Share2 size={14} style={{ color: '#2563EB' }} /> 分享此錯題本
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { subjectId, subjectName } = bookMenu;
+                  setBookMenu(null);
+                  handleRenameSubject(subjectId, subjectName);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Edit2 size={14} /> 重新命名
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { subjectId, subjectName } = bookMenu;
+                  setBookMenu(null);
+                  handleDeleteSubject(subjectId, subjectName);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '0.84rem', color: '#DC2626', cursor: 'pointer', textAlign: 'left', fontWeight: 500 }}
+              >
+                <Trash2 size={14} /> 刪除
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* SHARE SUBJECT MISTAKE PACK MODAL */}
+      {shareSubject && (
+        <SharePackModal
+          defaultTitle={shareSubject.title}
+          mistakes={shareSubject.mistakes}
+          onClose={() => setShareSubject(null)}
+        />
+      )}
+
+      {/* POBI FLASHCARD GUIDE MODAL (MODE 2) */}
+      {pobiGuideSubjectId !== undefined && (
+        <PobiFlashcardGuideModal
+          categories={categories}
+          mistakes={mistakes}
+          initialSubjectId={pobiGuideSubjectId}
+          onClose={() => setPobiGuideSubjectId(undefined)}
+          onStartReview={pickedMistakes => {
+            setPobiGuideSubjectId(undefined);
+            onStartCustomReview?.(pickedMistakes);
+          }}
+        />
       )}
     </div>
   );

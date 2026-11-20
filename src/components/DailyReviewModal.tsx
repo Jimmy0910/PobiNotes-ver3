@@ -7,6 +7,7 @@ import {
   buildNextReviewMeta,
   getMistakeReviewMeta
 } from '../types';
+import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import {
   X,
   Eye,
@@ -25,43 +26,13 @@ interface DailyReviewModalProps {
   onRefreshAll?: () => Promise<void>;
 }
 
-function resolveImg(key?: string): string {
-  if (!key || typeof key !== 'string') return '';
-  if (
-    key.startsWith('data:') ||
-    key.startsWith('blob:') ||
-    key.startsWith('http://') ||
-    key.startsWith('https://') ||
-    key.startsWith('/api/images/')
-  ) {
-    return key;
-  }
-  return `/api/images/${key}`;
-}
-
 function extractCardContent(m: MistakeRecord) {
-  const qData = m.data?.questionData || {};
-  const aData = m.data?.answerData || {};
-  const qText = qData.q_desc || qData.desc || qData.q_text || qData.text || '';
-  const aText = aData.a_desc || aData.desc || aData.a_text || aData.text || aData.key_concept || '';
-
-  const qImgs: string[] = [];
-  if (Array.isArray(qData.q_images)) qData.q_images.forEach((x: any) => typeof x === 'string' && x.trim() && qImgs.push(resolveImg(x.trim())));
-  for (const k of ['q_image', 'q_img', 'image']) {
-    if (typeof qData[k] === 'string' && qData[k].trim()) qImgs.push(resolveImg(qData[k].trim()));
-  }
-
-  const aImgs: string[] = [];
-  if (Array.isArray(aData.a_images)) aData.a_images.forEach((x: any) => typeof x === 'string' && x.trim() && aImgs.push(resolveImg(x.trim())));
-  for (const k of ['a_image', 'a_img']) {
-    if (typeof aData[k] === 'string' && aData[k].trim()) aImgs.push(resolveImg(aData[k].trim()));
-  }
-
+  const { qDesc, qImages, aDesc, aImages } = extractMistakeMediaAndText(m);
   return {
-    qText: typeof qText === 'string' ? qText.trim() : '',
-    aText: typeof aText === 'string' ? aText.trim() : '',
-    qImgs: Array.from(new Set(qImgs.filter(Boolean))),
-    aImgs: Array.from(new Set(aImgs.filter(Boolean)))
+    qText: qDesc,
+    aText: aDesc,
+    qImgs: qImages,
+    aImgs: aImages
   };
 }
 

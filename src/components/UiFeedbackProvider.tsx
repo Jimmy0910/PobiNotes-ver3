@@ -259,25 +259,35 @@ export function UiFeedbackProvider({ children }: { children: React.ReactNode }) 
                 gap: '14px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div
-                  style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '9px',
-                    backgroundColor: confirmState.options.danger ? 'rgba(239, 68, 68, 0.12)' : 'rgba(217, 119, 6, 0.12)',
-                    color: confirmState.options.danger ? '#DC2626' : '#B45309',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
-                >
-                  <AlertTriangle size={18} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '9px',
+                      backgroundColor: confirmState.options.danger ? 'rgba(239, 68, 68, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+                      color: confirmState.options.danger ? '#DC2626' : '#B45309',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <AlertTriangle size={18} />
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
+                    {confirmState.options.title}
+                  </h3>
                 </div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
-                  {confirmState.options.title}
-                </h3>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmClose(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                  title="關閉視窗"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
               <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
@@ -350,9 +360,19 @@ export function UiFeedbackProvider({ children }: { children: React.ReactNode }) 
                 gap: '14px'
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
-                {promptState.options.title}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
+                  {promptState.options.title}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => handlePromptClose(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                  title="關閉視窗"
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
               <form
                 onSubmit={e => {
