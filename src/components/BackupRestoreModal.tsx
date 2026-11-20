@@ -51,10 +51,24 @@ function collectImageKeys(obj: any, out: Set<string>) {
   }
 }
 
+function inferImageMime(pathOrKey: string): string {
+  const lower = pathOrKey.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
+  return 'image/jpeg';
+}
+
 function replaceImageKeys(obj: any, map: Record<string, string>): any {
   if (!obj) return obj;
   if (typeof obj === 'string') {
-    return map[obj.trim()] || obj;
+    const trimmed = obj.trim();
+    if (map[trimmed]) return map[trimmed];
+    const bare = trimmed.replace(/^\/api\/images\//, '');
+    if (map[bare]) return map[bare];
+    if (map[`/api/images/${bare}`]) return map[`/api/images/${bare}`];
+    return obj;
   }
   if (Array.isArray(obj)) {
     return obj.map(item => replaceImageKeys(item, map));
@@ -193,11 +207,12 @@ export default function BackupRestoreModal({
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     try {
-      if (file.name.toLowerCase().endsWith('.zip')) {
+      if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
         const zip = await JSZip.loadAsync(file);
-        const backupFile = zip.file('backup.json');
+        const backupFile = zip.file('backup.json') || zip.file(/backup\.json$/i)[0];
         if (!backupFile) {
           showToast('ZIP 壓縮檔內找不到 backup.json', 'error');
           return;
@@ -229,37 +244,43 @@ export default function BackupRestoreModal({
     try {
       const { payload, zip } = parsedBackup;
 
-      // 1. Restore image blobs if ZIP contains image_manifest.json
+      // 1. Restore image blobs if ZIP contains image_manifest.json (with explicit image/* Content-Type!)
       const remappedImages: Record<string, string> = {};
       if (zip) {
-        const manifestFile = zip.file('image_manifest.json');
+        const manifestFile = zip.file('image_manifest.json') || zip.file(/image_manifest\.json$/i)[0];
         if (manifestFile) {
           const manifest = JSON.parse(await manifestFile.async('string')) as Record<string, string>;
           const entries = Object.entries(manifest);
           for (let i = 0; i < entries.length; i++) {
             const [origKey, zipPath] = entries[i];
-            setProgressText(`正在還原圖片 (${i + 1} / ${entries.length})...`);
+            setProgressText(`正在跨帳號還原圖片 (${i + 1} / ${entries.length})...`);
             const imgEntry = zip.file(zipPath);
             if (imgEntry) {
-              const blob = await imgEntry.async('blob');
+              const rawBlob = await imgEntry.async('blob');
+              const mime = inferImageMime(zipPath);
+              const typedBlob = new Blob([rawBlob], { type: mime });
               try {
                 const upRes = await apiRequest<{ success: boolean; key: string }>('/api/images/upload', {
                   method: 'POST',
-                  body: blob
+                  headers: { 'Content-Type': mime },
+                  body: typedBlob
                 });
                 if (upRes?.key) {
-                  remappedImages[origKey] = upRes.key;
+                  const bareOrig = origKey.trim().replace(/^\/api\/images\//, '');
+                  remappedImages[origKey.trim()] = upRes.key;
+                  remappedImages[bareOrig] = upRes.key;
+                  remappedImages[`/api/images/${bareOrig}`] = upRes.key;
                 }
-              } catch {
-                // Keep original key fallback
+              } catch (imgErr) {
+                console.warn('圖片還原上傳略過:', zipPath, imgErr);
               }
             }
           }
         }
       }
 
-      // 2. Restore subjects
-      setProgressText('正在還原科目、章節與小單元...');
+      // 2. Restore subjects (cross-account safe)
+      setProgressText('正在還原科目、章節、小單元與錯因標籤...');
       const subjectIdMap: Record<string, string> = {};
       for (const s of payload.categories.subjects || []) {
         const existing = categories.subjects.find(cur => cur.name.trim() === s.name.trim());
@@ -313,14 +334,39 @@ export default function BackupRestoreModal({
         }
       }
 
-      // 5. Restore mistakes
+      // 4.5 Restore error reasons
+      const errorReasonIdMap: Record<string, string> = {};
+      for (const r of payload.categories.errorReasons || []) {
+        const mappedParent = r.parent_id
+          ? (chapterIdMap[r.parent_id] || subjectIdMap[r.parent_id] || null)
+          : null;
+        const existing = categories.errorReasons.find(
+          cur => cur.name.trim() === r.name.trim() && (cur.parent_id || null) === mappedParent
+        );
+        if (existing) {
+          errorReasonIdMap[r.id] = existing.id;
+        } else {
+          try {
+            const res = await apiRequest('/api/categories', {
+              method: 'POST',
+              body: { dimension: 'error_reason', name: r.name, parentId: mappedParent, color: r.color || 'default' }
+            });
+            if (res?.item?.id) errorReasonIdMap[r.id] = res.item.id;
+          } catch {}
+        }
+      }
+
+      // 5. Restore mistakes (always bind to target account's template via templateId: null)
       const totalM = (payload.mistakes || []).length;
       let importedCount = 0;
       for (let i = 0; i < totalM; i++) {
         const m = payload.mistakes[i];
-        setProgressText(`正在匯入錯題 (${i + 1} / ${totalM})...`);
+        setProgressText(`正在跨帳號匯入錯題 (${i + 1} / ${totalM})...`);
         const famMatch = categories.familiarities.find(f => f.name === m.familiarity_name);
         const mappedData = Object.keys(remappedImages).length > 0 ? replaceImageKeys(m.data, remappedImages) : m.data;
+        const mappedReasons = Array.isArray(m.error_reason_ids)
+          ? m.error_reason_ids.map(rid => errorReasonIdMap[rid]).filter(Boolean)
+          : [];
         await apiRequest('/api/mistakes', {
           method: 'POST',
           body: {
@@ -328,10 +374,10 @@ export default function BackupRestoreModal({
             chapterId: m.chapter_id ? (chapterIdMap[m.chapter_id] || null) : null,
             unitId: m.unit_id ? (unitIdMap[m.unit_id] || null) : null,
             familiarityId: famMatch?.id || null,
-            errorReasonIds: [],
+            errorReasonIds: mappedReasons,
             tags: Array.isArray(m.tags) ? m.tags : [],
             mistakeDate: m.mistake_date || new Date().toISOString().slice(0, 10),
-            templateId: m.template_id || 'default-exam',
+            templateId: null,
             title: m.title || '匯入錯題',
             data: mappedData || { questionData: {}, answerData: {} }
           }

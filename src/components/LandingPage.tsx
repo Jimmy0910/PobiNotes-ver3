@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   BookOpen,
   Sparkles,
@@ -7,8 +8,13 @@ import {
   Play,
   Share2,
   FolderTree,
-  CheckCircle2
+  CheckCircle2,
+  Copy,
+  Check
 } from 'lucide-react';
+import { useUiFeedback } from './UiFeedbackProvider';
+
+const OFFICIAL_SHARE_URL = 'https://pobinotes-ver3.pages.dev/';
 
 interface LandingPageProps {
   onEnterDemo: () => void;
@@ -16,6 +22,19 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProps) {
+  const { showToast } = useUiFeedback();
+  const [copiedSiteUrl, setCopiedSiteUrl] = useState(false);
+
+  const handleCopyOfficialUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(OFFICIAL_SHARE_URL);
+      setCopiedSiteUrl(true);
+      showToast('已複製 POBI STUDIO 分享連結，快傳給同學一起用！', 'success');
+      window.setTimeout(() => setCopiedSiteUrl(false), 2500);
+    } catch {
+      showToast('請手動複製連結：' + OFFICIAL_SHARE_URL, 'info');
+    }
+  };
   const features = [
     {
       icon: BookOpen,
@@ -195,6 +214,63 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                 <CheckCircle2 size={14} style={{ color: '#059669' }} /> 支援唯讀連結分享題組
               </span>
+            </div>
+
+            {/* Official Shareable Website Link Bar */}
+            <div
+              data-testid="landing-share-bar"
+              style={{
+                marginTop: '6px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid var(--glass-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                boxShadow: '0 2px 8px rgba(60, 40, 20, 0.04)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 220px' }}>
+                <Share2 size={15} style={{ color: '#B45309', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', flexShrink: 0 }}>分享給同學：</span>
+                <a
+                  href={OFFICIAL_SHARE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: '0.82rem',
+                    color: '#1D4ED8',
+                    fontWeight: 600,
+                    textDecoration: 'underline',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {OFFICIAL_SHARE_URL}
+                </a>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyOfficialUrl}
+                className="btn btn-secondary"
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  flexShrink: 0
+                }}
+                data-testid="landing-copy-url-btn"
+              >
+                {copiedSiteUrl ? <Check size={14} style={{ color: '#059669' }} /> : <Copy size={14} />}
+                <span>{copiedSiteUrl ? '已複製網址' : '複製網址'}</span>
+              </button>
             </div>
           </div>
 

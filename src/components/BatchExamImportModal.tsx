@@ -1653,6 +1653,55 @@ ${scopeInstruction}
                 </div>
               </div>
 
+              {/* Clear Beginner Guide: ZIP can be uploaded directly to AI */}
+              <div
+                data-testid="zip-to-ai-guide"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: '#EFF6FF',
+                  border: '1px solid #93C5FD',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={15} style={{ color: '#2563EB' }} />
+                    <span>新手教學：下載的 ZIP 壓縮檔可以直接丟給 AI 分析（不須解壓縮！）</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const promptLine = '請解壓縮這個 ZIP 檔案，依照裡面的「外部AI提詞說明.txt」規則，讀取「題目圖片/」與「解析圖片/」資料夾中的所有圖片，分析並輸出完整 JSON 陣列。';
+                      try {
+                        await navigator.clipboard.writeText(promptLine);
+                        showToast('已複製給 AI 的對話指令，上傳 ZIP 後直接貼上送出即可！', 'success');
+                      } catch {
+                        showToast('請手動輸入：請解壓縮此 ZIP 並依外部AI提詞說明.txt 輸出 JSON', 'info');
+                      }
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      color: '#1D4ED8',
+                      borderColor: '#93C5FD',
+                      backgroundColor: '#FFFFFF'
+                    }}
+                  >
+                    一鍵複製給 AI 的對話指令
+                  </button>
+                </div>
+                <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '0.82rem', color: '#1E40AF', lineHeight: 1.7 }}>
+                  <li>先在下方「1. 題目圖片區」與「2. 解析圖片區」選好全部考卷照片，點擊<strong>「打包下載 ZIP 壓縮檔」</strong>（系統會自動包進所有圖片與 <code>外部AI提詞說明.txt</code>）。</li>
+                  <li>打開 <strong>ChatGPT</strong>、<strong>Google Gemini</strong> 或 <strong>Claude</strong>，直接把整個 <code>.zip</code> 檔拖曳上傳到對話框（<strong>不用手動解壓縮</strong>，也不怕單次上傳張數上限）。</li>
+                  <li>貼上右上方複製的對話指令送出，等 AI 產出 JSON 後點擊「Copy code」，貼回下方「3. 貼上外部 AI 分析結果」即可進入第 3 步調整配對！</li>
+                </ol>
+              </div>
+
               {/* Dual Dropzone Containers */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '16px' }}>
                 {/* Zone 1: Question Images */}

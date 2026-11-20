@@ -69,6 +69,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAuthView, setShowAuthView] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [showPobiTutorial, setShowPobiTutorial] = useState(false);
   const [isNewUserTutorial, setIsNewUserTutorial] = useState(false);
   const [showDailyReview, setShowDailyReview] = useState(false);
@@ -486,7 +487,10 @@ export default function App() {
       return (
         <LandingPage
           onEnterDemo={handleEnterDemo}
-          onGoToAuth={() => setShowAuthView(true)}
+          onGoToAuth={mode => {
+            setAuthInitialMode(mode || 'login');
+            setShowAuthView(true);
+          }}
         />
       );
     }
@@ -503,7 +507,7 @@ export default function App() {
             返回首頁
           </button>
         </div>
-        <AuthPage onLoginSuccess={handleLoginSuccess} />
+        <AuthPage onLoginSuccess={handleLoginSuccess} initialMode={authInitialMode} />
       </>
     );
   }

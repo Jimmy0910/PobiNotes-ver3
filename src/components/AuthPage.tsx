@@ -4,10 +4,11 @@ import { LogIn, UserPlus, Key, User, ShieldCheck, Sun, Moon } from 'lucide-react
 
 interface AuthPageProps {
   onLoginSuccess: (user: { id: string; username: string; is_admin: number }) => void;
+  initialMode?: 'login' | 'register';
 }
 
-export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
-  const [isLogin, setIsLogin] = useState(true);
+export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: AuthPageProps) {
+  const [isLogin, setIsLogin] = useState(initialMode !== 'register');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
