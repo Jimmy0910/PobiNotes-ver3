@@ -12,6 +12,11 @@ import {
   LogOut,
   Trash2
 } from 'lucide-react';
+import {
+  GoldCornerOrnaments,
+  GoldGeometricDivider,
+  AcademicHandDrawnBackdrop
+} from './PobiDesignElements';
 
 interface BinderSpineNavProps {
   activeView: AppViewType;
@@ -97,9 +102,15 @@ export default function BinderSpineNav({
     <aside
       className={`sidebar-container binder-spine-nav no-print ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
       aria-label="手帳書脊主導航"
+      style={{ overflow: 'hidden' }}
     >
+      {/* Subtle Academic Hand-Drawn Sketch Background on Left Sidebar */}
+      <AcademicHandDrawnBackdrop subject="all" opacity={0.075} />
+      {/* Gold Geometric Corner Accents on Left Sidebar */}
+      <GoldCornerOrnaments size={28} inset={4} opacity={0.5} corners={collapsed ? ['tl', 'bl'] : ['tl', 'bl', 'br']} />
+
       {/* Brand Header */}
-      <div>
+      <div style={{ position: 'relative', zIndex: 2 }}>
         <div className="binder-spine-header" style={{
           display: 'flex',
           flexDirection: collapsed ? 'column' : 'row',
@@ -192,6 +203,7 @@ export default function BinderSpineNav({
         {/* 手帳筆記狀態小卡 - 展開時顯示 */}
         {!collapsed && (
           <div style={{
+            position: 'relative',
             margin: '10px 8px 6px 8px',
             padding: '9px 10px',
             borderRadius: '7px',
@@ -210,8 +222,39 @@ export default function BinderSpineNav({
         )}
       </div>
 
+      {/* Subtle Vertical Geometric & Compass Ornament in Sidebar Breathing Space */}
+      {!collapsed && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            flex: 1,
+            minHeight: '36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            opacity: 0.42,
+            color: '#C89A50',
+            padding: '12px 0'
+          }}
+        >
+          <div style={{ width: '1px', flex: 1, maxHeight: '42px', background: 'linear-gradient(180deg, transparent, rgba(200, 154, 80, 0.6))' }} />
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" style={{ margin: '6px 0' }}>
+            <circle cx="18" cy="18" r="13" stroke="currentColor" strokeWidth="0.9" strokeDasharray="3 3" />
+            <circle cx="18" cy="18" r="7" stroke="currentColor" strokeWidth="0.85" />
+            <path d="M18 2 V34 M2 18 H34" stroke="currentColor" strokeWidth="0.7" opacity="0.65" />
+            <rect x="15.5" y="15.5" width="5" height="5" transform="rotate(45 18 18)" fill="currentColor" opacity="0.7" />
+          </svg>
+          <div style={{ width: '1px', flex: 1, maxHeight: '42px', background: 'linear-gradient(180deg, rgba(200, 154, 80, 0.6), transparent)' }} />
+        </div>
+      )}
+
       {/* Footer System Tools & User Profile */}
-      <div className="binder-spine-footer navbar-actions" style={{ padding: collapsed ? '8px 4px 10px 4px' : '8px 6px 10px 6px', gap: '6px' }}>
+      <div className="binder-spine-footer navbar-actions" style={{ position: 'relative', zIndex: 2, padding: collapsed ? '8px 4px 10px 4px' : '8px 6px 10px 6px', gap: '6px', borderTop: 'none' }}>
+        {!collapsed && <GoldGeometricDivider style={{ marginBottom: '4px' }} />}
         {/* User Card */}
         <div
           className="binder-spine-user-card navbar-user-info"

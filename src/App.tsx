@@ -7,6 +7,7 @@ import {
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
 import PobiTutorialModal from './components/PobiTutorialModal';
+import { GoldCornerOrnaments, AcademicHandDrawnBackdrop } from './components/PobiDesignElements';
 import BackupRestoreModal from './components/BackupRestoreModal';
 import SharedPackView from './components/SharedPackView';
 import UncategorizedView from './components/UncategorizedView';
@@ -478,10 +479,25 @@ export default function App() {
       <div className="binder-main-stage">
         {/* Top Navbar / Breadcrumb Header */}
         <header className="pobi-navbar glass no-print top-navbar binder-top-bar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <GoldCornerOrnaments size={22} inset={3} opacity={0.5} corners={['tl', 'tr']} />
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="binder-breadcrumb">
               <span className="binder-breadcrumb-item active font-binder-title">{currentViewTitle}</span>
             </div>
+            <span
+              className="hidden md:inline-flex"
+              style={{
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.72rem',
+                letterSpacing: '0.08em',
+                color: 'var(--text-muted)',
+                borderLeft: '1px solid rgba(200, 154, 80, 0.45)',
+                paddingLeft: '10px'
+              }}
+            >
+              EXPLORE · DECODE · UNDERSTAND
+            </span>
 
             {/* Hidden brand for E2E navbar-brand compatibility */}
             <button
@@ -669,6 +685,20 @@ export default function App() {
         {activeView === 'admin' && user.is_admin === 1 && (
           <AdminPanel />
         )}
+
+        {/* Bottom Editorial Footer Panel (下側面板背景點綴) */}
+        <footer className="binder-bottom-bar no-print">
+          <AcademicHandDrawnBackdrop subject="all" opacity={0.055} />
+          <GoldCornerOrnaments size={24} inset={4} opacity={0.52} corners={['bl', 'br']} />
+          <div style={{ position: 'relative', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '6px', height: '6px', transform: 'rotate(45deg)', backgroundColor: '#C89A50', display: 'inline-block' }} />
+            <span style={{ fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.03em' }}>POBI STUDIO</span>
+            <span>數位錯題手帳</span>
+          </div>
+          <div style={{ position: 'relative', zIndex: 2, letterSpacing: '0.06em', fontSize: '0.72rem' }}>
+            Explore. Decode. Understand.
+          </div>
+        </footer>
       </div>
 
       {/* Delete Account Modal */}

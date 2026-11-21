@@ -2971,6 +2971,93 @@ html[data-theme="dark"] .pobi-studio-hero-card {
   font-variant-numeric: tabular-nums;
 }
 
+/* Left Sidebar, Top Header & Bottom Footer Panel Accents (左側／上側／下側面板背景點綴) */
+html:not([data-theme="dark"]) .binder-spine-nav {
+  position: relative;
+  background-color: #EFE8DB !important;
+  background-image:
+    radial-gradient(rgba(200, 154, 80, 0.24) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 154, 80, 0.06) 0%, transparent 18%, transparent 94%, rgba(200, 154, 80, 0.14) 100%) !important;
+  background-size: 16px 16px, 100% 100% !important;
+  border-right: 1px solid rgba(200, 154, 80, 0.45) !important;
+  box-shadow: inset -4px 0 0 rgba(200, 154, 80, 0.08);
+}
+
+html[data-theme="dark"] .binder-spine-nav {
+  position: relative;
+  background-color: #0E1722 !important;
+  background-image:
+    linear-gradient(to right, rgba(110, 195, 190, 0.065) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(110, 195, 190, 0.065) 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+  border-right: 1px solid rgba(200, 154, 80, 0.3) !important;
+}
+
+html:not([data-theme="dark"]) .binder-top-bar {
+  position: relative;
+  overflow: hidden;
+  background-color: #FBF8F1 !important;
+  background-image:
+    radial-gradient(rgba(200, 154, 80, 0.18) 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(200, 154, 80, 0.32) 0px, rgba(200, 154, 80, 0.32) 1px, transparent 1px, transparent 24px) !important;
+  background-size: 18px 18px, 100% 5px !important;
+  background-position: 0 0, 0 100% !important;
+  background-repeat: repeat, no-repeat !important;
+  border-bottom: 1px solid rgba(200, 154, 80, 0.48) !important;
+}
+
+html[data-theme="dark"] .binder-top-bar {
+  position: relative;
+  overflow: hidden;
+  background-color: #0F1A26 !important;
+  background-image:
+    linear-gradient(to right, rgba(110, 195, 190, 0.065) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(110, 195, 190, 0.065) 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(200, 154, 80, 0.28) 0px, rgba(200, 154, 80, 0.28) 1px, transparent 1px, transparent 24px) !important;
+  background-size: 20px 20px, 20px 20px, 100% 5px !important;
+  background-position: 0 0, 0 0, 0 100% !important;
+  background-repeat: repeat, repeat, no-repeat !important;
+  border-bottom: 1px solid rgba(200, 154, 80, 0.34) !important;
+}
+
+.binder-bottom-bar {
+  position: relative;
+  overflow: hidden;
+  margin-top: auto;
+  padding: 13px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+html:not([data-theme="dark"]) .binder-bottom-bar {
+  background-color: #F4EDE0;
+  background-image:
+    radial-gradient(rgba(200, 154, 80, 0.22) 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(200, 154, 80, 0.35) 0px, rgba(200, 154, 80, 0.35) 1px, transparent 1px, transparent 24px);
+  background-size: 16px 16px, 100% 5px;
+  background-position: 0 0, 0 0;
+  background-repeat: repeat, no-repeat;
+  border-top: 1px solid rgba(200, 154, 80, 0.45);
+}
+
+html[data-theme="dark"] .binder-bottom-bar {
+  background-color: #0D1824;
+  background-image:
+    linear-gradient(to right, rgba(110, 195, 190, 0.065) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(110, 195, 190, 0.065) 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(200, 154, 80, 0.28) 0px, rgba(200, 154, 80, 0.28) 1px, transparent 1px, transparent 24px);
+  background-size: 20px 20px, 20px 20px, 100% 5px;
+  background-position: 0 0, 0 0, 0 0;
+  background-repeat: repeat, repeat, no-repeat;
+  border-top: 1px solid rgba(200, 154, 80, 0.3);
+  color: #94A3B8;
+}
+
 /* Active Sidebar Highlight (Warm Forest & Gold Hairline in Light Mode) */
 html:not([data-theme="dark"]) .binder-nav-item.active {
   background: #EAE0CE !important;

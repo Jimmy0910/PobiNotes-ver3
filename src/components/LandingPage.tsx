@@ -455,21 +455,19 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
 
       {/* Footer */}
       <footer
+        className="binder-bottom-bar"
         style={{
-          borderTop: '1px solid rgba(200, 154, 80, 0.3)',
-          padding: '16px 24px',
-          textAlign: 'center',
-          fontSize: '0.78rem',
-          color: 'var(--text-muted)',
-          display: 'flex',
-          alignItems: 'center',
+          position: 'relative',
+          zIndex: 2,
+          padding: '18px 24px',
           justifyContent: 'center',
-          gap: '16px',
-          flexWrap: 'wrap'
+          gap: '16px'
         }}
       >
-        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>POBI STUDIO｜數位錯題手帳</span>
-        <span>Explore. Decode. Understand.</span>
+        <GoldCornerOrnaments size={28} inset={6} opacity={0.55} corners={['bl', 'br']} />
+        <span style={{ position: 'relative', zIndex: 2, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.03em' }}>POBI STUDIO｜數位錯題手帳</span>
+        <span style={{ position: 'relative', zIndex: 2, width: '5px', height: '5px', transform: 'rotate(45deg)', backgroundColor: '#C89A50', display: 'inline-block' }} />
+        <span style={{ position: 'relative', zIndex: 2, letterSpacing: '0.06em' }}>Explore. Decode. Understand.</span>
       </footer>
     </div>
   );
