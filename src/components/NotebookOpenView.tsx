@@ -4,7 +4,8 @@ import {
   type CategoriesBundle,
   type MistakeRecord,
   buildNextReviewMeta,
-  getMistakeReviewMeta
+  getMistakeReviewMeta,
+  isMistakeDueForReview
 } from '../types';
 import {
   parseNotebookStyle,
@@ -17,6 +18,9 @@ import ImageAnnotatorModal from './ImageAnnotatorModal';
 import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
 import SharePackModal from './SharePackModal';
 import CategoryManager from './CategoryManager';
+import SubjectDailyReviewPanel from './SubjectDailyReviewPanel';
+import SubjectAnalyticsWorkshop from './SubjectAnalyticsWorkshop';
+import DailyReviewModal from './DailyReviewModal';
 import { useUiFeedback } from './UiFeedbackProvider';
 import {
   ArrowLeft,
@@ -31,8 +35,6 @@ import {
   Clock,
   ArrowRight,
   Tag,
-  Printer,
-  Sparkles,
   Plus,
   X,
   Eye,
@@ -40,7 +42,9 @@ import {
   Edit2,
   Trash2,
   PenTool,
-  Search
+  Search,
+  RotateCcw,
+  BarChart3
 } from 'lucide-react';
 
 function resolveImg(key?: string): string {
@@ -207,14 +211,15 @@ interface NotebookOpenViewProps {
   onSelectChapterUnit?: (chapterId: string | null, unitId: string | null) => void;
   onOpenNewMistakeForSubject?: (subjectId: string, chapterId?: string | null, unitId?: string | null) => void;
   onOpenMistakeBank?: (subjectId: string, chapterId?: string | null) => void;
-  onOpenExportPDF: (subjectId: string) => void;
-  onOpenTagManager: (subjectId: string) => void;
+  onOpenExportPDF?: (subjectId: string) => void;
+  onOpenTagManager?: (subjectId: string) => void;
   onOpenTemplateManager?: (subjectId: string) => void;
-  onOpenPromptGenerator: (subjectId: string) => void;
+  onOpenPromptGenerator?: (subjectId: string) => void;
   onAddChapter: (subjectId: string, name: string) => Promise<void>;
   onAddUnit: (subjectId: string, chapterId: string, name: string) => Promise<void>;
   onRefreshAll?: () => Promise<void>;
   onUpdateMistake?: (updated: MistakeRecord) => void;
+  onScheduleChanged?: () => void;
 }
 
 export default function NotebookOpenView({
@@ -222,13 +227,17 @@ export default function NotebookOpenView({
   categories,
   mistakes,
   onBackToBookshelf,
-  onOpenExportPDF,
-  onOpenPromptGenerator,
   onAddChapter,
   onAddUnit,
   onRefreshAll,
-  onUpdateMistake
+  onUpdateMistake,
+  onScheduleChanged
 }: NotebookOpenViewProps) {
+  // Subject Hub 3 main modes: 查看錯題 | 每日複習 | 分析與工坊
+  const [hubTab, setHubTab] = useState<'browse' | 'review' | 'workshop'>('browse');
+  const [activeReviewQueue, setActiveReviewQueue] = useState<MistakeRecord[] | null>(null);
+  const [scheduleTick, setScheduleTick] = useState(0);
+
   // Navigation & Filter states
   const { showToast, confirmDialog, promptDialog } = useUiFeedback();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
@@ -444,17 +453,22 @@ export default function NotebookOpenView({
 
   // Subject Statistics Summary
   const stats = useMemo(() => {
+    void scheduleTick;
     const total = subjectMistakes.length;
     let masteredCount = 0;
+    let dueCount = 0;
     subjectMistakes.forEach(m => {
       const famName = m.familiarity_name || '';
       if (famName.includes('順') || famName.includes('精熟') || famName.includes('掌握')) {
         masteredCount++;
       }
+      if (isMistakeDueForReview(m)) {
+        dueCount++;
+      }
     });
     const masteryPct = total > 0 ? Math.round((masteredCount / total) * 100) : 0;
-    return { total, masteredCount, masteryPct };
-  }, [subjectMistakes]);
+    return { total, masteredCount, masteryPct, dueCount };
+  }, [subjectMistakes, scheduleTick]);
 
   // Open Full Editor for New Mistake
   const handleOpenAddMistake = () => {
@@ -677,6 +691,7 @@ export default function NotebookOpenView({
         
         {/* TOP TOOLBAR: BREADCRUMB, STATS, SECONDARY ACTIONS, AND PROMINENT "+ 新增錯題" BUTTON */}
         <div
+          className="no-print"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -754,57 +769,25 @@ export default function NotebookOpenView({
 
           {/* Right: Actions with High-Contrast Prominent "+ 新增錯題" */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setSelfTestMode(!selfTestMode)}
-              className="btn btn-secondary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 12px',
-                fontSize: '0.84rem',
-                fontWeight: 600
-              }}
-              title={selfTestMode ? '切換為完整顯示解析' : '切換為隱藏解答自測模式'}
-            >
-              {selfTestMode ? <Eye size={15} /> : <EyeOff size={15} />}
-              {selfTestMode ? '自測中 (解析隱藏)' : '顯示全部解析'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenExportPDF(subjectId)}
-              className="btn btn-secondary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 12px',
-                fontSize: '0.84rem',
-                fontWeight: 600
-              }}
-              title="匯出 A4 練習卷或解析卷"
-            >
-              <Printer size={15} /> 試卷工坊
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenPromptGenerator(subjectId)}
-              className="btn btn-secondary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 12px',
-                fontSize: '0.84rem',
-                fontWeight: 600
-              }}
-              title="產生名師引導思考樹提詞"
-            >
-              <Sparkles size={15} /> AI 提詞
-            </button>
+            {hubTab === 'browse' && (
+              <button
+                type="button"
+                onClick={() => setSelfTestMode(!selfTestMode)}
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 12px',
+                  fontSize: '0.84rem',
+                  fontWeight: 600
+                }}
+                title={selfTestMode ? '切換為完整顯示解析' : '切換為隱藏解答自測模式'}
+              >
+                {selfTestMode ? <Eye size={15} /> : <EyeOff size={15} />}
+                {selfTestMode ? '自測中 (解析隱藏)' : '顯示全部解析'}
+              </button>
+            )}
 
             <button
               type="button"
@@ -875,6 +858,143 @@ export default function NotebookOpenView({
           </div>
         </div>
 
+        {/* SUBJECT HUB 3-MODE SELECTOR: 查看錯題 | 每日複習 | 分析與工坊 */}
+        <div
+          className="no-print"
+          data-testid="subject-hub-tabs"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: '10px',
+            padding: '10px',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid var(--glass-border)',
+            boxShadow: '0 2px 8px rgba(60, 40, 20, 0.04)'
+          }}
+        >
+          {[
+            {
+              id: 'browse' as const,
+              title: '查看錯題',
+              sub: '章節與小單元管理瀏覽',
+              icon: BookOpen,
+              badge: `${stats.total} 題`
+            },
+            {
+              id: 'review' as const,
+              title: '每日複習',
+              sub: 'POBI 閃卡複習與週期設定',
+              icon: RotateCcw,
+              badge: stats.dueCount > 0 ? `待複習 ${stats.dueCount}` : '已排程'
+            },
+            {
+              id: 'workshop' as const,
+              title: '分析與工坊',
+              sub: '進階篩選、診斷、AI包與練習卷',
+              icon: BarChart3,
+              badge: '診斷 / 匯出'
+            }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const active = hubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setHubTab(tab.id)}
+                data-testid={`subject-hub-tab-${tab.id}`}
+                style={{
+                  padding: '11px 14px',
+                  borderRadius: '10px',
+                  border: active ? '2px solid #D97706' : '1px solid var(--glass-border)',
+                  backgroundColor: active ? '#FFFBEB' : '#FAF7F0',
+                  color: active ? '#92400E' : '#44403C',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  boxShadow: active ? '0 3px 10px rgba(180, 83, 9, 0.14)' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      backgroundColor: active ? '#D97706' : 'rgba(139, 90, 43, 0.12)',
+                      color: active ? '#FFFFFF' : '#8B5A2B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.94rem', color: active ? '#92400E' : '#1C1917' }}>
+                      {tab.title}
+                    </div>
+                    <div style={{ fontSize: '0.73rem', color: '#57534E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tab.sub}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '12px',
+                    backgroundColor: active ? '#FDE68A' : 'rgba(120, 113, 108, 0.12)',
+                    color: active ? '#92400E' : '#57534E',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  {tab.badge}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* HUB MODE 2: 每日複習（POBI 閃卡複習與本科熟悉度排程） */}
+        {hubTab === 'review' && (
+          <SubjectDailyReviewPanel
+            subjectId={subjectId}
+            subjectName={activeSubject.name}
+            categories={categories}
+            subjectMistakes={subjectMistakes}
+            onStartReview={picked => setActiveReviewQueue(picked)}
+            onScheduleChanged={() => {
+              setScheduleTick(t => t + 1);
+              onScheduleChanged?.();
+            }}
+          />
+        )}
+
+        {/* HUB MODE 3: 分析與工坊（進階篩選 -> 1.學習診斷 / 2.錯題清單與工坊） */}
+        {hubTab === 'workshop' && (
+          <SubjectAnalyticsWorkshop
+            subjectId={subjectId}
+            subjectName={activeSubject.name}
+            categories={categories}
+            subjectMistakes={subjectMistakes}
+            onEditMistake={handleOpenEditMistake}
+            onDeleteMistake={handleDeleteMistake}
+            onImageClick={src => setLightboxImageUrl(src)}
+          />
+        )}
+
+        {/* HUB MODE 1: 查看錯題（現有章節/單元瀏覽與編輯模式） */}
+        {hubTab === 'browse' && (
+        <>
         {/* ROW 2: SEARCH & KEYWORD FILTER */}
         <div
           style={{
@@ -1744,7 +1864,26 @@ export default function NotebookOpenView({
             })
           )}
         </div>
+        </>
+        )}
       </div>
+
+      {/* SUBJECT DAILY FLASHCARD REVIEW MODAL */}
+      {activeReviewQueue && activeReviewQueue.length > 0 && (
+        <DailyReviewModal
+          dueMistakes={activeReviewQueue}
+          categories={categories}
+          onClose={() => setActiveReviewQueue(null)}
+          onReviewUpdated={updated => {
+            onUpdateMistake?.(updated);
+            setScheduleTick(t => t + 1);
+          }}
+          onRefreshAll={async () => {
+            await onRefreshAll?.();
+            setScheduleTick(t => t + 1);
+          }}
+        />
+      )}
 
       {/* FULL MISTAKE EDITOR MODAL (POPUP LIKE MISTAKE LIST) */}
       {showEditor && (

@@ -1,10 +1,8 @@
 import type { AppViewType } from './Dashboard';
 import {
   BookOpen,
-  FileText,
-  Printer,
-  BarChart2,
   FileCode,
+  Sparkles,
   Shield,
   PanelLeftClose,
   PanelLeftOpen,
@@ -49,35 +47,7 @@ export default function BinderSpineNav({
       label: '我的書架',
       testId: 'nav-bookshelf',
       icon: <BookOpen size={18} strokeWidth={1.8} />,
-      active: activeView === 'bookshelf' || activeView === 'notebook' || activeView === 'prompt' || activeView === 'categories'
-    },
-    {
-      id: 'all' as AppViewType,
-      label: '錯題索引',
-      testId: 'nav-mistakes',
-      icon: <FileText size={18} strokeWidth={1.8} />,
-      active: activeView === 'all' || activeView === 'chapter'
-    },
-    {
-      id: 'dashboard' as AppViewType,
-      label: '學習概覽',
-      testId: 'nav-dashboard',
-      icon: <BarChart2 size={18} strokeWidth={1.8} />,
-      active: activeView === 'dashboard' || activeView === 'analytics'
-    },
-    {
-      id: 'export' as AppViewType,
-      label: '列印試卷',
-      testId: 'nav-export',
-      icon: <Printer size={18} strokeWidth={1.8} />,
-      active: activeView === 'export'
-    },
-    {
-      id: 'guide' as AppViewType,
-      label: '使用導引',
-      testId: 'nav-guide',
-      icon: <CircleHelp size={18} strokeWidth={1.8} />,
-      active: activeView === 'guide'
+      active: activeView === 'bookshelf' || activeView === 'notebook'
     },
     {
       id: 'templates' as AppViewType,
@@ -85,6 +55,13 @@ export default function BinderSpineNav({
       testId: 'nav-templates',
       icon: <FileCode size={18} strokeWidth={1.8} />,
       active: activeView === 'templates'
+    },
+    {
+      id: 'prompt' as AppViewType,
+      label: 'AI 提詞管理',
+      testId: 'nav-prompt',
+      icon: <Sparkles size={18} strokeWidth={1.8} />,
+      active: activeView === 'prompt'
     }
   ];
 

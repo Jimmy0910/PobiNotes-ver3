@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiRequest } from './utils/api';
 import {
   type CategoriesBundle,
-  type CategoryDimension,
   type FilterState,
   type MistakeRecord,
   createEmptyFilterState,
@@ -16,13 +15,8 @@ import BackupRestoreModal from './components/BackupRestoreModal';
 import SharedPackView from './components/SharedPackView';
 import { useUiFeedback } from './components/UiFeedbackProvider';
 import type { AppViewType } from './components/Dashboard';
-import OverviewDashboard from './components/OverviewDashboard';
-import CategoryManager from './components/CategoryManager';
-import AnalyticsView from './components/AnalyticsView';
 import PromptGenerator from './components/PromptGenerator';
 import TemplateManager from './components/TemplateManager';
-import MistakeList from './components/MistakeList';
-import ExportPDF from './components/ExportPDF';
 import AdminPanel from './components/AdminPanel';
 import UsageGuide from './components/UsageGuide';
 import BookshelfView from './components/BookshelfView';
@@ -40,12 +34,9 @@ import {
   Trash2,
   Star,
   X,
-  Printer,
   CircleHelp,
   Sparkles,
-  BookOpen,
-  FileText,
-  BarChart2
+  BookOpen
 } from 'lucide-react';
 
 interface User {
@@ -94,16 +85,12 @@ export default function App() {
   // Navigation & Hierarchy states: default to 'bookshelf' (數位書架)
   const [activeView, setActiveView] = useState<AppViewType>('bookshelf');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
-  const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [triggerOpenNewMistake, setTriggerOpenNewMistake] = useState(false);
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
   const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('prompt');
+  const [scheduleTick, setScheduleTick] = useState(0);
 
-  // Global synchronized Categories & Mistakes state + persistent Analytics Filter state (Requirement 8)
+  // Global synchronized Categories & Mistakes state + persistent Filter state
   const [categories, setCategories] = useState<CategoriesBundle>(EMPTY_CATEGORIES);
   const [allMistakes, setAllMistakes] = useState<MistakeRecord[]>([]);
   const [analyticsFilter, setAnalyticsFilter] = useState<FilterState>(() => createEmptyFilterState());
@@ -134,23 +121,12 @@ export default function App() {
       const subj = categories.subjects.find(s => s.id === selectedSubjectId);
       return subj ? `${subj.name} 錯題手帳` : '錯題手帳';
     }
-    if (activeView === 'all') return '全部錯題索引';
-    if (activeView === 'chapter') {
-      const subj = categories.subjects.find(s => s.id === selectedSubjectId);
-      const chap = categories.chapters.find(c => c.id === selectedChapterId);
-      const unit = categories.units.find(u => u.id === selectedUnitId);
-      return [subj?.name, chap?.name, unit?.name].filter(Boolean).join(' / ') || '章節錯題檢視';
-    }
-    if (activeView === 'dashboard') return '學習成效總覽';
-    if (activeView === 'analytics') return '統計與弱點分析';
-    if (activeView === 'export') return '列印試卷工坊';
-    if (activeView === 'categories') return '學科分類與標籤管理';
-    if (activeView === 'templates') return '錯題題目範本管理';
-    if (activeView === 'prompt') return 'AI 提示詞工坊';
+    if (activeView === 'templates') return '模板管理';
+    if (activeView === 'prompt') return 'AI 提詞管理';
     if (activeView === 'admin') return '系統後台管理';
     if (activeView === 'guide') return '使用說明與導引';
-    return '錯題手帳';
-  }, [activeView, categories, selectedSubjectId, selectedChapterId, selectedUnitId]);
+    return '我的數位書架';
+  }, [activeView, categories, selectedSubjectId]);
 
   const refreshAllData = useCallback(async () => {
     try {
@@ -187,8 +163,9 @@ export default function App() {
   }, []);
 
   const dueMistakes = useMemo(() => {
+    void scheduleTick;
     return allMistakes.filter(m => isMistakeDueForReview(m));
-  }, [allMistakes]);
+  }, [allMistakes, scheduleTick]);
 
   // Load categories and mistakes whenever user logs in
   useEffect(() => {
@@ -315,16 +292,12 @@ export default function App() {
     } finally {
       setUser(null);
       setSelectedSubjectId(null);
-      setSelectedChapterId(null);
-      setSelectedUnitId(null);
       setActiveView('bookshelf');
     }
   };
 
   const handleOpenNotebook = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
-    setSelectedChapterId(null);
-    setSelectedUnitId(null);
     setActiveView('notebook');
   };
 
@@ -356,39 +329,6 @@ export default function App() {
     await refreshAllData();
   };
 
-  const handleSelectHierarchy = (subjectId: string | null, chapterId: string | null, unitId: string | null) => {
-    setSelectedSubjectId(subjectId);
-    setSelectedChapterId(chapterId);
-    setSelectedUnitId(unitId);
-    if (subjectId || chapterId || unitId) {
-      setActiveView('chapter');
-    } else {
-      setActiveView('all');
-    }
-  };
-
-  const handleDrilldownFromChart = (dimension: CategoryDimension, categoryId: string) => {
-    const nextFilter = createEmptyFilterState();
-    if (dimension === 'subject') nextFilter.subjectIds = [categoryId];
-    else if (dimension === 'chapter') nextFilter.chapterIds = [categoryId];
-    else if (dimension === 'unit') nextFilter.unitIds = [categoryId];
-    else if (dimension === 'familiarity') nextFilter.familiarityIds = [categoryId];
-    else if (dimension === 'error_reason') nextFilter.errorReasonIds = [categoryId];
-
-    setAnalyticsFilter(nextFilter);
-    setActiveView('analytics');
-  };
-
-  const handleNavigateToExport = (mistakeIds: string[]) => {
-    setSelectedExportIds(mistakeIds);
-    setActiveView('export');
-  };
-
-  const handleNavigateToPrompt = (mistakeIds: string[]) => {
-    setSelectedPromptIds(mistakeIds);
-    setActiveView('prompt');
-  };
-
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
@@ -402,7 +342,7 @@ export default function App() {
       setUser(null);
       setShowDeleteAccountModal(false);
       setDeleteConfirmUsername('');
-      setActiveView('all');
+      setActiveView('bookshelf');
     } catch (e: any) {
       setDeleteError(e.message || '刪除帳號失敗');
     } finally {
@@ -529,11 +469,7 @@ export default function App() {
       <BinderSpineNav
         activeView={activeView}
         onNavigateView={(view) => {
-          if (view === 'all') {
-            handleSelectHierarchy(null, null, null);
-          } else {
-            setActiveView(view);
-          }
+          setActiveView(view);
           if (window.innerWidth <= 768) {
             setSidebarCollapsed(true);
           }
@@ -604,37 +540,6 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={() => handleSelectHierarchy(null, null, null)}
-              className={`pobi-nav-item btn ${activeView === 'all' || activeView === 'chapter' ? 'active btn-primary' : 'btn-text'}`}
-            >
-              <FileText size={15} />
-              <span className="nav-label">錯題索引</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('export')}
-              className={`pobi-nav-item btn ${activeView === 'export' ? 'active btn-primary' : 'btn-text'}`}
-            >
-              <Printer size={15} />
-              <span className="nav-label">列印練習卷</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('dashboard')}
-              className={`pobi-nav-item btn ${activeView === 'dashboard' || activeView === 'analytics' ? 'active btn-primary' : 'btn-text'}`}
-            >
-              <BarChart2 size={15} />
-              <span className="nav-label">學習概覽</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('categories')}
-              className={`pobi-nav-item btn ${activeView === 'categories' ? 'active btn-primary' : 'btn-text'}`}
-            >
-              <span className="nav-label">分類管理</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveView('templates')}
               className={`pobi-nav-item btn ${activeView === 'templates' ? 'active btn-primary' : 'btn-text'}`}
             >
@@ -646,7 +551,7 @@ export default function App() {
               className={`pobi-nav-item btn ${activeView === 'prompt' ? 'active btn-primary' : 'btn-text'}`}
             >
               <Sparkles size={15} />
-              <span className="nav-label">AI 提詞</span>
+              <span className="nav-label">AI 提詞管理</span>
             </button>
             {user.is_admin === 1 && (
               <button
@@ -714,45 +619,26 @@ export default function App() {
         {/* Main Layout Stage Container */}
         <div className="main-layout binder-stage-container" style={{ display: 'flex', flex: 1, padding: 0 }}>
 
-        {/* Bookshelf View */}
-        {activeView === 'bookshelf' && (
+        {/* Bookshelf View (default fallback for any unmapped view) */}
+        {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
           <div style={{ flex: 1, width: '100%' }}>
             <BookshelfView
               categories={categories}
               mistakes={allMistakes}
               onOpenNotebook={handleOpenNotebook}
               onAddSubject={handleAddSubjectFromBookshelf}
-              onOpenOverviewModal={() => setActiveView('dashboard')}
               onOpenGuideModal={() => setActiveView('guide')}
               onOpenFeedbackModal={openFeedbackModal}
               onToggleTheme={toggleTheme}
               theme={theme}
               currentUser={user}
-              onSwitchToClassicDashboard={() => setActiveView('dashboard')}
               onOpenBatchImport={() => {
                 setBatchImportStage('prompt');
-                setShowBatchImportModal(true);
-              }}
-              onOpenFastReview={() => {
-                setBatchImportStage('review');
                 setShowBatchImportModal(true);
               }}
               onOpenDailyReview={() => {
                 setCustomReviewQueue(null);
                 setShowDailyReview(true);
-              }}
-              onStartCustomReview={picked => {
-                setCustomReviewQueue(picked);
-                setShowDailyReview(true);
-              }}
-              onOpenAiTutor={subjId => {
-                if (subjId) {
-                  setSelectedSubjectId(subjId);
-                  setSelectedPromptIds(allMistakes.filter(m => m.subject_id === subjId).map(m => m.id));
-                } else {
-                  setSelectedPromptIds([]);
-                }
-                setActiveView('prompt');
               }}
               onOpenPobiTutorial={() => {
                 setIsNewUserTutorial(false);
@@ -765,7 +651,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Notebook Open View */}
+        {/* Notebook Open View (Subject Hub: 查看錯題 / 每日複習 / 分析與工坊) */}
         {activeView === 'notebook' && selectedSubjectId && (
           <div style={{ flex: 1, width: '100%' }}>
             <NotebookOpenView
@@ -773,116 +659,13 @@ export default function App() {
               categories={categories}
               mistakes={allMistakes}
               onBackToBookshelf={() => setActiveView('bookshelf')}
-              onSelectChapterUnit={(chapId, unitId) => {
-                setSelectedChapterId(chapId);
-                setSelectedUnitId(unitId);
-                setActiveView('chapter');
-              }}
-              onOpenNewMistakeForSubject={(subjId, chapId, unitId) => {
-                setSelectedSubjectId(subjId);
-                setSelectedChapterId(chapId || null);
-                setSelectedUnitId(unitId || null);
-                setTriggerOpenNewMistake(true);
-                setActiveView('chapter');
-              }}
-              onOpenMistakeBank={(subjId, chapId) => {
-                setSelectedSubjectId(subjId);
-                setSelectedChapterId(chapId || null);
-                setSelectedUnitId(null);
-                setActiveView('chapter');
-              }}
-              onOpenExportPDF={(subjId) => {
-                setSelectedSubjectId(subjId);
-                setActiveView('export');
-              }}
-              onOpenTagManager={() => {
-                setActiveView('categories');
-              }}
-              onOpenTemplateManager={() => {
-                setActiveView('templates');
-              }}
-              onOpenPromptGenerator={() => {
-                setActiveView('prompt');
-              }}
               onAddChapter={handleAddChapterFromNotebook}
               onAddUnit={handleAddUnitFromNotebook}
               onRefreshAll={refreshAllData}
               onUpdateMistake={handleUpdateSingleMistake}
+              onScheduleChanged={() => setScheduleTick(t => t + 1)}
             />
           </div>
-        )}
-
-        {/* View Routing */}
-        {activeView === 'all' && (
-          <MistakeList
-            categories={categories}
-            subjectId={null}
-            chapterId={null}
-            unitId={null}
-            onNavigateToExport={handleNavigateToExport}
-            onNavigateToPrompt={handleNavigateToPrompt}
-            onRefreshAll={refreshAllData}
-            onImageClick={src => setZoomedImage(src)}
-            externalOpenEditor={triggerOpenNewMistake}
-            onClearExternalOpenEditor={() => setTriggerOpenNewMistake(false)}
-          />
-        )}
-
-        {activeView === 'chapter' && (
-          <MistakeList
-            categories={categories}
-            subjectId={selectedSubjectId}
-            chapterId={selectedChapterId}
-            unitId={selectedUnitId}
-            onSelectUnit={uId => setSelectedUnitId(uId)}
-            onNavigateToExport={handleNavigateToExport}
-            onNavigateToPrompt={handleNavigateToPrompt}
-            onRefreshAll={refreshAllData}
-            onImageClick={src => setZoomedImage(src)}
-          />
-        )}
-
-        {activeView === 'dashboard' && (
-          <OverviewDashboard
-            mistakes={allMistakes}
-            categories={categories}
-            onDrilldownCategory={handleDrilldownFromChart}
-            onNavigateToView={view => setActiveView(view)}
-            onOpenNewMistake={() => {
-              setActiveView('all');
-              setTriggerOpenNewMistake(true);
-            }}
-            onOpenBatchImport={() => {
-              setBatchImportStage('import');
-              setShowBatchImportModal(true);
-            }}
-            onOpenFastReview={() => {
-              setBatchImportStage('review');
-              setShowBatchImportModal(true);
-            }}
-          />
-        )}
-
-        {activeView === 'categories' && (
-          <CategoryManager
-            categories={categories}
-            onRefresh={refreshAllData}
-            onDrilldownCategory={handleDrilldownFromChart}
-          />
-        )}
-
-        {activeView === 'analytics' && (
-          <AnalyticsView
-            mistakes={allMistakes}
-            categories={categories}
-            filter={analyticsFilter}
-            onChangeFilter={setAnalyticsFilter}
-            onNavigateToPrompt={handleNavigateToPrompt}
-            onNavigateToExport={handleNavigateToExport}
-            onNavigateToMistakeListWithFilter={nextFilter => {
-              setAnalyticsFilter(nextFilter);
-            }}
-          />
         )}
 
         {activeView === 'prompt' && (
@@ -890,7 +673,7 @@ export default function App() {
             mistakes={allMistakes}
             categories={categories}
             filter={analyticsFilter}
-            preselectedMistakeIds={selectedPromptIds}
+            preselectedMistakeIds={[]}
           />
         )}
 
@@ -900,15 +683,6 @@ export default function App() {
 
         {activeView === 'guide' && (
           <UsageGuide />
-        )}
-
-        {activeView === 'export' && (
-          <ExportPDF
-            mistakeIds={selectedExportIds.length > 0 ? selectedExportIds : allMistakes.map(m => m.id)}
-            initialMistakes={allMistakes}
-            onBack={() => setActiveView(selectedChapterId ? 'chapter' : 'all')}
-            onImageClick={src => setZoomedImage(src)}
-          />
         )}
 
         {activeView === 'admin' && user.is_admin === 1 && (

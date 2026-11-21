@@ -807,18 +807,35 @@ select optgroup {
   animation: fadeIn 0.3s ease;
 }
 
-/* Print CSS Stylesheet */
+/* Print CSS Stylesheet - A4 Default & Mobile/Desktop Native Print Friendly */
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
 @media print {
+  html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 12pt;
+    font-size: 11pt;
     font-family: 'Noto Sans TC', sans-serif !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  
+
   .bg-ambient-lights,
   header,
   nav,
+  aside,
+  .binder-spine-nav,
+  .binder-top-bar,
+  .binder-mobile-backdrop,
   .no-print,
   .btn,
   .theme-toggle,
@@ -826,6 +843,41 @@ select optgroup {
   .sidebar,
   .filters-container {
     display: none !important;
+  }
+
+  .binder-app-shell,
+  .binder-main-stage,
+  .main-layout,
+  .binder-stage-container,
+  .print-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  #print-sheet-preview {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  .exam-print-block,
+  .mistake-exam-item {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .container {
@@ -877,10 +929,11 @@ select optgroup {
   }
 
   img {
-    max-width: 80% !important;
-    max-height: 4in !important;
+    max-width: 100% !important;
+    max-height: 280px !important;
     display: block !important;
-    margin: 10px 0 !important;
+    margin: 6px 0 !important;
+    break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 }

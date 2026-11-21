@@ -9,6 +9,11 @@ import {
 } from '../types';
 import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import {
+  getSubjectReviewSchedule,
+  formatIntervalLabel,
+  FAMILIARITY_SCHEDULE_META
+} from '../utils/reviewSettings';
+import {
   X,
   Eye,
   CheckCircle2,
@@ -72,12 +77,19 @@ export default function DailyReviewModal({
     return currentMistake ? getMistakeReviewMeta(currentMistake) : null;
   }, [currentMistake]);
 
-  const ratingButtons = [
-    { name: '不會', sub: '1 天後重測', bg: 'rgba(239, 68, 68, 0.1)', border: '#EF4444', color: '#B91C1C' },
-    { name: '卡', sub: '3 天後重測', bg: 'rgba(245, 158, 11, 0.12)', border: '#D97706', color: '#92400E' },
-    { name: '誤解', sub: '5 天後重測', bg: 'rgba(220, 38, 38, 0.1)', border: '#DC2626', color: '#991B1B' },
-    { name: '順', sub: '14 天後重測', bg: 'rgba(16, 185, 129, 0.12)', border: '#10B981', color: '#047857' }
-  ];
+  const currentSubjectSchedule = useMemo(() => {
+    return getSubjectReviewSchedule(currentMistake?.subject_id);
+  }, [currentMistake?.subject_id]);
+
+  const ratingButtons = useMemo(() => {
+    return FAMILIARITY_SCHEDULE_META.map(meta => ({
+      name: meta.key,
+      sub: formatIntervalLabel(currentSubjectSchedule[meta.key]),
+      bg: meta.accentBg,
+      border: meta.accentBorder,
+      color: meta.accentColor
+    }));
+  }, [currentSubjectSchedule]);
 
   const handleRate = async (famName: string) => {
     if (!currentMistake || saving) return;

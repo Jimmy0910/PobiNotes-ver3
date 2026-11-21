@@ -1,3 +1,5 @@
+import { getEffectiveReviewIntervalDays } from './utils/reviewSettings';
+
 export type CategoryDimension = 'subject' | 'chapter' | 'unit' | 'familiarity' | 'error_reason';
 
 export interface CategoryItem {
@@ -447,23 +449,22 @@ export function addDaysToDateStr(dateStr: string, days: number): string {
   return `${y}-${m}-${day}`;
 }
 
-export function getReviewIntervalDays(familiarityName?: string | null): number {
-  const name = (familiarityName || '').trim();
-  if (name.includes('順') || name.includes('精熟') || name.includes('掌握') || name === '會') {
-    return 14;
-  }
-  if (name.includes('誤解')) {
-    return 5;
-  }
-  if (name.includes('卡') || name.includes('稍微')) {
-    return 3;
-  }
-  return 1; // 不會 or uncategorized
+export function getReviewIntervalDays(familiarityName?: string | null, subjectId?: string | null): number | null {
+  return getEffectiveReviewIntervalDays(familiarityName, subjectId);
 }
 
 export function getMistakeReviewMeta(m: MistakeRecord): MistakeReviewMeta {
   const existing = m.data?.reviewMeta;
-  if (existing && typeof existing.nextReviewDate === 'string') {
+  const interval = getReviewIntervalDays(m.familiarity_name, m.subject_id);
+  if (interval === null) {
+    return {
+      nextReviewDate: 'NEVER',
+      lastReviewedAt: existing?.lastReviewedAt,
+      reviewCount: typeof existing?.reviewCount === 'number' ? existing.reviewCount : (existing?.history?.length || 0),
+      history: Array.isArray(existing?.history) ? existing.history : []
+    };
+  }
+  if (existing && typeof existing.nextReviewDate === 'string' && existing.nextReviewDate !== 'NEVER') {
     return {
       nextReviewDate: existing.nextReviewDate,
       lastReviewedAt: existing.lastReviewedAt,
@@ -472,16 +473,18 @@ export function getMistakeReviewMeta(m: MistakeRecord): MistakeReviewMeta {
     };
   }
   const baseDate = m.mistake_date || new Date(m.created_at || Date.now()).toISOString().slice(0, 10);
-  const interval = getReviewIntervalDays(m.familiarity_name);
   return {
     nextReviewDate: addDaysToDateStr(baseDate, interval),
-    reviewCount: 0,
-    history: []
+    reviewCount: typeof existing?.reviewCount === 'number' ? existing.reviewCount : 0,
+    history: Array.isArray(existing?.history) ? existing.history : []
   };
 }
 
 export function isMistakeDueForReview(m: MistakeRecord, todayStr = getTodayDateStr()): boolean {
+  const interval = getReviewIntervalDays(m.familiarity_name, m.subject_id);
+  if (interval === null) return false;
   const meta = getMistakeReviewMeta(m);
+  if (meta.nextReviewDate === 'NEVER') return false;
   return meta.nextReviewDate <= todayStr;
 }
 
@@ -492,8 +495,8 @@ export function buildNextReviewMeta(
 ): MistakeReviewMeta {
   const todayStr = getTodayDateStr();
   const prev = getMistakeReviewMeta(m);
-  const interval = getReviewIntervalDays(familiarityName);
-  const nextReviewDate = addDaysToDateStr(todayStr, interval);
+  const interval = getReviewIntervalDays(familiarityName, m.subject_id);
+  const nextReviewDate = interval === null ? 'NEVER' : addDaysToDateStr(todayStr, interval);
   const now = Date.now();
   const newAttempt: ReviewAttempt = {
     date: todayStr,

@@ -474,10 +474,10 @@ export default function PromptGenerator({
         <div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Sparkles size={22} style={{ color: 'var(--accent-primary)' }} />
-            <span>純程式碼外部 AI 提詞產生器</span>
+            <span>AI 提詞管理</span>
           </h2>
           <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            根據目前篩選與勾選的真實錯題資料，搭配可編輯模板動態合成提詞文字（不呼叫任何 AI API，100% 離線安全組合）。
+            新增、編輯與管理內建或自訂 AI 提詞模板；儲存後將同步顯示於各科錯題本「分析與工坊 → AI 提詞包（ZIP）」供一鍵打包下載。
           </p>
         </div>
 
