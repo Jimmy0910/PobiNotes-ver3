@@ -116,7 +116,7 @@ export default function PobiTutorialModal({
       if (!subjectId) {
         const sRes = await apiRequest('/api/subjects', {
           method: 'POST',
-          body: { name: demoSubjectName, color: 'navy_ink|Calculator' }
+          body: { name: demoSubjectName, color: 'color:green;icon:Calculator' }
         });
         subjectId = sRes?.id || sRes?.subject?.id || sRes?.item?.id || '';
       }

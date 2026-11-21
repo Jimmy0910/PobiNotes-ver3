@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Play,
   Share2,
-  FolderTree,
   CheckCircle2,
   Copy,
   Check,
@@ -94,6 +93,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
 
   return (
     <div
+      className="pobi-paper-stage"
       style={{
         minHeight: '100dvh',
         backgroundColor: 'var(--bg-primary)',
@@ -112,18 +112,19 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px'
+          gap: '12px',
+          borderBottom: '1px solid rgba(200, 154, 80, 0.3)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img
             src="/pobi-mascot.jpg"
             alt="POBI STUDIO"
-            style={{ width: '36px', height: '36px', objectFit: 'cover', objectPosition: 'center 25%', borderRadius: '50%', border: '1.5px solid #D97706' }}
+            style={{ width: '38px', height: '38px', objectFit: 'cover', objectPosition: 'center 25%', borderRadius: '50%', border: '1.5px solid #C89A50', boxShadow: '0 2px 6px rgba(41, 37, 31, 0.1)' }}
           />
-          <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontWeight: 800, fontSize: '1.04rem', letterSpacing: '0.03em', color: 'var(--text-primary)' }}>POBI STUDIO</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>線上錯題手帳系統 · Ver 3</div>
+          <div style={{ lineHeight: 1.22 }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.08rem', letterSpacing: '0.04em', color: 'var(--text-primary)' }}>POBI STUDIO</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.03em' }}>數位錯題手帳 · Explore. Decode. Understand.</div>
           </div>
         </div>
 
@@ -185,15 +186,18 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             <h1
               style={{
                 margin: 0,
-                fontSize: 'clamp(1.9rem, 4vw, 2.75rem)',
-                fontWeight: 800,
-                lineHeight: 1.24,
-                letterSpacing: '-0.015em',
+                fontFamily: 'var(--font-serif)',
+                fontSize: 'clamp(1.9rem, 4vw, 2.7rem)',
+                fontWeight: 700,
+                lineHeight: 1.28,
+                letterSpacing: '-0.01em',
                 color: 'var(--text-primary)'
               }}
             >
               把每一道錯題，整理成考前最穩的複習與診斷工坊
             </h1>
+
+            <hr className="pobi-gold-divider" style={{ width: '120px', margin: '0' }} />
 
             <p
               style={{
@@ -312,27 +316,71 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             </div>
           </div>
 
-          {/* Right Editorial Preview Panel */}
+          {/* Right Deep Forest Green Academic Studio Showcase Panel */}
           <div
-            className="glass"
+            className="pobi-studio-hero-card"
             style={{
               borderRadius: '14px',
-              padding: '22px',
+              padding: '26px 24px',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '10px' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <FolderTree size={16} style={{ color: 'var(--accent-secondary)' }} /> 完整錯題攻克閉環
-              </span>
-              <span className="pobi-tag-chip">
-                最新 Ver 3 架構
+            {/* Subtle Academic Geometric Watermark */}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 220 220"
+              style={{
+                position: 'absolute',
+                right: '-24px',
+                bottom: '-24px',
+                width: '180px',
+                height: '180px',
+                opacity: 0.12,
+                pointerEvents: 'none',
+                color: '#C89A50'
+              }}
+            >
+              <circle cx="110" cy="110" r="82" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
+              <circle cx="110" cy="110" r="54" fill="none" stroke="currentColor" strokeWidth="1" />
+              <line x1="20" y1="110" x2="200" y2="110" stroke="currentColor" strokeWidth="0.9" />
+              <line x1="110" y1="20" x2="110" y2="200" stroke="currentColor" strokeWidth="0.9" />
+              <path d="M 45 155 Q 110 45 175 155" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img
+                  src="/pobi-mascot.jpg"
+                  alt="Pobi 陪伴導師"
+                  style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 25%', border: '1.5px solid #C89A50' }}
+                />
+                <div>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.96rem', color: '#FBF8F1', letterSpacing: '0.03em' }}>
+                    完整錯題攻克閉環
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#E4C284', letterSpacing: '0.08em' }}>
+                    Explore. Decode. Understand.
+                  </div>
+                </div>
+              </div>
+              <span
+                style={{
+                  padding: '3px 9px',
+                  borderRadius: '999px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  border: '1px solid rgba(200, 154, 80, 0.55)',
+                  backgroundColor: 'rgba(11, 64, 43, 0.55)',
+                  color: '#F3E5C8'
+                }}
+              >
+                數位錯題手帳
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', position: 'relative', zIndex: 1 }}>
               {[
                 { step: '01', label: '拍照錄入與 4 階段 AI 批次建檔', detail: '必選熟悉度並提醒補充錯因；多張試卷圖可一鍵打包 ZIP 交給 AI 解析' },
                 { step: '02', label: 'POBI 每日閃卡與各科自訂週期', detail: '預設全選章節與小單元重測，不同科目可獨立設定複習天數或不再複習' },
@@ -347,16 +395,16 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                     gap: '12px',
                     padding: '10px 12px',
                     borderRadius: '9px',
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--glass-border)'
+                    backgroundColor: 'rgba(251, 248, 241, 0.08)',
+                    border: '1px solid rgba(200, 154, 80, 0.25)'
                   }}
                 >
-                  <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--accent-secondary)', fontVariantNumeric: 'tabular-nums', paddingTop: '1px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.82rem', color: '#E4C284', fontVariantNumeric: 'tabular-nums', paddingTop: '1px' }}>
                     {row.step}
                   </span>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{row.label}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{row.detail}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#FBF8F1' }}>{row.label}</div>
+                    <div style={{ fontSize: '0.79rem', color: 'rgba(251, 248, 241, 0.82)', lineHeight: 1.5 }}>{row.detail}</div>
                   </div>
                 </div>
               ))}
@@ -366,15 +414,17 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
 
         {/* Feature Grid */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-          {features.map(f => {
+          {features.map((f, idx) => {
             const Icon = f.icon;
+            const isForest = idx % 2 === 0;
             return (
               <div
                 key={f.title}
                 className="glass"
                 style={{
-                  borderRadius: '12px',
+                  borderRadius: '11px',
                   padding: '20px',
+                  borderTop: isForest ? '2.5px solid #145B38' : '2.5px solid #C89A50',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px'
@@ -384,10 +434,10 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                   style={{
                     width: '36px',
                     height: '36px',
-                    borderRadius: '9px',
-                    backgroundColor: 'var(--warning-bg)',
-                    border: '1px solid var(--warning-border)',
-                    color: 'var(--accent-secondary)',
+                    borderRadius: '8px',
+                    backgroundColor: isForest ? 'rgba(20, 91, 56, 0.09)' : 'rgba(217, 119, 6, 0.1)',
+                    border: isForest ? '1px solid rgba(20, 91, 56, 0.24)' : '1px solid rgba(200, 154, 80, 0.45)',
+                    color: isForest ? '#145B38' : '#D97706',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -395,7 +445,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                 >
                   <Icon size={19} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{f.title}</h3>
+                <h3 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: '1.02rem', fontWeight: 700, color: 'var(--text-primary)' }}>{f.title}</h3>
                 <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>{f.desc}</p>
               </div>
             );
@@ -406,7 +456,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
       {/* Footer */}
       <footer
         style={{
-          borderTop: '1px solid var(--glass-border)',
+          borderTop: '1px solid rgba(200, 154, 80, 0.3)',
           padding: '16px 24px',
           textAlign: 'center',
           fontSize: '0.78rem',
@@ -418,10 +468,8 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           flexWrap: 'wrap'
         }}
       >
-        <span>POBI STUDIO 線上錯題手帳</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-          <Share2 size={12} /> 專為大考複習與自主學習打造
-        </span>
+        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>POBI STUDIO｜數位錯題手帳</span>
+        <span>Explore. Decode. Understand.</span>
       </footer>
     </div>
   );

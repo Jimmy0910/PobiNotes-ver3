@@ -197,6 +197,7 @@ export default function PromptGenerator() {
           className="glass"
           style={{
             padding: '18px 22px',
+            borderTop: '2.5px solid #C89A50',
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'space-between',
@@ -205,8 +206,8 @@ export default function PromptGenerator() {
           }}
         >
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '9px' }}>
-              <Sparkles size={21} style={{ color: 'var(--accent-secondary)' }} />
+            <h1 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: '1.32rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '9px' }}>
+              <Sparkles size={20} style={{ color: '#D97706' }} />
               <span>AI 提詞管理</span>
             </h1>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>

@@ -57,16 +57,16 @@ type AnalysisMode = 'hierarchy' | 'diagnosis' | 'tags';
 type HeatmapPair = 'chapter_fam' | 'chapter_reason' | 'unit_reason' | 'fam_reason' | 'tag_fam';
 
 const CHART_COLORS = [
-  '#D97706',
-  '#059669',
-  '#2563EB',
-  '#DC2626',
-  '#7C3AED',
-  '#0D9488',
-  '#EA580C',
-  '#4F46E5',
-  '#CA8A04',
-  '#BE185D'
+  '#D97706', // 琥珀橘
+  '#145B38', // 經典森林綠
+  '#C89A50', // 暖金色
+  '#B45309', // 復古焦糖橘
+  '#4D7C0F', // 苔蘚綠
+  '#78716C', // 暖石炭灰
+  '#991B1B', // 典雅酒紅
+  '#334155', // 沉穩深岩灰
+  '#0B402B', // 深森林綠
+  '#A16207'  // 黃銅金
 ];
 
 function guessImageExt(url: string, mime?: string): string {
@@ -797,7 +797,7 @@ export default function SubjectAnalyticsWorkshop({
       {/* =================================================================
           STEP 2: 勾選範圍（可多選）並查看統計圖表（可多選圖表項目）
          ================================================================= */}
-      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <section className="glass pobi-academic-grid no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '2px solid rgba(200, 154, 80, 0.5)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="pobi-step-pill">步驟 2</span>

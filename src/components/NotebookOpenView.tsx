@@ -713,6 +713,74 @@ export default function NotebookOpenView({
     };
   };
 
+  const renderAcademicSketch = (subjectName: string) => {
+    const n = subjectName.toLowerCase();
+    const commonProps = {
+      'aria-hidden': true as const,
+      viewBox: '0 0 180 90',
+      style: {
+        position: 'absolute' as const,
+        right: '14px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '160px',
+        height: '80px',
+        opacity: 0.065,
+        pointerEvents: 'none' as const,
+        color: '#81796E'
+      }
+    };
+    if (n.includes('化')) {
+      return (
+        <svg {...commonProps}>
+          <polygon points="50,15 72,27 72,53 50,65 28,53 28,27" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <polygon points="94,27 116,15 138,27 138,53 116,65 94,53" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="3 2" />
+          <line x1="72" y1="40" x2="94" y2="40" stroke="currentColor" strokeWidth="1.4" />
+          <circle cx="50" cy="40" r="12" fill="none" stroke="currentColor" strokeWidth="1.1" />
+        </svg>
+      );
+    }
+    if (n.includes('生')) {
+      return (
+        <svg {...commonProps}>
+          <path d="M20,22 Q55,70 90,22 T160,22" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M20,66 Q55,18 90,66 T160,66" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <line x1="42" y1="36" x2="42" y2="52" stroke="currentColor" strokeWidth="1.1" />
+          <line x1="68" y1="32" x2="68" y2="56" stroke="currentColor" strokeWidth="1.1" />
+          <line x1="112" y1="32" x2="112" y2="56" stroke="currentColor" strokeWidth="1.1" />
+          <line x1="138" y1="36" x2="138" y2="52" stroke="currentColor" strokeWidth="1.1" />
+        </svg>
+      );
+    }
+    if (n.includes('地')) {
+      return (
+        <svg {...commonProps}>
+          <ellipse cx="90" cy="45" rx="68" ry="26" fill="none" stroke="currentColor" strokeWidth="1.2" />
+          <ellipse cx="90" cy="45" rx="48" ry="18" fill="none" stroke="currentColor" strokeWidth="1.1" strokeDasharray="4 3" />
+          <ellipse cx="90" cy="45" rx="26" ry="10" fill="none" stroke="currentColor" strokeWidth="1.1" />
+        </svg>
+      );
+    }
+    if (n.includes('數') || n.includes('物') || n.includes('自')) {
+      return (
+        <svg {...commonProps}>
+          <line x1="18" y1="68" x2="164" y2="68" stroke="currentColor" strokeWidth="1.2" />
+          <line x1="36" y1="12" x2="36" y2="78" stroke="currentColor" strokeWidth="1.2" />
+          <path d="M36,64 Q86,8 152,58" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="36" y1="68" x2="114" y2="24" stroke="currentColor" strokeWidth="1.1" strokeDasharray="3 3" />
+        </svg>
+      );
+    }
+    return (
+      <svg {...commonProps}>
+        <circle cx="115" cy="45" r="32" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="4 3" />
+        <circle cx="115" cy="45" r="18" fill="none" stroke="currentColor" strokeWidth="1.1" />
+        <line x1="40" y1="45" x2="165" y2="45" stroke="currentColor" strokeWidth="1" />
+        <line x1="115" y1="8" x2="115" y2="82" stroke="currentColor" strokeWidth="1" />
+      </svg>
+    );
+  };
+
   return (
     <div style={{ flex: 1, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <div style={{ width: '100%', maxWidth: '1160px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -721,18 +789,22 @@ export default function NotebookOpenView({
         <div
           className="no-print"
           style={{
+            position: 'relative',
+            overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
             padding: '14px 18px',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--bg-secondary)',
             borderRadius: '12px',
             border: '1px solid var(--glass-border)',
-            boxShadow: '0 2px 8px rgba(60, 40, 20, 0.05)'
+            borderTop: '2.5px solid #C89A50',
+            boxShadow: '0 2px 10px rgba(41, 37, 31, 0.045)'
           }}
         >
+          {renderAcademicSketch(activeSubject.name)}
           {/* Left: Back button & Subject Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <button

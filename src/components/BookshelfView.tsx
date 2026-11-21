@@ -67,7 +67,7 @@ export default function BookshelfView({
   const [deletingSubject, setDeletingSubject] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [selectedPalette, setSelectedPalette] = useState('navy');
+  const [selectedPalette, setSelectedPalette] = useState('green');
   const [selectedIcon, setSelectedIcon] = useState('BookOpen');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -174,7 +174,7 @@ export default function BookshelfView({
       await onAddSubject(newTitle.trim(), colorStyle);
       setShowAddModal(false);
       setNewTitle('');
-      setSelectedPalette('navy');
+      setSelectedPalette('green');
       setSelectedIcon('BookOpen');
     } catch (err: any) {
       setErrorMsg(err.message || '建立失敗，請稍後再試');

@@ -231,63 +231,22 @@ export default function App() {
       const demoUser: User = { id: 'demo-guest', username: '體驗訪客', is_admin: 0 };
       localStorage.setItem('pobi_local_user', JSON.stringify(demoUser));
       localStorage.setItem('pobi_onboarding_done_demo-guest', '1');
-      const existingRaw = localStorage.getItem('pobi_local_mistakes');
-      const existingList = existingRaw ? JSON.parse(existingRaw) : [];
-      if (!Array.isArray(existingList) || existingList.length === 0) {
-        const yesterday = new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10);
-        const seedMistakes: MistakeRecord[] = [
-          {
-            id: 'demo-m-1',
-            user_id: 'demo-guest',
-            title: '【體驗範例】二次函數閉區間極值判別',
-            subject_id: 'subj-math',
-            subject_name: '數學',
-            chapter_id: 'chap-math-1',
-            chapter_name: '數與式',
-            unit_id: null,
-            unit_name: null,
-            familiarity_id: 'fam-2',
-            familiarity_name: '卡',
-            familiarity_color: 'warning',
-            error_reason_ids: ['err-2'],
-            error_reason_names: ['觀念模糊'],
-            tags: ['學測必考', '極值'],
-            mistake_date: yesterday,
-            template_id: 'default-exam',
-            template_fields: {
-              questionFields: [
-                { id: 'q_desc', label: '題幹內容', type: 'textarea' },
-                { id: 'q_image', label: '題目圖片', type: 'image' }
-              ],
-              answerFields: [
-                { id: 'a_desc', label: '完整解析', type: 'textarea' },
-                { id: 'a_image', label: '詳解圖片', type: 'image' }
-              ]
-            },
-            data: {
-              questionData: {
-                q_desc: '已知 f(x) = x^2 - 4x + 7，求在閉區間 [0, 3] 上的最大值與最小值。',
-                q_image: '/demo/parabola-q.png'
-              },
-              answerData: {
-                a_desc: '配方得 f(x) = (x - 2)^2 + 3，頂點 x = 2 在區間 [0, 3] 內，故最小值為 f(2) = 3；比較端點 f(0) = 7、f(3) = 4，最大值為 7。',
-                a_image: '/demo/parabola-a.png'
-              },
-              reviewMeta: {
-                nextReviewDate: yesterday,
-                reviewCount: 0,
-                history: []
-              }
-            },
-            created_at: Date.now() - 86400000 * 2,
-            updated_at: Date.now() - 86400000 * 2
+      // Remove any legacy uncategorized demo test mistakes so guest mode starts clean
+      try {
+        const existingRaw = localStorage.getItem('pobi_local_mistakes');
+        if (existingRaw) {
+          const existingList = JSON.parse(existingRaw);
+          if (Array.isArray(existingList)) {
+            const cleaned = existingList.filter(
+              (m: any) => m?.id !== 'demo-m-1' && !String(m?.title || '').startsWith('【體驗範例】')
+            );
+            localStorage.setItem('pobi_local_mistakes', JSON.stringify(cleaned));
           }
-        ];
-        localStorage.setItem('pobi_local_mistakes', JSON.stringify(seedMistakes));
-      }
+        }
+      } catch {}
       setUser(demoUser);
       setActiveView('bookshelf');
-      showToast('已進入免註冊 Demo 體驗模式，可自由試用書架、閃卡複習與架構搬運', 'info');
+      showToast('已進入免註冊 Demo 體驗模式，可自由試用書架、閃卡複習與 POBI 範例生成', 'info');
     } catch {
       setShowAuthView(true);
     }
@@ -350,7 +309,15 @@ export default function App() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      await apiRequest('/api/users/delete', { method: 'DELETE' });
+      if (user.id === 'demo-guest') {
+        try {
+          localStorage.removeItem('pobi_local_mistakes');
+          localStorage.removeItem('pobi_local_categories');
+          localStorage.removeItem('pobi_local_user');
+        } catch {}
+      } else {
+        await apiRequest('/api/users/delete', { method: 'DELETE' });
+      }
       setUser(null);
       setShowDeleteAccountModal(false);
       setDeleteConfirmUsername('');

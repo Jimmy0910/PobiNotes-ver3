@@ -193,18 +193,19 @@ export default function BinderSpineNav({
         {!collapsed && (
           <div style={{
             margin: '10px 8px 6px 8px',
-            padding: '8px 10px',
-            borderRadius: '6px',
-            background: 'rgba(0, 0, 0, 0.03)',
+            padding: '9px 10px',
+            borderRadius: '7px',
+            background: 'rgba(20, 91, 56, 0.045)',
             border: '1px solid var(--binder-spine-border)',
+            borderTop: '2px solid rgba(200, 154, 80, 0.55)',
             fontSize: '0.72rem',
             color: 'var(--binder-spine-text-muted)',
-            lineHeight: 1.4
+            lineHeight: 1.45
           }}>
-            <div style={{ fontWeight: 650, color: 'var(--binder-spine-text)', marginBottom: '2px' }}>
-              數位活頁手帳
+            <div style={{ fontWeight: 700, color: 'var(--binder-spine-text)', marginBottom: '2px', letterSpacing: '0.02em' }}>
+              數位錯題手帳
             </div>
-            <div>盲點訂正・實戰試卷印製</div>
+            <div style={{ fontSize: '0.67rem', letterSpacing: '0.03em' }}>Explore. Decode. Understand.</div>
           </div>
         )}
       </div>

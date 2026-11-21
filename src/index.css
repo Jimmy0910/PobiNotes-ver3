@@ -1,57 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
 
 :root {
-  /* POBI STUDIO Artisanal Stationery Brand Colors (Kraft Leather & Deep Ink) */
-  --pobi-blue: #8B5A2B;            /* 溫潤牛皮皮革棕 */
-  --pobi-green: #B45309;           /* 典雅復古琥珀 */
-  --pobi-background: #FFFFFF;
-  --pobi-surface: #FAF7F0;
+  /* POBI STUDIO Premium Academic Brand Colors (Visual Style Guide v1.1) */
+  --pobi-blue: #145B38;            /* 經典墨綠／森林綠 */
+  --pobi-green: #0B402B;           /* 深森林綠 */
+  --pobi-gold: #C89A50;            /* 暖金色／黃銅細線 */
+  --pobi-amber: #D97706;           /* 琥珀橘強調色 */
+  --pobi-background: #F5F0E6;
+  --pobi-surface: #FBF8F1;
   --pobi-dark-background: #0B1220;
 
-  /* Light Theme (Default: 溫潤米黃書頁紙張 + 實體手作牛皮筆記本質感) */
+  /* Light Theme (70% 暖米白紙張 / 20% 墨綠與深棕 / 10% 琥珀橘與暖金) */
   color-scheme: light;
-  --bg-primary: #F4EFEB;           /* 典雅書桌/桌面底色 */
-  --bg-secondary: #FAF7F0;         /* 溫潤米白筆記卡片底色 */
-  --notebook-paper: #FAF6ED;       /* 經典米黃書頁色 (Warm Cream / Ivory) */
-  --notebook-desk: #ECE6DE;        /* 木質/皮革書桌質感 */
-  --notebook-line: rgba(140, 110, 80, 0.08); /* 筆記紙橫線淡印 */
-  --notebook-margin: rgba(180, 83, 9, 0.22); /* 活頁裝訂與邊界紅暖墨水線 */
-  --notebook-stitch: rgba(120, 80, 40, 0.15); /* 車縫裝訂線 */
+  --bg-primary: #F5F0E6;           /* 暖米白全站主要背景 */
+  --bg-secondary: #FBF8F1;         /* 淺奶油白內容卡片、面板 */
+  --notebook-paper: #FBF8F1;       /* 奶油白手帳書頁 */
+  --notebook-desk: #EFE8DB;        /* 溫潤書桌底色 */
+  --notebook-line: rgba(129, 121, 110, 0.09); /* 細緻筆記紙橫線 */
+  --notebook-margin: rgba(200, 154, 80, 0.28); /* 暖金裝訂邊線 */
+  --notebook-stitch: rgba(200, 154, 80, 0.24); /* 黃銅車縫裝訂線 */
 
-  --glass-bg: #FAF7F0;
-  --glass-border: #D8D0C5;         /* 實體裝訂紙張邊緣邊框 */
-  --glass-highlight: #F0EAE1;
+  --glass-bg: #FBF8F1;
+  --glass-border: #E2D9C9;         /* 淺暖灰細邊框 */
+  --glass-highlight: #F2ECE0;
   
-  --text-primary: #1C1917;         /* Deep Charcoal Ink 碳墨深黑 (最高對比與溫暖易讀性) */
-  --text-secondary: #44403C;       /* 深暖灰石墨墨水色 */
-  --text-muted: #78716C;           /* 輔助墨水色 (維持高易讀性) */
+  --text-primary: #29251F;         /* 深棕黑主要文字 */
+  --text-secondary: #585147;       /* 沉穩暖灰次要文字 */
+  --text-muted: #81796E;           /* 暖灰說明文字 */
   
-  --accent-primary: #8B5A2B;       /* 牛皮皮革原色 */
-  --accent-secondary: #B45309;     /* 復古琥珀銅 */
-  --accent-gradient: linear-gradient(135deg, #8B5A2B, #B45309);
-  --accent-gradient-hover: linear-gradient(135deg, #78350F, #92400E);
-  --title-gradient: linear-gradient(135deg, #1C1917 0%, #78350F 100%);
+  --accent-primary: #D97706;       /* 琥珀橘主要操作 */
+  --accent-secondary: #C89A50;     /* 暖金細框與點綴 */
+  --accent-gradient: linear-gradient(135deg, #D97706, #B45309);
+  --accent-gradient-hover: linear-gradient(135deg, #B45309, #92400E);
+  --title-gradient: linear-gradient(135deg, #29251F 0%, #145B38 100%);
   
-  --success: #4D7C0F;             /* 典雅苔綠 (自然手帳感) */
-  --success-glow: rgba(77, 124, 15, 0.16);
+  --success: #145B38;              /* 經典森林綠 (熟悉/精熟語意色) */
+  --success-glow: rgba(20, 91, 56, 0.14);
   --danger: #B91C1C;
-  --danger-glow: rgba(185, 28, 28, 0.14);
-  --warning: #92400E;             /* 溫暖赭黃/焦糖，高對比易讀 (WCAG AAA) */
+  --danger-glow: rgba(185, 28, 28, 0.12);
+  --warning: #B45309;
   --warning-bg: #FEF3C7;
   --warning-border: #D97706;
   --warning-text: #78350F;
-  --warning-glow: rgba(180, 83, 9, 0.14);
+  --warning-glow: rgba(217, 119, 6, 0.14);
   
-  --shadow-sm: 0 1px 3px rgba(60, 40, 20, 0.05);
-  --shadow-md: 0 4px 14px rgba(60, 40, 20, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 25px rgba(60, 40, 20, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 35px rgba(60, 40, 20, 0.14), 0 5px 12px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 3px rgba(41, 37, 31, 0.045);
+  --shadow-md: 0 3px 12px rgba(41, 37, 31, 0.065), 0 1px 2px rgba(41, 37, 31, 0.035);
+  --shadow-lg: 0 10px 24px rgba(41, 37, 31, 0.085), 0 2px 6px rgba(41, 37, 31, 0.04);
+  --shadow-xl: 0 18px 34px rgba(41, 37, 31, 0.12), 0 4px 10px rgba(41, 37, 31, 0.05);
   
-  --washi-tape-green: rgba(77, 124, 15, 0.32);
-  --washi-tape-blue: rgba(139, 90, 43, 0.25);
-  --washi-tape-amber: rgba(180, 83, 9, 0.28);
+  --washi-tape-green: rgba(20, 91, 56, 0.22);
+  --washi-tape-blue: rgba(200, 154, 80, 0.25);
+  --washi-tape-amber: rgba(217, 119, 6, 0.22);
 
-  --font-sans: 'Outfit', 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
