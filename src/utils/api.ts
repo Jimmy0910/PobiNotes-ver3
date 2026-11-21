@@ -562,6 +562,128 @@ async function handleLocalFallback<T = any>(
 
       return { success: true } as any as T;
     }
+
+    if (method === 'DELETE') {
+      const id = searchParams.get('id') || bodyData?.id;
+      const dimension = searchParams.get('dimension') || bodyData?.dimension;
+      const mode = searchParams.get('mode') || bodyData?.mode || 'unassign';
+      const mistakes = getLocalMistakes();
+      if (dimension === 'unit' || categories.units.some(u => u.id === id)) {
+        if (mode === 'purge') {
+          saveLocalMistakes(mistakes.filter(m => m.unit_id !== id));
+        } else if (mode === 'move_to_uncategorized') {
+          saveLocalMistakes(
+            mistakes.map(m =>
+              m.unit_id === id
+                ? { ...m, subject_id: null, subject_name: null, chapter_id: null, chapter_name: null, unit_id: null, unit_name: null }
+                : m
+            )
+          );
+        } else {
+          saveLocalMistakes(mistakes.map(m => (m.unit_id === id ? { ...m, unit_id: null, unit_name: null } : m)));
+        }
+        categories.units = categories.units.filter(u => u.id !== id);
+        categories.items = categories.items.filter(it => it.id !== id);
+        saveLocalCategories(categories);
+      } else if (dimension === 'chapter' || categories.chapters.some(c => c.id === id)) {
+        if (mode === 'purge') {
+          saveLocalMistakes(mistakes.filter(m => m.chapter_id !== id));
+        } else {
+          saveLocalMistakes(
+            mistakes.map(m =>
+              m.chapter_id === id
+                ? {
+                    ...m,
+                    ...(mode === 'move_to_uncategorized' ? { subject_id: null, subject_name: null } : {}),
+                    chapter_id: null,
+                    chapter_name: null,
+                    unit_id: null,
+                    unit_name: null
+                  }
+                : m
+            )
+          );
+        }
+        categories.units = categories.units.filter(u => u.chapter_id !== id && u.parent_id !== id);
+        categories.chapters = categories.chapters.filter(c => c.id !== id);
+        categories.items = categories.items.filter(it => it.id !== id && it.parent_id !== id);
+        saveLocalCategories(categories);
+      } else if (dimension === 'subject' || categories.subjects.some(s => s.id === id)) {
+        const chapIds = new Set(categories.chapters.filter(c => c.subject_id === id || c.parent_id === id).map(c => c.id));
+        if (mode === 'purge') {
+          saveLocalMistakes(mistakes.filter(m => m.subject_id !== id && (!m.chapter_id || !chapIds.has(m.chapter_id))));
+        } else {
+          saveLocalMistakes(
+            mistakes.map(m =>
+              m.subject_id === id || (m.chapter_id && chapIds.has(m.chapter_id))
+                ? { ...m, subject_id: null, subject_name: null, chapter_id: null, chapter_name: null, unit_id: null, unit_name: null }
+                : m
+            )
+          );
+        }
+        categories.units = categories.units.filter(u => u.subject_id !== id && !chapIds.has(u.parent_id || ''));
+        categories.chapters = categories.chapters.filter(c => !chapIds.has(c.id));
+        categories.subjects = categories.subjects.filter(s => s.id !== id);
+        categories.items = categories.items.filter(it => it.id !== id && !chapIds.has(it.id));
+        saveLocalCategories(categories);
+      }
+      return { success: true } as any as T;
+    }
+  }
+
+  if (pathname === '/api/subjects' && method === 'DELETE') {
+    const id = searchParams.get('id');
+    const mode = searchParams.get('mode') || 'unassign';
+    const categories = getLocalCategories();
+    const mistakes = getLocalMistakes();
+    const chapIds = new Set(categories.chapters.filter(c => c.subject_id === id || c.parent_id === id).map(c => c.id));
+    if (mode === 'purge') {
+      saveLocalMistakes(mistakes.filter(m => m.subject_id !== id && (!m.chapter_id || !chapIds.has(m.chapter_id))));
+    } else {
+      saveLocalMistakes(
+        mistakes.map(m =>
+          m.subject_id === id || (m.chapter_id && chapIds.has(m.chapter_id))
+            ? { ...m, subject_id: null, subject_name: null, chapter_id: null, chapter_name: null, unit_id: null, unit_name: null }
+            : m
+        )
+      );
+    }
+    categories.units = categories.units.filter(u => u.subject_id !== id && !chapIds.has(u.parent_id || ''));
+    categories.chapters = categories.chapters.filter(c => !chapIds.has(c.id));
+    categories.subjects = categories.subjects.filter(s => s.id !== id);
+    categories.items = categories.items.filter(it => it.id !== id && !chapIds.has(it.id));
+    saveLocalCategories(categories);
+    return { success: true } as any as T;
+  }
+
+  if (pathname === '/api/chapters' && method === 'DELETE') {
+    const id = searchParams.get('id');
+    const mode = searchParams.get('mode') || 'unassign';
+    const categories = getLocalCategories();
+    const mistakes = getLocalMistakes();
+    if (mode === 'purge') {
+      saveLocalMistakes(mistakes.filter(m => m.chapter_id !== id));
+    } else {
+      saveLocalMistakes(
+        mistakes.map(m =>
+          m.chapter_id === id
+            ? {
+                ...m,
+                ...(mode === 'move_to_uncategorized' ? { subject_id: null, subject_name: null } : {}),
+                chapter_id: null,
+                chapter_name: null,
+                unit_id: null,
+                unit_name: null
+              }
+            : m
+        )
+      );
+    }
+    categories.units = categories.units.filter(u => u.chapter_id !== id && u.parent_id !== id);
+    categories.chapters = categories.chapters.filter(c => c.id !== id);
+    categories.items = categories.items.filter(it => it.id !== id && it.parent_id !== id);
+    saveLocalCategories(categories);
+    return { success: true } as any as T;
   }
 
   if (pathname === '/api/subjects' && method === 'POST') {
@@ -651,6 +773,50 @@ async function handleLocalFallback<T = any>(
   }
 
   if (pathname === '/api/prompt-templates') {
+    const PT_KEY = 'pobi_local_prompt_templates';
+    const readPT = (): any[] => {
+      try {
+        const raw = localStorage.getItem(PT_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    };
+    const writePT = (list: any[]) => {
+      try {
+        localStorage.setItem(PT_KEY, JSON.stringify(list));
+      } catch {}
+    };
+    if (method === 'GET') {
+      return readPT() as any as T;
+    }
+    if (method === 'POST') {
+      const list = readPT();
+      const tpl = {
+        id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        base_key: bodyData?.baseKey || null,
+        name: bodyData?.name || '自訂提詞',
+        description: bodyData?.description || '',
+        content: bodyData?.content || ''
+      };
+      list.push(tpl);
+      writePT(list);
+      return { success: true, template: tpl } as any as T;
+    }
+    if (method === 'PUT') {
+      const list = readPT().map(t =>
+        t.id === bodyData?.id
+          ? { ...t, name: bodyData.name, description: bodyData.description, content: bodyData.content }
+          : t
+      );
+      writePT(list);
+      return { success: true } as any as T;
+    }
+    if (method === 'DELETE') {
+      const id = searchParams.get('id');
+      writePT(readPT().filter(t => t.id !== id));
+      return { success: true } as any as T;
+    }
     return [] as any as T;
   }
 

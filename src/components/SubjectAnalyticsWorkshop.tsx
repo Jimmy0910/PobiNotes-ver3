@@ -1,14 +1,11 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import { apiRequest } from '../utils/api';
 import {
   type CategoriesBundle,
   type CategoryDimension,
-  type FilterState,
   type MistakeRecord,
   UNCATEGORIZED_ID,
-  createEmptyFilterState,
-  filterMistakes,
   formatPct,
   getEffectiveFamiliarityId
 } from '../types';
@@ -22,12 +19,12 @@ import {
 import { useUiFeedback } from './UiFeedbackProvider';
 import ExportPDF from './ExportPDF';
 import {
-  Filter,
-  RotateCcw,
-  Search,
+  FolderTree,
+  Activity,
+  Tag,
   BarChart3,
   PieChart,
-  Grid,
+  Flame,
   Sparkles,
   Printer,
   Package,
@@ -40,8 +37,10 @@ import {
   Edit2,
   Trash2,
   Image as ImageIcon,
-  ListChecks,
-  HelpCircle
+  HelpCircle,
+  Search,
+  RotateCcw,
+  ArrowRight
 } from 'lucide-react';
 
 interface SubjectAnalyticsWorkshopProps {
@@ -54,17 +53,20 @@ interface SubjectAnalyticsWorkshopProps {
   onImageClick?: (src: string) => void;
 }
 
+type AnalysisMode = 'hierarchy' | 'diagnosis' | 'tags';
+type HeatmapPair = 'chapter_fam' | 'chapter_reason' | 'unit_reason' | 'fam_reason' | 'tag_fam';
+
 const CHART_COLORS = [
-  '#8B5A2B',
-  '#B45309',
-  '#4D7C0F',
   '#D97706',
-  '#C5221F',
-  '#92400E',
-  '#78350F',
-  '#A16207',
-  '#0d9488',
-  '#ea580c'
+  '#059669',
+  '#2563EB',
+  '#DC2626',
+  '#7C3AED',
+  '#0D9488',
+  '#EA580C',
+  '#4F46E5',
+  '#CA8A04',
+  '#BE185D'
 ];
 
 function guessImageExt(url: string, mime?: string): string {
@@ -95,6 +97,21 @@ async function fetchImageAsBlob(url: string): Promise<{ blob: Blob; ext: string 
   }
 }
 
+function getHeatLevel(val: number, maxVal: number): {
+  tier: 0 | 1 | 2 | 3 | 4;
+  label: string;
+  className: string;
+} {
+  if (val <= 0 || maxVal <= 0) {
+    return { tier: 0, label: '無', className: 'pobi-heat-cell-0' };
+  }
+  const ratio = val / maxVal;
+  if (ratio >= 0.75) return { tier: 4, label: '高熱度', className: 'pobi-heat-cell-4' };
+  if (ratio >= 0.45) return { tier: 3, label: '偏高', className: 'pobi-heat-cell-3' };
+  if (ratio >= 0.2) return { tier: 2, label: '中等', className: 'pobi-heat-cell-2' };
+  return { tier: 1, label: '輕微', className: 'pobi-heat-cell-1' };
+}
+
 export default function SubjectAnalyticsWorkshop({
   subjectId,
   subjectName,
@@ -106,36 +123,34 @@ export default function SubjectAnalyticsWorkshop({
 }: SubjectAnalyticsWorkshopProps) {
   const { showToast } = useUiFeedback();
 
-  // Scoped multi-dimensional filter (subject locked to current subjectId)
-  const [filter, setFilter] = useState<FilterState>(() => ({
-    ...createEmptyFilterState(),
-    subjectIds: [subjectId]
-  }));
+  // =========================================================
+  // STEP 1: Analysis Mode Selection
+  // =========================================================
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('hierarchy');
 
-  // Reset filter when switching subjects
-  useEffect(() => {
-    setFilter({
-      ...createEmptyFilterState(),
-      subjectIds: [subjectId]
-    });
-  }, [subjectId]);
+  // STEP 2: Multi-select scope filter per mode
+  const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>([]);
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
+  const [selectedFamiliarityIds, setSelectedFamiliarityIds] = useState<string[]>([]);
+  const [selectedErrorReasonIds, setSelectedErrorReasonIds] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [keyword, setKeyword] = useState('');
 
-  // Two primary modes after filtering:
-  // 1. diagnostics: 學習診斷（分類占比 / 熱度表）
-  // 2. workshop: 錯題清單與工坊（AI 提詞包 ZIP / 匯出練習卷）
-  const [activeSection, setActiveSection] = useState<'diagnostics' | 'workshop'>('diagnostics');
-
-  // Inside 錯題清單與工坊: two sub-modes
-  const [workshopMode, setWorkshopMode] = useState<'ai_zip' | 'exam_paper'>('ai_zip');
-
-  // Diagnostics visualization state
-  const [distDimension, setDistDimension] = useState<CategoryDimension>('chapter');
+  // STEP 2 -> Chart Visualization & Multi-select chart buckets
+  const [distDimension, setDistDimension] = useState<CategoryDimension | 'tag'>('chapter');
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
-  const [errorStatMode, setErrorStatMode] = useState<'involvement' | 'tag_share'>('involvement');
-  const [crossPair, setCrossPair] = useState<'chapter_fam' | 'chapter_reason' | 'unit_reason'>('chapter_fam');
+  const [heatmapPair, setHeatmapPair] = useState<HeatmapPair>('chapter_fam');
   const [crossDenomMode, setCrossDenomMode] = useState<'total' | 'row'>('total');
 
-  // Prompt templates (for AI 提詞包 ZIP)
+  // Multi-select items clicked directly on the distribution chart or visual heatmap!
+  // Each key looks like `dist:<dim>:<id>` or `heat:<rowDim>:<rowId>|<colDim>:<colId>`
+  const [chartSelectedKeys, setChartSelectedKeys] = useState<string[]>([]);
+
+  // STEP 3: Export choice (AI Prompt ZIP vs Exam Paper) + manual fine-tune checkboxes
+  const [exportChoice, setExportChoice] = useState<'ai_zip' | 'exam_paper'>('ai_zip');
+  const [manualUncheckedIds, setManualUncheckedIds] = useState<string[]>([]);
+
+  // AI Prompt Template state
   const [savedPromptTemplates, setSavedPromptTemplates] = useState<any[]>([]);
   const [activePromptTemplateId, setActivePromptTemplateId] = useState<string>(BUILTIN_PROMPT_TEMPLATES[0].id);
   const [packingZip, setPackingZip] = useState(false);
@@ -150,45 +165,75 @@ export default function SubjectAnalyticsWorkshop({
       .catch(() => {});
   }, []);
 
+  // Reset selections when switching subject
+  useEffect(() => {
+    setSelectedChapterIds([]);
+    setSelectedUnitIds([]);
+    setSelectedFamiliarityIds([]);
+    setSelectedErrorReasonIds([]);
+    setSelectedTags([]);
+    setKeyword('');
+    setChartSelectedKeys([]);
+    setManualUncheckedIds([]);
+  }, [subjectId]);
+
+  // Sync default chart dimension & heatmap pair when switching Step 1 mode
+  const handleChangeAnalysisMode = (mode: AnalysisMode) => {
+    setAnalysisMode(mode);
+    setChartSelectedKeys([]);
+    setManualUncheckedIds([]);
+    if (mode === 'hierarchy') {
+      setDistDimension('chapter');
+      setHeatmapPair('chapter_fam');
+    } else if (mode === 'diagnosis') {
+      setDistDimension('familiarity');
+      setHeatmapPair('fam_reason');
+    } else {
+      setDistDimension('tag');
+      setHeatmapPair('tag_fam');
+    }
+  };
+
   const allPromptTemplates = useMemo(
     () => mergePromptTemplates(savedPromptTemplates),
     [savedPromptTemplates]
   );
 
-  const selectedPromptTemplate = useMemo(() => {
-    return (
+  const selectedPromptTemplate = useMemo(
+    () =>
       allPromptTemplates.find(t => t.id === activePromptTemplateId) ||
       allPromptTemplates[0] ||
-      BUILTIN_PROMPT_TEMPLATES[0]
-    );
-  }, [allPromptTemplates, activePromptTemplateId]);
+      BUILTIN_PROMPT_TEMPLATES[0],
+    [allPromptTemplates, activePromptTemplateId]
+  );
 
-  // Subject-scoped cascading options
-  const visibleChapters = useMemo(() => {
-    return categories.chapters
-      .filter(c => c.parent_id === subjectId || c.subject_id === subjectId)
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  }, [categories.chapters, subjectId]);
+  // Subject-scoped options
+  const visibleChapters = useMemo(
+    () =>
+      categories.chapters
+        .filter(c => c.parent_id === subjectId || c.subject_id === subjectId)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [categories.chapters, subjectId]
+  );
 
   const visibleUnits = useMemo(() => {
-    const realChapterIds = filter.chapterIds.filter(id => id !== UNCATEGORIZED_ID);
-    if (realChapterIds.length > 0) {
-      return categories.units.filter(u => u.parent_id && realChapterIds.includes(u.parent_id));
+    const realChaps = selectedChapterIds.filter(id => id !== UNCATEGORIZED_ID);
+    if (realChaps.length > 0) {
+      return categories.units.filter(u => u.parent_id && realChaps.includes(u.parent_id));
     }
     return categories.units.filter(
       u => u.subject_id === subjectId || visibleChapters.some(c => c.id === u.parent_id)
     );
-  }, [categories.units, filter.chapterIds, subjectId, visibleChapters]);
+  }, [categories.units, selectedChapterIds, subjectId, visibleChapters]);
 
   const visibleErrorReasons = useMemo(() => {
-    const realChapterIds = filter.chapterIds.filter(id => id !== UNCATEGORIZED_ID);
     return categories.errorReasons.filter(r => {
       if (!r.parent_id) return true;
-      if (realChapterIds.length > 0 && realChapterIds.includes(r.parent_id)) return true;
       if (r.parent_id === subjectId || r.subject_id === subjectId) return true;
+      if (visibleChapters.some(c => c.id === r.parent_id)) return true;
       return false;
     });
-  }, [categories.errorReasons, filter.chapterIds, subjectId]);
+  }, [categories.errorReasons, subjectId, visibleChapters]);
 
   const allAvailableTags = useMemo(() => {
     const set = new Set<string>();
@@ -200,91 +245,94 @@ export default function SubjectAnalyticsWorkshop({
     return Array.from(set);
   }, [subjectMistakes]);
 
-  // Filtered mistakes within current subject
-  const filteredMistakes = useMemo(
-    () => filterMistakes(subjectMistakes, filter, categories),
-    [subjectMistakes, filter, categories]
-  );
-
-  // Selected IDs for 錯題清單與工坊 (defaults to all filtered mistakes)
-  const [selectedIds, setSelectedIds] = useState<string[]>(() => filteredMistakes.map(m => m.id));
-
-  useEffect(() => {
-    setSelectedIds(filteredMistakes.map(m => m.id));
-  }, [filteredMistakes]);
-
-  const selectedMistakes = useMemo(() => {
-    const idSet = new Set(selectedIds);
-    return filteredMistakes.filter(m => idSet.has(m.id));
-  }, [filteredMistakes, selectedIds]);
-
-  const toggleSelectMistake = (id: string) => {
-    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  // Helper toggles for Step 2 multi-select scope
+  const toggleItem = (list: string[], setList: (next: string[]) => void, id: string) => {
+    setChartSelectedKeys([]);
+    setManualUncheckedIds([]);
+    setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
   };
 
-  const toggleFilterId = (
-    key: keyof Pick<FilterState, 'chapterIds' | 'unitIds' | 'familiarityIds' | 'errorReasonIds' | 'tags'>,
-    id: string
-  ) => {
-    const current = filter[key];
-    const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
-    const updated: FilterState = { ...filter, [key]: next };
-
-    if (key === 'chapterIds') {
-      const realChapters = next.filter(x => x !== UNCATEGORIZED_ID);
-      if (realChapters.length > 0) {
-        const validUnitIds = new Set(
-          categories.units.filter(u => u.parent_id && realChapters.includes(u.parent_id)).map(u => u.id)
-        );
-        updated.unitIds = updated.unitIds.filter(uid => uid === UNCATEGORIZED_ID || validUnitIds.has(uid));
+  // STEP 2 filtered pool based on active Step 1 mode & multi-select scope
+  const step2Mistakes = useMemo(() => {
+    return subjectMistakes.filter(m => {
+      if (analysisMode === 'hierarchy') {
+        if (selectedChapterIds.length > 0) {
+          const cid = m.chapter_id || UNCATEGORIZED_ID;
+          if (!selectedChapterIds.includes(cid)) return false;
+        }
+        if (selectedUnitIds.length > 0) {
+          const uid = m.unit_id || UNCATEGORIZED_ID;
+          if (!selectedUnitIds.includes(uid)) return false;
+        }
+      } else if (analysisMode === 'diagnosis') {
+        if (selectedFamiliarityIds.length > 0) {
+          const fid = getEffectiveFamiliarityId(m, categories.familiarities) || UNCATEGORIZED_ID;
+          if (!selectedFamiliarityIds.includes(fid)) return false;
+        }
+        if (selectedErrorReasonIds.length > 0) {
+          const rIds =
+            Array.isArray(m.error_reason_ids) && m.error_reason_ids.length > 0
+              ? m.error_reason_ids
+              : [UNCATEGORIZED_ID];
+          if (!rIds.some(id => selectedErrorReasonIds.includes(id))) return false;
+        }
+      } else if (analysisMode === 'tags') {
+        if (selectedTags.length > 0) {
+          const mTags = Array.isArray(m.tags) && m.tags.length > 0 ? m.tags : [UNCATEGORIZED_ID];
+          if (!mTags.some(t => selectedTags.includes(t))) return false;
+        }
       }
+
+      if (keyword.trim()) {
+        const kw = keyword.trim().toLowerCase();
+        const media = extractMistakeMediaAndText(m);
+        const match =
+          (m.title || '').toLowerCase().includes(kw) ||
+          media.qDesc.toLowerCase().includes(kw) ||
+          media.aDesc.toLowerCase().includes(kw) ||
+          (m.chapter_name || '').toLowerCase().includes(kw) ||
+          (m.tags || []).some(t => t.toLowerCase().includes(kw));
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }, [
+    subjectMistakes,
+    analysisMode,
+    selectedChapterIds,
+    selectedUnitIds,
+    selectedFamiliarityIds,
+    selectedErrorReasonIds,
+    selectedTags,
+    keyword,
+    categories.familiarities
+  ]);
+
+  // Helper: does mistake match a dimension & id?
+  const mistakeMatchesDimValue = useCallback((m: MistakeRecord, dim: CategoryDimension | 'tag', itemId: string): boolean => {
+    if (dim === 'chapter') return (m.chapter_id || UNCATEGORIZED_ID) === itemId;
+    if (dim === 'unit') return (m.unit_id || UNCATEGORIZED_ID) === itemId;
+    if (dim === 'familiarity') {
+      return (getEffectiveFamiliarityId(m, categories.familiarities) || UNCATEGORIZED_ID) === itemId;
     }
-    setFilter(updated);
-  };
+    if (dim === 'error_reason') {
+      const rIds = Array.isArray(m.error_reason_ids) && m.error_reason_ids.length > 0 ? m.error_reason_ids : [UNCATEGORIZED_ID];
+      return rIds.includes(itemId);
+    }
+    if (dim === 'tag') {
+      const mTags = Array.isArray(m.tags) && m.tags.length > 0 ? m.tags : [UNCATEGORIZED_ID];
+      return mTags.includes(itemId);
+    }
+    return false;
+  }, [categories.familiarities]);
 
-  const resetFilters = () => {
-    setFilter({
-      ...createEmptyFilterState(),
-      subjectIds: [subjectId]
-    });
-  };
-
-  const hasAnySubFilter =
-    filter.chapterIds.length > 0 ||
-    filter.unitIds.length > 0 ||
-    filter.familiarityIds.length > 0 ||
-    filter.errorReasonIds.length > 0 ||
-    filter.tags.length > 0 ||
-    filter.fromDate !== '' ||
-    filter.toDate !== '' ||
-    filter.keyword.trim() !== '';
-
-  // Overview stats
-  const overviewStats = useMemo(() => {
-    const total = filteredMistakes.length;
-    let unsetFamiliarityCount = 0;
-    const famCounts: Record<string, number> = {};
-    categories.familiarities.forEach(f => {
-      famCounts[f.id] = 0;
-    });
-
-    filteredMistakes.forEach(m => {
-      const fId = getEffectiveFamiliarityId(m, categories.familiarities);
-      if (!fId) {
-        unsetFamiliarityCount++;
-      } else {
-        famCounts[fId] = (famCounts[fId] || 0) + 1;
-      }
-    });
-
-    return { total, unsetFamiliarityCount, famCounts };
-  }, [filteredMistakes, categories.familiarities]);
-
-  // Distribution stats (分類占比)
+  // Distribution Chart Data (based on step2Mistakes)
   const distributionData = useMemo(() => {
-    const totalMistakes = filteredMistakes.length;
+    const total = step2Mistakes.length;
     const rows: Array<{
       id: string;
+      key: string;
       name: string;
       count: number;
       pct: number;
@@ -292,61 +340,57 @@ export default function SubjectAnalyticsWorkshop({
       color: string;
     }> = [];
 
-    if (distDimension === 'error_reason') {
-      const counts: Record<string, number> = {};
-      visibleErrorReasons.forEach(r => {
-        counts[r.id] = 0;
-      });
-      let unlabelledCount = 0;
-      let totalTagOccurrences = 0;
-
-      filteredMistakes.forEach(m => {
-        const rIds = Array.isArray(m.error_reason_ids) ? m.error_reason_ids : [];
-        if (rIds.length === 0) {
-          unlabelledCount++;
-        } else {
-          rIds.forEach(id => {
-            if (counts[id] !== undefined) {
-              counts[id]++;
-              totalTagOccurrences++;
-            }
-          });
-        }
-      });
-
-      const effectiveMode = categories.errorReasonMode === 'single' ? 'involvement' : errorStatMode;
-      const denom = effectiveMode === 'tag_share' ? totalTagOccurrences : totalMistakes;
-
-      visibleErrorReasons.forEach((r, idx) => {
-        const c = counts[r.id] || 0;
+    if (distDimension === 'tag') {
+      const tagList = allAvailableTags;
+      tagList.forEach((tag, idx) => {
+        const count = step2Mistakes.filter(m => (m.tags || []).includes(tag)).length;
         rows.push({
-          id: r.id,
-          name: r.name,
-          count: c,
-          pct: denom > 0 ? (c / denom) * 100 : 0,
-          pctText: formatPct(c, denom),
+          id: tag,
+          key: `dist:tag:${tag}`,
+          name: `#${tag}`,
+          count,
+          pct: total > 0 ? (count / total) * 100 : 0,
+          pctText: formatPct(count, total),
           color: CHART_COLORS[idx % CHART_COLORS.length]
         });
       });
+      const untagged = step2Mistakes.filter(m => !m.tags || m.tags.length === 0).length;
+      rows.push({
+        id: UNCATEGORIZED_ID,
+        key: `dist:tag:${UNCATEGORIZED_ID}`,
+        name: '未標記自訂標籤',
+        count: untagged,
+        pct: total > 0 ? (untagged / total) * 100 : 0,
+        pctText: formatPct(untagged, total),
+        color: '#64748B'
+      });
+      return rows;
+    }
 
-      if (effectiveMode === 'involvement') {
+    if (distDimension === 'error_reason') {
+      visibleErrorReasons.forEach((r, idx) => {
+        const count = step2Mistakes.filter(m => (m.error_reason_ids || []).includes(r.id)).length;
         rows.push({
-          id: UNCATEGORIZED_ID,
-          name: '未標記錯因',
-          count: unlabelledCount,
-          pct: totalMistakes > 0 ? (unlabelledCount / totalMistakes) * 100 : 0,
-          pctText: formatPct(unlabelledCount, totalMistakes),
-          color: '#6b7280'
+          id: r.id,
+          key: `dist:error_reason:${r.id}`,
+          name: r.name,
+          count,
+          pct: total > 0 ? (count / total) * 100 : 0,
+          pctText: formatPct(count, total),
+          color: CHART_COLORS[idx % CHART_COLORS.length]
         });
-      }
-
-      return {
-        rows,
-        denominatorLabel:
-          effectiveMode === 'tag_share'
-            ? `所有錯因標籤出現總次數 (${totalTagOccurrences} 次)`
-            : `篩選範圍錯題總數 (${totalMistakes} 題)`
-      };
+      });
+      const unlabelled = step2Mistakes.filter(m => !m.error_reason_ids || m.error_reason_ids.length === 0).length;
+      rows.push({
+        id: UNCATEGORIZED_ID,
+        key: `dist:error_reason:${UNCATEGORIZED_ID}`,
+        name: '未標記錯因',
+        count: unlabelled,
+        pct: total > 0 ? (unlabelled / total) * 100 : 0,
+        pctText: formatPct(unlabelled, total),
+        color: '#64748B'
+      });
+      return rows;
     }
 
     const sourceList =
@@ -356,66 +400,67 @@ export default function SubjectAnalyticsWorkshop({
         ? visibleUnits
         : categories.familiarities;
 
-    const counts: Record<string, number> = {};
-    sourceList.forEach(item => {
-      counts[item.id] = 0;
-    });
-    let uncategorized = 0;
-
-    filteredMistakes.forEach(m => {
-      let valId: string | null = null;
-      if (distDimension === 'chapter') valId = m.chapter_id;
-      else if (distDimension === 'unit') valId = m.unit_id;
-      else if (distDimension === 'familiarity') valId = getEffectiveFamiliarityId(m, categories.familiarities);
-
-      if (!valId || counts[valId] === undefined) {
-        uncategorized++;
-      } else {
-        counts[valId]++;
-      }
-    });
-
     sourceList.forEach((item, idx) => {
-      const c = counts[item.id] || 0;
+      const count = step2Mistakes.filter(m => mistakeMatchesDimValue(m, distDimension, item.id)).length;
       let labelName = item.name;
       if (distDimension === 'unit') {
-        const ch = visibleChapters.find(chap => chap.id === item.parent_id);
+        const ch = visibleChapters.find(c => c.id === item.parent_id);
         if (ch) labelName = `${ch.name} / ${item.name}`;
       }
       rows.push({
         id: item.id,
+        key: `dist:${distDimension}:${item.id}`,
         name: labelName,
-        count: c,
-        pct: totalMistakes > 0 ? (c / totalMistakes) * 100 : 0,
-        pctText: formatPct(c, totalMistakes),
+        count,
+        pct: total > 0 ? (count / total) * 100 : 0,
+        pctText: formatPct(count, total),
         color: CHART_COLORS[idx % CHART_COLORS.length]
       });
     });
 
-    rows.push({
-      id: UNCATEGORIZED_ID,
-      name: distDimension === 'familiarity' ? '尚未設定熟悉度' : '未分類',
-      count: uncategorized,
-      pct: totalMistakes > 0 ? (uncategorized / totalMistakes) * 100 : 0,
-      pctText: formatPct(uncategorized, totalMistakes),
-      color: '#6b7280'
-    });
+    const uncatCount = step2Mistakes.filter(m => mistakeMatchesDimValue(m, distDimension, UNCATEGORIZED_ID)).length;
+    if (uncatCount > 0 || rows.length === 0) {
+      rows.push({
+        id: UNCATEGORIZED_ID,
+        key: `dist:${distDimension}:${UNCATEGORIZED_ID}`,
+        name: distDimension === 'familiarity' ? '尚未設定熟悉度' : '未分類',
+        count: uncatCount,
+        pct: total > 0 ? (uncatCount / total) * 100 : 0,
+        pctText: formatPct(uncatCount, total),
+        color: '#64748B'
+      });
+    }
+    return rows;
+  }, [distDimension, step2Mistakes, visibleChapters, visibleUnits, visibleErrorReasons, categories.familiarities, allAvailableTags, mistakeMatchesDimValue]);
 
-    return {
-      rows,
-      denominatorLabel: `篩選範圍錯題總數 (${totalMistakes} 題)`
-    };
-  }, [distDimension, filteredMistakes, categories, visibleChapters, visibleUnits, visibleErrorReasons, errorStatMode]);
+  // Visual Heatmap Data + Top 3 Weakness Hotspots
+  const heatmapData = useMemo(() => {
+    const rowDim: CategoryDimension | 'tag' =
+      heatmapPair === 'unit_reason'
+        ? 'unit'
+        : heatmapPair === 'fam_reason'
+        ? 'familiarity'
+        : heatmapPair === 'tag_fam'
+        ? 'tag'
+        : 'chapter';
+    const colDim: CategoryDimension =
+      heatmapPair === 'chapter_fam' || heatmapPair === 'tag_fam' ? 'familiarity' : 'error_reason';
 
-  // Cross-tabulation heatmap (熱度表)
-  const crossData = useMemo(() => {
-    const rowDim: CategoryDimension = crossPair === 'unit_reason' ? 'unit' : 'chapter';
-    const colDim: CategoryDimension = crossPair === 'chapter_fam' ? 'familiarity' : 'error_reason';
-
-    const rowItems = [
-      ...(rowDim === 'chapter' ? visibleChapters : visibleUnits).map(i => ({ id: i.id, name: i.name })),
-      { id: UNCATEGORIZED_ID, name: '未分類' }
-    ];
+    const rowItems =
+      rowDim === 'tag'
+        ? [
+            ...allAvailableTags.map(t => ({ id: t, name: `#${t}` })),
+            { id: UNCATEGORIZED_ID, name: '未標記標籤' }
+          ]
+        : [
+            ...(rowDim === 'chapter'
+              ? visibleChapters
+              : rowDim === 'unit'
+              ? visibleUnits
+              : categories.familiarities
+            ).map(i => ({ id: i.id, name: i.name })),
+            { id: UNCATEGORIZED_ID, name: rowDim === 'familiarity' ? '未設定' : '未分類' }
+          ];
 
     const colItems = [
       ...(colDim === 'familiarity' ? categories.familiarities : visibleErrorReasons).map(i => ({
@@ -437,68 +482,115 @@ export default function SubjectAnalyticsWorkshop({
       });
     });
 
-    filteredMistakes.forEach(m => {
-      const rId = rowDim === 'chapter' ? (m.chapter_id || UNCATEGORIZED_ID) : (m.unit_id || UNCATEGORIZED_ID);
-      if (!matrix[rId]) return;
-      rowTotals[rId] = (rowTotals[rId] || 0) + 1;
-
-      if (colDim === 'familiarity') {
-        const cId = getEffectiveFamiliarityId(m, categories.familiarities) || UNCATEGORIZED_ID;
-        if (matrix[rId][cId] !== undefined) {
-          matrix[rId][cId]++;
-          if (matrix[rId][cId] > maxCellCount) maxCellCount = matrix[rId][cId];
-        }
-      } else {
-        const rIds =
-          Array.isArray(m.error_reason_ids) && m.error_reason_ids.length > 0
-            ? m.error_reason_ids
-            : [UNCATEGORIZED_ID];
-        rIds.forEach(cId => {
-          if (matrix[rId][cId] !== undefined) {
-            matrix[rId][cId]++;
-            if (matrix[rId][cId] > maxCellCount) maxCellCount = matrix[rId][cId];
-          }
+    step2Mistakes.forEach(m => {
+      const matchedRows = rowItems.filter(r => mistakeMatchesDimValue(m, rowDim, r.id));
+      const matchedCols = colItems.filter(c => mistakeMatchesDimValue(m, colDim, c.id));
+      matchedRows.forEach(r => {
+        rowTotals[r.id] = (rowTotals[r.id] || 0) + 1;
+        matchedCols.forEach(c => {
+          matrix[r.id][c.id] = (matrix[r.id][c.id] || 0) + 1;
+          if (matrix[r.id][c.id] > maxCellCount) maxCellCount = matrix[r.id][c.id];
         });
-      }
+      });
     });
 
-    return { rowDim, colDim, rowItems, colItems, matrix, rowTotals, maxCellCount };
-  }, [crossPair, filteredMistakes, categories.familiarities, visibleChapters, visibleUnits, visibleErrorReasons]);
+    // Only keep rows that have at least 1 mistake OR are non-uncategorized
+    const visibleRowItems = rowItems.filter(r => r.id !== UNCATEGORIZED_ID || rowTotals[r.id] > 0);
+    const visibleColItems = colItems.filter(
+      c => c.id !== UNCATEGORIZED_ID || visibleRowItems.some(r => (matrix[r.id]?.[c.id] || 0) > 0)
+    );
 
-  const handleClickDistItem = (dim: CategoryDimension, itemId: string) => {
-    const next = { ...filter };
-    if (dim === 'chapter') next.chapterIds = [itemId];
-    else if (dim === 'unit') next.unitIds = [itemId];
-    else if (dim === 'familiarity') next.familiarityIds = [itemId];
-    else if (dim === 'error_reason') next.errorReasonIds = [itemId];
-    setFilter(next);
+    // Compute Top 3 hotspots
+    const hotspots: Array<{
+      key: string;
+      rowName: string;
+      colName: string;
+      count: number;
+      pctText: string;
+    }> = [];
+    visibleRowItems.forEach(r => {
+      visibleColItems.forEach(c => {
+        const count = matrix[r.id]?.[c.id] || 0;
+        if (count > 0) {
+          hotspots.push({
+            key: `heat:${rowDim}:${r.id}|${colDim}:${c.id}`,
+            rowName: r.name,
+            colName: c.name,
+            count,
+            pctText: formatPct(count, step2Mistakes.length)
+          });
+        }
+      });
+    });
+    hotspots.sort((a, b) => b.count - a.count);
+
+    return {
+      rowDim,
+      colDim,
+      rowItems: visibleRowItems,
+      colItems: visibleColItems,
+      matrix,
+      rowTotals,
+      maxCellCount,
+      topHotspots: hotspots.slice(0, 3)
+    };
+  }, [heatmapPair, step2Mistakes, visibleChapters, visibleUnits, visibleErrorReasons, categories.familiarities, allAvailableTags, mistakeMatchesDimValue]);
+
+  const toggleChartSelectionKey = (key: string) => {
+    setManualUncheckedIds([]);
+    setChartSelectedKeys(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
   };
 
-  const handleClickCrossCell = (rowDim: CategoryDimension, rowId: string, colDim: CategoryDimension, colId: string) => {
-    const next = { ...filter };
-    if (rowDim === 'chapter') next.chapterIds = [rowId];
-    else if (rowDim === 'unit') next.unitIds = [rowId];
-    if (colDim === 'familiarity') next.familiarityIds = [colId];
-    else if (colDim === 'error_reason') next.errorReasonIds = [colId];
-    setFilter(next);
-    setActiveSection('workshop');
-  };
+  // STEP 3 Pool: mistakes matched by Step 2 AND (if user clicked any chart/heatmap items, union of those multi-selected buckets!)
+  const chartFilteredMistakes = useMemo(() => {
+    if (chartSelectedKeys.length === 0) return step2Mistakes;
+    return step2Mistakes.filter(m => {
+      return chartSelectedKeys.some(key => {
+        if (key.startsWith('dist:')) {
+          const rest = key.slice(5);
+          const sep = rest.indexOf(':');
+          const dim = rest.slice(0, sep) as CategoryDimension | 'tag';
+          const itemId = rest.slice(sep + 1);
+          return mistakeMatchesDimValue(m, dim, itemId);
+        }
+        if (key.startsWith('heat:')) {
+          const rest = key.slice(5);
+          const [rowPart, colPart] = rest.split('|');
+          if (!rowPart || !colPart) return false;
+          const rSep = rowPart.indexOf(':');
+          const cSep = colPart.indexOf(':');
+          const rDim = rowPart.slice(0, rSep) as CategoryDimension | 'tag';
+          const rId = rowPart.slice(rSep + 1);
+          const cDim = colPart.slice(0, cSep) as CategoryDimension | 'tag';
+          const cId = colPart.slice(cSep + 1);
+          return mistakeMatchesDimValue(m, rDim, rId) && mistakeMatchesDimValue(m, cDim, cId);
+        }
+        return false;
+      });
+    });
+  }, [step2Mistakes, chartSelectedKeys, mistakeMatchesDimValue]);
 
-  // Count images in selected mistakes for AI Prompt ZIP preview
+  const finalExportMistakes = useMemo(() => {
+    const uncheckedSet = new Set(manualUncheckedIds);
+    return chartFilteredMistakes.filter(m => !uncheckedSet.has(m.id));
+  }, [chartFilteredMistakes, manualUncheckedIds]);
+
+  const finalExportIds = useMemo(() => finalExportMistakes.map(m => m.id), [finalExportMistakes]);
+
   const selectedMediaSummary = useMemo(() => {
     let qImgCount = 0;
     let aImgCount = 0;
-    selectedMistakes.forEach(m => {
+    finalExportMistakes.forEach(m => {
       const media = extractMistakeMediaAndText(m);
       qImgCount += media.qImages.length;
       aImgCount += media.aImages.length;
     });
     return { qImgCount, aImgCount, totalImages: qImgCount + aImgCount };
-  }, [selectedMistakes]);
+  }, [finalExportMistakes]);
 
   const previewPromptText = useMemo(() => {
-    return renderPromptWithMistakes(selectedPromptTemplate.content, selectedMistakes, categories);
-  }, [selectedPromptTemplate.content, selectedMistakes, categories]);
+    return renderPromptWithMistakes(selectedPromptTemplate.content, finalExportMistakes, categories);
+  }, [selectedPromptTemplate.content, finalExportMistakes, categories]);
 
   const handleCopyPromptText = async () => {
     try {
@@ -516,9 +608,10 @@ export default function SubjectAnalyticsWorkshop({
     setTimeout(() => setCopiedPrompt(false), 2000);
   };
 
+  // FIXED: Package ONLY ONE prompt file (00_AI提詞與錯題清單.txt) + images/ + short README (zero duplicate prompt!)
   const handleDownloadAiPromptZip = async () => {
-    if (selectedMistakes.length === 0) {
-      showToast('請先勾選至少一道錯題再打包 AI 提詞包', 'info');
+    if (finalExportMistakes.length === 0) {
+      showToast('請先在上方圖表或清單確認至少一道錯題', 'info');
       return;
     }
 
@@ -531,13 +624,13 @@ export default function SubjectAnalyticsWorkshop({
       let downloadedCount = 0;
       let failedCount = 0;
 
-      for (let i = 0; i < selectedMistakes.length; i++) {
-        const m = selectedMistakes[i];
+      for (let i = 0; i < finalExportMistakes.length; i++) {
+        const m = finalExportMistakes[i];
         const qNum = String(i + 1).padStart(2, '0');
         const media = extractMistakeMediaAndText(m);
         const mapping: MistakeZipImageMapping = { questionFiles: [], answerFiles: [] };
 
-        setZipProgress(`正在打包第 ${i + 1} / ${selectedMistakes.length} 題的圖片素材...`);
+        setZipProgress(`正在打包第 ${i + 1} / ${finalExportMistakes.length} 題的圖片素材...`);
 
         for (let qi = 0; qi < media.qImages.length; qi++) {
           const fetched = await fetchImageAsBlob(media.qImages[qi]);
@@ -566,35 +659,25 @@ export default function SubjectAnalyticsWorkshop({
         zipImageMap[m.id] = mapping;
       }
 
-      setZipProgress('正在寫入 AI 提詞檔並壓縮 ZIP...');
+      setZipProgress('正在寫入單一 AI 提詞檔並壓縮 ZIP...');
 
       const finalPromptText = renderPromptWithMistakes(
         selectedPromptTemplate.content,
-        selectedMistakes,
+        finalExportMistakes,
         categories,
         zipImageMap
       );
 
+      // Single prompt file ONLY (fixes duplicate .txt + .md issue!)
       zip.file('00_AI提詞與錯題清單.txt', finalPromptText);
-      zip.file('00_AI提詞與錯題清單.md', finalPromptText);
       zip.file(
-        '使用說明_如何丟給AI分析.txt',
+        'README_上傳AI說明.txt',
         [
-          '=== POBI STUDIO AI 提詞包使用說明 ===',
+          '=== POBI STUDIO 外部 AI 提示資料包使用說明 ===',
+          `科目：${subjectName}｜提詞範本：${selectedPromptTemplate.name}｜題數：${finalExportMistakes.length} 題｜圖片：${downloadedCount} 張`,
           '',
-          `科目：${subjectName}`,
-          `套用提詞模板：${selectedPromptTemplate.name}`,
-          `收錄錯題數：${selectedMistakes.length} 題`,
-          `附帶圖片數：${downloadedCount} 張（位於 images/ 資料夾內）`,
-          '',
-          '【推薦用法（免解壓縮直接上傳）】',
-          '1. 開啟 ChatGPT、Gemini 或 Claude 對話視窗。',
-          '2. 點擊「上傳檔案 / 迴紋針圖示」，直接選取整個 .zip 壓縮檔上傳。',
-          '3. 在訊息框輸入：「請閱讀壓縮檔內的 00_AI提詞與錯題清單.txt，並結合 images 資料夾內的所有題目與解析圖片，依照提詞指示幫我深度分析。」',
-          '',
-          '【若使用的 AI 工具不支援直接上傳 ZIP】',
-          '1. 先解壓縮本檔案。',
-          '2. 複製 00_AI提詞與錯題清單.txt 內容貼到對話框，並將 images/ 裡的圖片一併附上即可。'
+          '用法：直接將整份 .zip 檔上傳給 ChatGPT / Gemini / Claude，並輸入：',
+          '「請閱讀壓縮檔中的 00_AI提詞與錯題清單.txt，並搭配 images 資料夾內的所有題目與解析圖片進行分析。」'
         ].join('\n')
       );
 
@@ -603,26 +686,20 @@ export default function SubjectAnalyticsWorkshop({
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       a.href = url;
-      a.download = `PobiNotes_${subjectName}_AI提詞包_${dateStr}.zip`;
+      a.download = `PobiNotes_${subjectName}_AI提示資料包_${dateStr}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      if (failedCount > 0) {
-        showToast(
-          `AI 提詞包 ZIP 已下載（含 ${selectedMistakes.length} 題與 ${downloadedCount} 張圖片，另有 ${failedCount} 張外部圖片無法讀取）`,
-          'info'
-        );
-      } else {
-        showToast(
-          `AI 提詞包 ZIP 已下載（含 ${selectedMistakes.length} 題、${downloadedCount} 張題目/解析圖片與提詞檔）`,
-          'success'
-        );
-      }
+      showToast(
+        failedCount > 0
+          ? `外部 AI 提示資料包已下載（1 份提詞檔 + ${downloadedCount} 張圖片，${failedCount} 張外部圖片無法讀取）`
+          : `外部 AI 提示資料包已下載（1 份提詞檔 + ${downloadedCount} 張圖片，無重複檔案）`,
+        'success'
+      );
     } catch (err: any) {
-      console.error('打包 AI 提詞包失敗:', err);
-      showToast(err?.message || '打包 AI 提詞包失敗，請重試', 'error');
+      showToast(err?.message || '打包失敗，請重試', 'error');
     } finally {
       setPackingZip(false);
       setZipProgress('');
@@ -630,373 +707,307 @@ export default function SubjectAnalyticsWorkshop({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="subject-analytics-workshop">
-      {/* 1. Primary Screen: Advanced Multi-Dimensional Filter Panel (No-Print) */}
-      <div className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#FFFFFF' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={18} style={{ color: '#B45309' }} />
-            <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, color: '#1C1917' }}>
-              《{subjectName}》進階多維度篩選
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} data-testid="subject-analytics-workshop">
+      {/* =================================================================
+          STEP 1: 詢問分析依據模式（章節與單元 / 熟悉度與錯因 / 自訂標籤）
+         ================================================================= */}
+      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="pobi-step-pill">步驟 1</span>
+            <h3 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              您想以哪種方式分析《{subjectName}》的錯題？
+            </h3>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            本科共 {subjectMistakes.length} 題
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+          {[
+            {
+              id: 'hierarchy' as AnalysisMode,
+              title: '1. 章節與單元模式',
+              desc: '依章節與細部小單元勾選範圍，檢視各單元弱點分布',
+              icon: FolderTree
+            },
+            {
+              id: 'diagnosis' as AnalysisMode,
+              title: '2. 熟悉度與錯因模式',
+              desc: '依熟悉度（順／卡／不會／誤解）與失分錯因精準篩選',
+              icon: Activity
+            },
+            {
+              id: 'tags' as AnalysisMode,
+              title: '3. 自訂標籤模式',
+              desc: '依您自訂的考點或考卷標籤（如 #段考、#必考）彙整',
+              icon: Tag
+            }
+          ].map(card => {
+            const Icon = card.icon;
+            const active = analysisMode === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => handleChangeAnalysisMode(card.id)}
+                data-testid={`workshop-mode-${card.id}`}
+                className={`pobi-mode-card ${active ? 'is-selected' : ''}`}
+                style={{
+                  padding: '13px 15px',
+                  borderRadius: '11px',
+                  border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                  backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '11px'
+                }}
+              >
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '9px',
+                    backgroundColor: active ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
+                    color: active ? '#FFFFFF' : 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <Icon size={17} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>{card.title}</div>
+                  <div style={{ fontSize: '0.77rem', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.45 }}>
+                    {card.desc}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* =================================================================
+          STEP 2: 勾選範圍（可多選）並查看統計圖表（可多選圖表項目）
+         ================================================================= */}
+      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="pobi-step-pill">步驟 2</span>
+            <h3 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              勾選分析範圍（可多選），並檢視統計圖表
             </h3>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {hasAnySubFilter && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-                onClick={resetFilters}
-                data-testid="workshop-reset-filters-btn"
-              >
-                <RotateCcw size={14} /> 重設篩選
-              </button>
-            )}
-            <span
-              style={{
-                padding: '5px 12px',
-                borderRadius: '20px',
-                backgroundColor: '#FFFBEB',
-                border: '1px solid #F59E0B',
-                color: '#92400E',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                fontVariantNumeric: 'tabular-nums'
-              }}
-            >
-              篩選範圍：{filteredMistakes.length} / {subjectMistakes.length} 題
+            <div style={{ position: 'relative', minWidth: '180px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="input"
+                style={{ paddingLeft: '30px', height: '34px', fontSize: '0.82rem' }}
+                placeholder="關鍵字過濾..."
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+              />
+            </div>
+            <span className="pobi-tag-chip" style={{ fontWeight: 700, fontSize: '0.82rem' }}>
+              範圍共 {step2Mistakes.length} 題
             </span>
           </div>
         </div>
 
-        {/* Keyword + Date Range */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: '1 1 220px' }}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              className="input"
-              style={{ paddingLeft: '36px', height: '36px', fontSize: '0.86rem' }}
-              placeholder="搜尋標題、題幹、解析或標籤關鍵字..."
-              value={filter.keyword}
-              onChange={e => setFilter({ ...filter, keyword: e.target.value })}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>日期：</span>
-            <input
-              type="date"
-              className="input"
-              style={{ width: '140px', height: '36px', padding: '4px 8px', fontSize: '0.82rem' }}
-              value={filter.fromDate}
-              onChange={e => setFilter({ ...filter, fromDate: e.target.value })}
-            />
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>至</span>
-            <input
-              type="date"
-              className="input"
-              style={{ width: '140px', height: '36px', padding: '4px 8px', fontSize: '0.82rem' }}
-              value={filter.toDate}
-              onChange={e => setFilter({ ...filter, toDate: e.target.value })}
-            />
-            {(filter.fromDate || filter.toDate) && (
-              <button
-                type="button"
-                className="btn btn-text"
-                style={{ fontSize: '0.78rem', padding: '4px 6px' }}
-                onClick={() => setFilter({ ...filter, fromDate: '', toDate: '' })}
-              >
-                清除
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Cascading Multi-Select Pill Rows */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', borderTop: '1px solid var(--glass-border)', paddingTop: '12px' }}>
-          <WorkshopFilterRow
-            label="章節"
-            items={visibleChapters.map(c => ({ id: c.id, name: c.name, inactive: c.is_active === 0 }))}
-            selectedIds={filter.chapterIds}
-            uncategorizedLabel="未分類章節"
-            onToggle={id => toggleFilterId('chapterIds', id)}
-            onClear={() => setFilter({ ...filter, chapterIds: [], unitIds: [] })}
-          />
-
-          {visibleUnits.length > 0 && (
-            <WorkshopFilterRow
-              label="單元"
-              items={visibleUnits.map(u => {
-                const chap = visibleChapters.find(c => c.id === u.parent_id);
-                return {
-                  id: u.id,
-                  name: filter.chapterIds.length === 1 ? u.name : `${chap ? chap.name + ' / ' : ''}${u.name}`,
-                  inactive: u.is_active === 0
-                };
-              })}
-              selectedIds={filter.unitIds}
-              uncategorizedLabel="未分類單元"
-              onToggle={id => toggleFilterId('unitIds', id)}
-              onClear={() => setFilter({ ...filter, unitIds: [] })}
-            />
+        {/* Dynamic Multi-Select Scope Pills based on Step 1 Mode */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 14px', borderRadius: '10px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)' }}>
+          {analysisMode === 'hierarchy' && (
+            <>
+              <MultiSelectPillRow
+                label="章節（多選）"
+                items={visibleChapters.map(c => ({ id: c.id, name: c.name }))}
+                selectedIds={selectedChapterIds}
+                uncategorizedLabel="未分類章節"
+                onToggle={id => toggleItem(selectedChapterIds, setSelectedChapterIds, id)}
+                onClear={() => {
+                  setSelectedChapterIds([]);
+                  setSelectedUnitIds([]);
+                  setChartSelectedKeys([]);
+                }}
+              />
+              {visibleUnits.length > 0 && (
+                <MultiSelectPillRow
+                  label="小單元（多選）"
+                  items={visibleUnits.map(u => {
+                    const ch = visibleChapters.find(c => c.id === u.parent_id);
+                    return { id: u.id, name: ch ? `${ch.name} / ${u.name}` : u.name };
+                  })}
+                  selectedIds={selectedUnitIds}
+                  uncategorizedLabel="未指定小單元"
+                  onToggle={id => toggleItem(selectedUnitIds, setSelectedUnitIds, id)}
+                  onClear={() => {
+                    setSelectedUnitIds([]);
+                    setChartSelectedKeys([]);
+                  }}
+                />
+              )}
+            </>
           )}
 
-          <WorkshopFilterRow
-            label="熟悉度"
-            items={categories.familiarities.map(f => ({ id: f.id, name: f.name, inactive: f.is_active === 0 }))}
-            selectedIds={filter.familiarityIds}
-            uncategorizedLabel="尚未設定"
-            onToggle={id => toggleFilterId('familiarityIds', id)}
-            onClear={() => setFilter({ ...filter, familiarityIds: [] })}
-          />
+          {analysisMode === 'diagnosis' && (
+            <>
+              <MultiSelectPillRow
+                label="熟悉度（多選）"
+                items={categories.familiarities.map(f => ({ id: f.id, name: f.name }))}
+                selectedIds={selectedFamiliarityIds}
+                uncategorizedLabel="尚未設定熟悉度"
+                onToggle={id => toggleItem(selectedFamiliarityIds, setSelectedFamiliarityIds, id)}
+                onClear={() => {
+                  setSelectedFamiliarityIds([]);
+                  setChartSelectedKeys([]);
+                }}
+              />
+              <MultiSelectPillRow
+                label="錯因（多選）"
+                items={visibleErrorReasons.map(r => ({ id: r.id, name: r.name }))}
+                selectedIds={selectedErrorReasonIds}
+                uncategorizedLabel="未標記錯因"
+                onToggle={id => toggleItem(selectedErrorReasonIds, setSelectedErrorReasonIds, id)}
+                onClear={() => {
+                  setSelectedErrorReasonIds([]);
+                  setChartSelectedKeys([]);
+                }}
+              />
+            </>
+          )}
 
-          <WorkshopFilterRow
-            label="錯因"
-            items={visibleErrorReasons.map(r => ({ id: r.id, name: r.name, inactive: r.is_active === 0 }))}
-            selectedIds={filter.errorReasonIds}
-            uncategorizedLabel="未標記錯因"
-            onToggle={id => toggleFilterId('errorReasonIds', id)}
-            onClear={() => setFilter({ ...filter, errorReasonIds: [] })}
-          />
-
-          {allAvailableTags.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '56px', fontWeight: 600 }}>標籤：</span>
-              {allAvailableTags.map(tag => {
-                const active = filter.tags.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleFilterId('tags', tag)}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.78rem',
-                      borderRadius: '14px',
-                      cursor: 'pointer',
-                      border: active ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                      background: active ? '#FDE68A' : 'var(--glass-bg)',
-                      color: active ? '#1C1917' : 'var(--text-secondary)',
-                      fontWeight: active ? 700 : 500
-                    }}
-                  >
-                    #{tag}
-                  </button>
-                );
-              })}
-            </div>
+          {analysisMode === 'tags' && (
+            <MultiSelectPillRow
+              label="自訂標籤（多選）"
+              items={allAvailableTags.map(t => ({ id: t, name: `#${t}` }))}
+              selectedIds={selectedTags}
+              uncategorizedLabel="未標記標籤"
+              onToggle={id => toggleItem(selectedTags, setSelectedTags, id)}
+              onClear={() => {
+                setSelectedTags([]);
+                setChartSelectedKeys([]);
+              }}
+            />
           )}
         </div>
 
-        {/* 2. Two Prominent Action Buttons right after Filtering */}
+        {/* Chart Multi-Selection Status Bar */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '12px',
-            paddingTop: '12px',
-            borderTop: '1.5px solid rgba(180, 83, 9, 0.16)'
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: '1px solid var(--warning-border)',
+            backgroundColor: 'var(--warning-bg)',
+            color: 'var(--warning-text)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+            fontSize: '0.83rem'
           }}
         >
-          <button
-            type="button"
-            onClick={() => setActiveSection('diagnostics')}
-            data-testid="workshop-btn-diagnostics"
-            style={{
-              padding: '13px 16px',
-              borderRadius: '11px',
-              border: activeSection === 'diagnostics' ? '2px solid #D97706' : '1.5px solid var(--glass-border)',
-              backgroundColor: activeSection === 'diagnostics' ? '#FFFBEB' : '#FAF7F0',
-              color: activeSection === 'diagnostics' ? '#92400E' : '#44403C',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              textAlign: 'left',
-              boxShadow: activeSection === 'diagnostics' ? '0 4px 12px rgba(180, 83, 9, 0.14)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <BarChart3 size={20} style={{ color: activeSection === 'diagnostics' ? '#B45309' : '#78716C', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>1. 學習診斷</div>
-                <div style={{ fontSize: '0.76rem', color: '#57534E', marginTop: '2px' }}>分類占比圖表與雙維度熱度表</div>
-              </div>
-            </div>
-            {activeSection === 'diagnostics' && <Check size={18} style={{ color: '#B45309', flexShrink: 0 }} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSection('workshop')}
-            data-testid="workshop-btn-workshop"
-            style={{
-              padding: '13px 16px',
-              borderRadius: '11px',
-              border: activeSection === 'workshop' ? '2px solid #D97706' : '1.5px solid var(--glass-border)',
-              backgroundColor: activeSection === 'workshop' ? '#FFFBEB' : '#FAF7F0',
-              color: activeSection === 'workshop' ? '#92400E' : '#44403C',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              textAlign: 'left',
-              boxShadow: activeSection === 'workshop' ? '0 4px 12px rgba(180, 83, 9, 0.14)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <ListChecks size={20} style={{ color: activeSection === 'workshop' ? '#B45309' : '#78716C', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>2. 錯題清單與工坊（{filteredMistakes.length} 題）</div>
-                <div style={{ fontSize: '0.76rem', color: '#57534E', marginTop: '2px' }}>AI 提詞包（打包 ZIP）與匯出 A4 練習卷</div>
-              </div>
-            </div>
-            {activeSection === 'workshop' && <Check size={18} style={{ color: '#B45309', flexShrink: 0 }} />}
-          </button>
+          <div>
+            <strong>互動多選提示：</strong>
+            點擊下方「分類占比項目」或「熱度表方格」可<strong>複選多個弱點範圍</strong>送往步驟 3 匯出（目前：
+            {chartSelectedKeys.length > 0
+              ? `已於圖表勾選 ${chartSelectedKeys.length} 個項目 -> 共 ${chartFilteredMistakes.length} 題`
+              : `尚未限定子項，預設帶入步驟 2 全部 ${step2Mistakes.length} 題`}
+            ）。
+          </div>
+          {chartSelectedKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setChartSelectedKeys([])}
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+              data-testid="workshop-clear-chart-selection-btn"
+            >
+              <RotateCcw size={13} /> 清除圖表多選
+            </button>
+          )}
         </div>
-      </div>
 
-      {/* =======================================================
-          MODE 1: 學習診斷（分類占比 + 熱度表）
-         ======================================================= */}
-      {activeSection === 'diagnostics' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-diagnostics-view">
-          {/* Overview Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-            <div className="glass" style={{ padding: '14px 16px', borderLeft: '4px solid #8B5A2B', backgroundColor: '#FFFFFF' }}>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>篩選錯題總數</div>
-              <div style={{ fontSize: '1.55rem', fontWeight: 800, marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
-                {overviewStats.total} <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>題</span>
-              </div>
+        {/* Chart A: Distribution Chart (Multi-selectable Bars / Donut) */}
+        <div style={{ padding: '16px 18px', borderRadius: '12px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <BarChart3 size={17} style={{ color: 'var(--accent-secondary)' }} />
+              <span>分類占比圖表（點擊項目可多選）</span>
             </div>
-            {categories.familiarities
-              .filter(f => f.is_active === 1)
-              .map(f => {
-                const count = overviewStats.famCounts[f.id] || 0;
-                const borderColor =
-                  f.color === 'success' ? '#4D7C0F' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#8B5A2B';
-                return (
-                  <div
-                    key={f.id}
-                    className="glass"
-                    onClick={() => handleClickDistItem('familiarity', f.id)}
-                    style={{ padding: '14px 16px', borderLeft: `4px solid ${borderColor}`, cursor: 'pointer', backgroundColor: '#FFFFFF' }}
-                    title="點擊篩選此熟悉度錯題"
-                  >
-                    <div style={{ fontSize: '0.78rem', color: borderColor, fontWeight: 700 }}>熟悉度：{f.name}</div>
-                    <div style={{ fontSize: '1.45rem', fontWeight: 800, marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
-                      {count} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>題</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                        ({formatPct(count, overviewStats.total)})
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {([
+                { key: 'chapter', label: '章節' },
+                { key: 'unit', label: '單元' },
+                { key: 'familiarity', label: '熟悉度' },
+                { key: 'error_reason', label: '錯因' },
+                { key: 'tag', label: '自訂標籤' }
+              ] as Array<{ key: CategoryDimension | 'tag'; label: string }>).map(d => (
+                <button
+                  key={d.key}
+                  type="button"
+                  onClick={() => setDistDimension(d.key)}
+                  className={`btn ${distDimension === d.key ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                >
+                  {d.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setChartType(chartType === 'bar' ? 'pie' : 'bar')}
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+              >
+                {chartType === 'bar' ? <PieChart size={14} /> : <BarChart3 size={14} />}
+                <span>{chartType === 'bar' ? '切換圓餅圖' : '切換長條圖'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Category Distribution (分類占比) */}
-          <div className="glass" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#FFFFFF' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700 }}>分類占比統計</h3>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  分母：{distributionData.denominatorLabel}｜點擊任一項目可直接套用篩選
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                {([
-                  { key: 'chapter', label: '按章節' },
-                  { key: 'unit', label: '按單元' },
-                  { key: 'familiarity', label: '按熟悉度' },
-                  { key: 'error_reason', label: '按錯因' }
-                ] as Array<{ key: CategoryDimension; label: string }>).map(d => (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => setDistDimension(d.key)}
-                    className={`btn ${distDimension === d.key ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '5px 11px', fontSize: '0.8rem' }}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setChartType('bar')}
-                  className={`btn ${chartType === 'bar' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '5px 9px', fontSize: '0.78rem' }}
-                >
-                  <BarChart3 size={14} /> 長條圖
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartType('pie')}
-                  className={`btn ${chartType === 'pie' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '5px 9px', fontSize: '0.78rem' }}
-                >
-                  <PieChart size={14} /> 圓餅圖
-                </button>
-              </div>
+          {step2Mistakes.length === 0 ? (
+            <div style={{ padding: '26px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
+              <AlertCircle size={22} style={{ margin: '0 auto 6px auto', display: 'block' }} />
+              此範圍目前尚無錯題資料
             </div>
-
-            {distDimension === 'error_reason' && categories.errorReasonMode === 'multi' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', fontSize: '0.8rem' }}>
-                <span>
-                  {errorStatMode === 'involvement'
-                    ? '目前採用「涉及率（題數占比）」：單題可多選錯因，總和可能超過 100%。'
-                    : '目前採用「標籤占比（次數占比）」：除以所有錯因標籤出現總次數，總和為 100%。'}
-                </span>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setErrorStatMode('involvement')}
-                    className={`btn ${errorStatMode === 'involvement' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '4px 10px', fontSize: '0.76rem' }}
-                  >
-                    涉及率
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setErrorStatMode('tag_share')}
-                    className={`btn ${errorStatMode === 'tag_share' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '4px 10px', fontSize: '0.76rem' }}
-                  >
-                    標籤占比
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {filteredMistakes.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--glass-border)', borderRadius: '10px' }}>
-                <AlertCircle size={24} style={{ margin: '0 auto 6px auto', display: 'block' }} />
-                目前篩選條件尚無錯題資料
-              </div>
-            ) : chartType === 'bar' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {distributionData.rows.map(row => (
+          ) : chartType === 'bar' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {distributionData.map(row => {
+                const isPicked = chartSelectedKeys.includes(row.key);
+                return (
                   <div
-                    key={row.id}
-                    onClick={() => handleClickDistItem(distDimension, row.id)}
+                    key={row.key}
+                    onClick={() => toggleChartSelectionKey(row.key)}
+                    data-testid={`chart-dist-item-${row.id}`}
                     style={{
+                      padding: '10px 13px',
+                      borderRadius: '9px',
+                      border: isPicked ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                      backgroundColor: isPicked ? 'var(--warning-bg)' : 'var(--bg-secondary)',
+                      cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '5px',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FAF7F0',
-                      border: '1px solid var(--glass-border)',
-                      cursor: 'pointer'
+                      gap: '6px'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.86rem' }}>
-                      <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: row.color }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                        {isPicked ? (
+                          <CheckSquare size={15} style={{ color: 'var(--accent-secondary)' }} />
+                        ) : (
+                          <Square size={15} style={{ color: 'var(--text-muted)' }} />
+                        )}
+                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: row.color }} />
                         <span>{row.name}</span>
                       </span>
                       <span style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -1004,570 +1015,667 @@ export default function SubjectAnalyticsWorkshop({
                         <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>({row.pctText})</span>
                       </span>
                     </div>
-                    <div style={{ width: '100%', height: '7px', background: 'rgba(120, 113, 108, 0.14)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, Math.max(0, row.pct))}%`, height: '100%', background: row.color, borderRadius: '4px' }} />
+                    <div style={{ width: '100%', height: '7px', backgroundColor: 'rgba(148, 163, 184, 0.22)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(100, Math.max(0, row.pct))}%`, height: '100%', backgroundColor: row.color, borderRadius: '4px' }} />
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'center', padding: '12px 0' }}>
-                <WorkshopDonutChart
-                  rows={distributionData.rows}
-                  totalLabel={`${filteredMistakes.length} 題`}
-                  onSelectSlice={id => handleClickDistItem(distDimension, id)}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', minWidth: '240px', flex: 1 }}>
-                  {distributionData.rows.map(row => (
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'center', padding: '10px 0' }}>
+              <WorkshopDonutChart
+                rows={distributionData}
+                totalLabel={`${step2Mistakes.length} 題`}
+                selectedKeys={chartSelectedKeys}
+                onSelectKey={toggleChartSelectionKey}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', minWidth: '240px', flex: 1 }}>
+                {distributionData.map(row => {
+                  const isPicked = chartSelectedKeys.includes(row.key);
+                  return (
                     <div
-                      key={row.id}
-                      onClick={() => handleClickDistItem(distDimension, row.id)}
+                      key={row.key}
+                      onClick={() => toggleChartSelectionKey(row.key)}
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        padding: '7px 11px',
-                        borderRadius: '7px',
-                        backgroundColor: '#FAF7F0',
-                        border: '1px solid var(--glass-border)',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: isPicked ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                        backgroundColor: isPicked ? 'var(--warning-bg)' : 'var(--bg-secondary)',
                         cursor: 'pointer',
-                        fontSize: '0.84rem'
+                        fontSize: '0.84rem',
+                        color: 'var(--text-primary)'
                       }}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: row.color }} />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                        {isPicked ? <CheckSquare size={14} style={{ color: 'var(--accent-secondary)' }} /> : <Square size={14} style={{ color: 'var(--text-muted)' }} />}
+                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: row.color }} />
                         <span>{row.name}</span>
                       </span>
                       <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                         <strong>{row.count} 題</strong> ({row.pctText})
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Heatmap (雙維度交叉分析熱度表) */}
-          <div className="glass" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#FFFFFF' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Grid size={17} style={{ color: '#B45309' }} />
-                  雙維度弱點熱度表
-                </h3>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  點擊任一熱度儲存格，立即篩選該弱點組合並切換至「錯題清單與工坊」
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                {([
-                  { key: 'chapter_fam', label: '章節 × 熟悉度' },
-                  { key: 'chapter_reason', label: '章節 × 錯因' },
-                  { key: 'unit_reason', label: '單元 × 錯因' }
-                ] as const).map(pair => (
-                  <button
-                    key={pair.key}
-                    type="button"
-                    onClick={() => setCrossPair(pair.key)}
-                    className={`btn ${crossPair === pair.key ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                  >
-                    {pair.label}
-                  </button>
-                ))}
-                <select
-                  className="input"
-                  style={{ width: 'auto', padding: '5px 9px', fontSize: '0.78rem', height: '32px' }}
-                  value={crossDenomMode}
-                  onChange={e => setCrossDenomMode(e.target.value as 'total' | 'row')}
-                >
-                  <option value="total">分母：篩選總題數</option>
-                  <option value="row">分母：各列小計</option>
-                </select>
+                  );
+                })}
               </div>
             </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1.5px solid var(--glass-border)', color: 'var(--text-secondary)' }}>
-                    <th style={{ padding: '9px', textAlign: 'left' }}>列 \ 欄</th>
-                    {crossData.colItems.map(col => (
-                      <th key={col.id} style={{ padding: '9px', textAlign: 'center' }}>{col.name}</th>
-                    ))}
-                    <th style={{ padding: '9px', textAlign: 'center' }}>小計</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {crossData.rowItems.map(row => {
-                    const rowSum = crossData.rowTotals[row.id] || 0;
-                    return (
-                      <tr key={row.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                        <td style={{ padding: '9px', fontWeight: 600 }}>{row.name}</td>
-                        {crossData.colItems.map(col => {
-                          const val = crossData.matrix[row.id]?.[col.id] || 0;
-                          const denom = crossDenomMode === 'total' ? filteredMistakes.length : rowSum;
-                          const intensity = crossData.maxCellCount > 0 ? (val / crossData.maxCellCount) * 0.48 : 0;
-                          return (
-                            <td
-                              key={col.id}
-                              onClick={() => handleClickCrossCell(crossData.rowDim, row.id, crossData.colDim, col.id)}
-                              style={{
-                                padding: '9px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                background: val > 0 ? `rgba(217, 119, 6, ${0.08 + intensity})` : 'transparent',
-                                border: '1px solid var(--glass-border)',
-                                fontVariantNumeric: 'tabular-nums'
-                              }}
-                              title={`點擊篩選「${row.name} × ${col.name}」並進入工坊`}
-                            >
-                              <div style={{ fontWeight: val > 0 ? 700 : 400, color: val > 0 ? '#1C1917' : 'var(--text-muted)' }}>
-                                {val} 題
-                              </div>
-                              <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
-                                {formatPct(val, denom)}
-                              </div>
-                            </td>
-                          );
-                        })}
-                        <td style={{ padding: '9px', textAlign: 'center', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                          {rowSum} 題
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {/* =======================================================
-          MODE 2: 錯題清單與工坊（1. AI 提詞包 ZIP / 2. 匯出練習卷）
-         ======================================================= */}
-      {activeSection === 'workshop' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-action-view">
-          {/* Selectable Mistake Scope List (No-Print) */}
-          <div className="glass no-print" style={{ padding: '16px 20px', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ListChecks size={17} style={{ color: '#B45309' }} />
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
-                  已篩選錯題清單（已勾選 {selectedMistakes.length} / {filteredMistakes.length} 題）
-                </h3>
+        {/* Chart B: Visually Friendly Weakness Heatmap (Requirement 5) */}
+        <div
+          data-testid="workshop-visual-heatmap"
+          style={{
+            padding: '18px 20px',
+            borderRadius: '12px',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--glass-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <Flame size={18} style={{ color: '#EA580C' }} />
+                <span>視覺化弱點熱度圖（點擊色塊可複選多組弱點）</span>
               </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                  onClick={() => setSelectedIds(filteredMistakes.map(m => m.id))}
-                >
-                  全選 ({filteredMistakes.length})
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                  onClick={() => setSelectedIds([])}
-                >
-                  取消全選
-                </button>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                色塊越暖越深代表失分集中度越高，可直接點選多個熱度格加入匯出範圍
               </div>
             </div>
 
-            {filteredMistakes.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
-                目前篩選條件下沒有符合的錯題，請調整上方篩選條件。
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
-                {filteredMistakes.map(m => {
-                  const checked = selectedIds.includes(m.id);
-                  const media = extractMistakeMediaAndText(m);
-                  const imgTotal = media.qImages.length + media.aImages.length;
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              {([
+                { key: 'chapter_fam', label: '章節 × 熟悉度' },
+                { key: 'chapter_reason', label: '章節 × 錯因' },
+                { key: 'unit_reason', label: '單元 × 錯因' },
+                { key: 'fam_reason', label: '熟悉度 × 錯因' },
+                { key: 'tag_fam', label: '標籤 × 熟悉度' }
+              ] as Array<{ key: HeatmapPair; label: string }>).map(pair => (
+                <button
+                  key={pair.key}
+                  type="button"
+                  onClick={() => setHeatmapPair(pair.key)}
+                  className={`btn ${heatmapPair === pair.key ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '4px 10px', fontSize: '0.76rem' }}
+                >
+                  {pair.label}
+                </button>
+              ))}
+              <select
+                className="input"
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '0.76rem', height: '30px' }}
+                value={crossDenomMode}
+                onChange={e => setCrossDenomMode(e.target.value as 'total' | 'row')}
+              >
+                <option value="total">比例分母：總題數</option>
+                <option value="row">比例分母：該列小計</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Top 3 Hotspots Summary Cards */}
+          {heatmapData.topHotspots.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+              {heatmapData.topHotspots.map((spot, idx) => {
+                const isPicked = chartSelectedKeys.includes(spot.key);
+                return (
+                  <button
+                    key={spot.key}
+                    type="button"
+                    onClick={() => toggleChartSelectionKey(spot.key)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: isPicked ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                      backgroundColor: isPicked ? 'var(--warning-bg)' : 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#EA580C' }}>
+                        最需優先補強 #{idx + 1}
+                      </div>
+                      <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {spot.rowName} × {spot.colName}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>{spot.count} 題</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{spot.pctText}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Visual Heat Scale Legend */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            <span style={{ fontWeight: 700 }}>熱度色階：</span>
+            {[
+              { cls: 'pobi-heat-cell-0', text: '0 題' },
+              { cls: 'pobi-heat-cell-1', text: '輕微' },
+              { cls: 'pobi-heat-cell-2', text: '中等' },
+              { cls: 'pobi-heat-cell-3', text: '偏高' },
+              { cls: 'pobi-heat-cell-4', text: '高熱度弱點' }
+            ].map(lg => (
+              <span key={lg.cls} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span className={lg.cls} style={{ width: '16px', height: '16px', borderRadius: '4px', display: 'inline-block', border: '1px solid var(--glass-border)' }} />
+                <span>{lg.text}</span>
+              </span>
+            ))}
+          </div>
+
+          {/* Rounded Tile Heatmap Matrix */}
+          {heatmapData.rowItems.length === 0 || heatmapData.colItems.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+              尚無足夠資料可繪製弱點熱度圖
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', paddingBottom: '4px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `minmax(130px, 180px) repeat(${heatmapData.colItems.length}, minmax(88px, 1fr)) 74px`,
+                  gap: '8px',
+                  alignItems: 'stretch',
+                  minWidth: `${Math.max(520, 220 + heatmapData.colItems.length * 96)}px`
+                }}
+              >
+                {/* Column Headers */}
+                <div style={{ padding: '6px 8px', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                  項目 \ 維度
+                </div>
+                {heatmapData.colItems.map(col => (
+                  <div key={col.id} style={{ padding: '6px 4px', textAlign: 'center', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                    {col.name}
+                  </div>
+                ))}
+                <div style={{ padding: '6px 4px', textAlign: 'center', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  小計
+                </div>
+
+                {/* Rows */}
+                {heatmapData.rowItems.map(row => {
+                  const rowSum = heatmapData.rowTotals[row.id] || 0;
                   return (
-                    <div
-                      key={m.id}
-                      data-testid={`workshop-mistake-card-${m.id}`}
-                      onClick={() => toggleSelectMistake(m.id)}
-                      style={{
-                        padding: '12px 13px',
-                        borderRadius: '10px',
-                        border: checked ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-                        backgroundColor: checked ? '#FFFBEB' : '#FAF7F0',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', minWidth: 0 }}>
-                          {checked ? (
-                            <CheckSquare size={16} style={{ color: '#B45309', flexShrink: 0, marginTop: '2px' }} />
-                          ) : (
-                            <Square size={16} style={{ color: '#78716C', flexShrink: 0, marginTop: '2px' }} />
-                          )}
-                          <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1C1917', wordBreak: 'break-word' }}>
-                            {m.title}
-                          </span>
-                        </div>
-                        <div style={{ display: 'inline-flex', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                          {onEditMistake && (
-                            <button
-                              type="button"
-                              onClick={() => onEditMistake(m)}
-                              style={{ background: 'none', border: 'none', color: '#57534E', cursor: 'pointer', padding: '2px' }}
-                              title="編輯錯題"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                          )}
-                          {onDeleteMistake && (
-                            <button
-                              type="button"
-                              onClick={() => onDeleteMistake(m)}
-                              style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', padding: '2px' }}
-                              title="刪除錯題"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
+                    <div key={row.id} style={{ display: 'contents' }}>
+                      <div
+                        style={{
+                          padding: '10px 10px',
+                          borderRadius: '9px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--glass-border)',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {row.name}
                       </div>
 
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', paddingLeft: '23px' }}>
-                        {m.chapter_name && (
-                          <span style={{ fontSize: '0.72rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 600 }}>
-                            {m.chapter_name}{m.unit_name ? ` / ${m.unit_name}` : ''}
-                          </span>
-                        )}
-                        {m.familiarity_name && (
-                          <span style={{ fontSize: '0.72rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#ECFDF5', color: '#047857', fontWeight: 600 }}>
-                            {m.familiarity_name}
-                          </span>
-                        )}
-                        {imgTotal > 0 && (
-                          <span style={{ fontSize: '0.72rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            <ImageIcon size={11} /> {imgTotal} 張圖
-                          </span>
-                        )}
-                      </div>
+                      {heatmapData.colItems.map(col => {
+                        const val = heatmapData.matrix[row.id]?.[col.id] || 0;
+                        const denom = crossDenomMode === 'total' ? step2Mistakes.length : rowSum;
+                        const heat = getHeatLevel(val, heatmapData.maxCellCount);
+                        const cellKey = `heat:${heatmapData.rowDim}:${row.id}|${heatmapData.colDim}:${col.id}`;
+                        const isPicked = chartSelectedKeys.includes(cellKey);
+                        const pctVal = denom > 0 ? Math.min(100, Math.round((val / denom) * 100)) : 0;
 
-                      {/* Question Text Snippet */}
-                      {media.qDesc && (
-                        <div
-                          style={{
-                            paddingLeft: '23px',
-                            fontSize: '0.79rem',
-                            color: '#57534E',
-                            lineHeight: 1.5,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          {media.qDesc}
-                        </div>
-                      )}
-
-                      {/* Visible Question & Answer Image Thumbnails (click to zoom) */}
-                      {imgTotal > 0 && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: '8px',
-                            flexWrap: 'wrap',
-                            paddingLeft: '23px',
-                            paddingTop: '2px'
-                          }}
-                          onClick={e => e.stopPropagation()}
-                          data-testid={`workshop-mistake-images-${m.id}`}
-                        >
-                          {media.qImages.map((src, idx) => (
-                            <div
-                              key={`q-${idx}`}
-                              onClick={() => onImageClick?.(src)}
-                              title="點擊放大檢視題目圖片"
-                              style={{
-                                position: 'relative',
-                                width: '84px',
-                                height: '64px',
-                                borderRadius: '7px',
-                                overflow: 'hidden',
-                                border: '1.5px solid #D97706',
-                                backgroundColor: '#FFFFFF',
-                                cursor: onImageClick ? 'zoom-in' : 'default',
-                                flexShrink: 0
-                              }}
-                            >
-                              <img
-                                src={src}
-                                alt={`題目圖 ${idx + 1}`}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                              />
+                        return (
+                          <button
+                            key={cellKey}
+                            type="button"
+                            disabled={val === 0}
+                            onClick={() => toggleChartSelectionKey(cellKey)}
+                            data-testid={`heatmap-cell-${row.id}-${col.id}`}
+                            className={`pobi-heat-tile ${heat.className} ${isPicked ? 'is-selected' : ''}`}
+                            style={{
+                              position: 'relative',
+                              padding: '10px 6px',
+                              borderRadius: '10px',
+                              border: isPicked ? '2.5px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                              cursor: val > 0 ? 'pointer' : 'default',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '3px',
+                              transition: 'transform 0.14s ease, box-shadow 0.14s ease',
+                              fontVariantNumeric: 'tabular-nums'
+                            }}
+                            title={val > 0 ? `點擊切換選取「${row.name} × ${col.name}」(${val} 題)` : `${row.name} × ${col.name}：0 題`}
+                          >
+                            {isPicked && (
                               <span
                                 style={{
                                   position: 'absolute',
-                                  left: '3px',
-                                  bottom: '3px',
-                                  fontSize: '0.64rem',
-                                  fontWeight: 700,
-                                  padding: '0 4px',
-                                  borderRadius: '3px',
-                                  backgroundColor: 'rgba(28, 25, 23, 0.78)',
-                                  color: '#FFFFFF'
+                                  top: '4px',
+                                  right: '4px',
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'var(--accent-secondary)',
+                                  color: '#FFFFFF',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
                                 }}
                               >
-                                題{media.qImages.length > 1 ? idx + 1 : ''}
+                                <Check size={10} strokeWidth={3} />
                               </span>
-                            </div>
-                          ))}
+                            )}
+                            <span style={{ fontSize: val > 0 ? '1.05rem' : '0.84rem', fontWeight: val > 0 ? 800 : 500, opacity: val > 0 ? 1 : 0.45 }}>
+                              {val}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', opacity: val > 0 ? 0.88 : 0.4 }}>
+                              {val > 0 ? `${pctVal}%` : '-'}
+                            </span>
+                          </button>
+                        );
+                      })}
 
-                          {media.aImages.map((src, idx) => (
-                            <div
-                              key={`a-${idx}`}
-                              onClick={() => onImageClick?.(src)}
-                              title="點擊放大檢視解析圖片"
-                              style={{
-                                position: 'relative',
-                                width: '84px',
-                                height: '64px',
-                                borderRadius: '7px',
-                                overflow: 'hidden',
-                                border: '1.5px solid #10B981',
-                                backgroundColor: '#FFFFFF',
-                                cursor: onImageClick ? 'zoom-in' : 'default',
-                                flexShrink: 0
-                              }}
-                            >
-                              <img
-                                src={src}
-                                alt={`解析圖 ${idx + 1}`}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                              />
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  left: '3px',
-                                  bottom: '3px',
-                                  fontSize: '0.64rem',
-                                  fontWeight: 700,
-                                  padding: '0 4px',
-                                  borderRadius: '3px',
-                                  backgroundColor: 'rgba(4, 120, 87, 0.85)',
-                                  color: '#FFFFFF'
-                                }}
-                              >
-                                解{media.aImages.length > 1 ? idx + 1 : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '9px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--glass-border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          color: 'var(--text-secondary)',
+                          fontVariantNumeric: 'tabular-nums'
+                        }}
+                      >
+                        {rowSum} 題
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Two Workshop Sub-Mode Switcher (No-Print) */}
-          <div
-            className="no-print"
-            style={{
-              display: 'flex',
-              gap: '10px',
-              flexWrap: 'wrap',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid var(--glass-border)'
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setWorkshopMode('ai_zip')}
-              data-testid="workshop-submode-ai-zip"
-              className={`btn ${workshopMode === 'ai_zip' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{
-                padding: '9px 18px',
-                fontSize: '0.88rem',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px'
-              }}
-            >
-              <Sparkles size={16} />
-              <span>1. AI 提詞包（圖片＋提詞打包 ZIP）</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setWorkshopMode('exam_paper')}
-              data-testid="workshop-submode-exam-paper"
-              className={`btn ${workshopMode === 'exam_paper' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{
-                padding: '9px 18px',
-                fontSize: '0.88rem',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px'
-              }}
-            >
-              <Printer size={16} />
-              <span>2. 匯出練習卷（A4 防跨頁切割）</span>
-            </button>
-          </div>
-
-          {/* Sub-Mode 1: AI 提詞包 (ZIP) */}
-          {workshopMode === 'ai_zip' && (
-            <div className="glass no-print" style={{ padding: '20px 22px', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-ai-zip-panel">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, color: '#1C1917', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Package size={18} style={{ color: '#B45309' }} />
-                    AI 提詞包（題目 / 解析圖片＋提詞一鍵打包 ZIP）
-                  </h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    已選 {selectedMistakes.length} 題，將自動打包 {selectedMediaSummary.qImgCount} 張題目圖、{selectedMediaSummary.aImgCount} 張解析圖與所選 AI 提詞至同一個 .zip 檔。
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={handleCopyPromptText}
-                    disabled={selectedMistakes.length === 0}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: '0.84rem', fontWeight: 600 }}
-                  >
-                    {copiedPrompt ? <Check size={15} /> : <Copy size={15} />}
-                    <span>{copiedPrompt ? '已複製文字' : '僅複製純文字提詞'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDownloadAiPromptZip}
-                    disabled={packingZip || selectedMistakes.length === 0}
-                    data-testid="download-ai-prompt-zip-btn"
-                    className="btn btn-primary"
-                    style={{
-                      padding: '9px 18px',
-                      fontSize: '0.88rem',
-                      fontWeight: 700,
-                      background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
-                      color: '#FFFFFF',
-                      border: '1px solid #B45309',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '7px'
-                    }}
-                  >
-                    {packingZip ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>{zipProgress || '打包中...'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Package size={16} />
-                        <span>打包下載 AI 提詞包 (.zip)</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* How to feed ZIP to AI explanation */}
-              <div style={{ padding: '12px 14px', borderRadius: '10px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', fontSize: '0.82rem', color: '#78350F', lineHeight: 1.6, display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <HelpCircle size={17} style={{ color: '#D97706', flexShrink: 0, marginTop: '2px' }} />
-                <div>
-                  <strong>如何把下載好的 ZIP 直接丟給 AI 分析？</strong>
-                  下載後不需手動解壓縮，直接打開 ChatGPT / Gemini / Claude 對話框，點擊上傳檔案選擇這份 <code>.zip</code>，並輸入：「請閱讀裡面的 <code>00_AI提詞與錯題清單.txt</code>，並搭配 <code>images/</code> 的題目與解析圖片幫我分析」。
-                </div>
-              </div>
-
-              {/* Select Prompt Template (synced with AI 提詞管理) */}
-              <div>
-                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1C1917', marginBottom: '8px' }}>
-                  選擇要打包的 AI 提詞模板（可於左側「AI 提詞管理」新增或自訂模板）：
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-                  {allPromptTemplates.map(tpl => {
-                    const active = tpl.id === selectedPromptTemplate.id;
-                    return (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        onClick={() => setActivePromptTemplateId(tpl.id)}
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: '9px',
-                          border: active ? '2px solid #D97706' : '1px solid var(--glass-border)',
-                          backgroundColor: active ? '#FFFBEB' : '#FAF7F0',
-                          color: '#1C1917',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '3px'
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, fontSize: '0.86rem', color: active ? '#92400E' : '#1C1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                          <span>{tpl.name}</span>
-                          {tpl.isRecommended && (
-                            <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#D97706', color: '#FFFFFF' }}>推薦</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#57534E', lineHeight: 1.4 }}>{tpl.description}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Live Prompt Preview */}
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  提詞內容預覽（打包 ZIP 時會自動補上對應圖片路徑）：
-                </div>
-                <textarea
-                  readOnly
-                  value={previewPromptText}
-                  className="input"
-                  style={{ minHeight: '190px', fontSize: '0.82rem', lineHeight: 1.55, fontFamily: 'monospace', resize: 'vertical' }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Mode 2: 匯出練習卷 (A4, no cross-page cut, all images rendered, no quick-answer table) */}
-          {workshopMode === 'exam_paper' && (
-            <div data-testid="workshop-exam-paper-panel">
-              <ExportPDF
-                embedded
-                mistakeIds={selectedIds}
-                initialMistakes={selectedMistakes}
-                defaultSubjectName={subjectName}
-                onImageClick={onImageClick}
-              />
             </div>
           )}
         </div>
-      )}
+      </section>
+
+      {/* =================================================================
+          STEP 3: 根據圖表勾選範圍，確認題目（含圖片縮圖）並決定匯出 AI 資料包或考卷
+         ================================================================= */}
+      <section className="glass" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-step3-section">
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="pobi-step-pill">步驟 3</span>
+            <h3 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              確認題目清單（已選 {finalExportMistakes.length} / {chartFilteredMistakes.length} 題），並匯出資料包或考卷
+            </h3>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+              onClick={() => setManualUncheckedIds([])}
+            >
+              全選 ({chartFilteredMistakes.length})
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+              onClick={() => setManualUncheckedIds(chartFilteredMistakes.map(m => m.id))}
+            >
+              取消全選
+            </button>
+          </div>
+        </div>
+
+        {/* Selectable Mistake Cards WITH Visible Question & Answer Image Thumbnails */}
+        <div className="no-print">
+          {chartFilteredMistakes.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem', border: '1px dashed var(--glass-border)', borderRadius: '10px' }}>
+              目前範圍沒有符合的錯題，請於步驟 1 或步驟 2 調整篩選條件。
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              {chartFilteredMistakes.map(m => {
+                const checked = !manualUncheckedIds.includes(m.id);
+                const media = extractMistakeMediaAndText(m);
+                const imgTotal = media.qImages.length + media.aImages.length;
+
+                return (
+                  <div
+                    key={m.id}
+                    data-testid={`workshop-mistake-card-${m.id}`}
+                    onClick={() =>
+                      setManualUncheckedIds(prev =>
+                        prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id]
+                      )
+                    }
+                    style={{
+                      padding: '12px 13px',
+                      borderRadius: '10px',
+                      border: checked ? '1.5px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                      backgroundColor: checked ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', minWidth: 0 }}>
+                        {checked ? (
+                          <CheckSquare size={16} style={{ color: 'var(--accent-secondary)', flexShrink: 0, marginTop: '2px' }} />
+                        ) : (
+                          <Square size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: '2px' }} />
+                        )}
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          {m.title}
+                        </span>
+                      </div>
+                      <div style={{ display: 'inline-flex', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        {onEditMistake && (
+                          <button
+                            type="button"
+                            onClick={() => onEditMistake(m)}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}
+                            title="編輯錯題"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        )}
+                        {onDeleteMistake && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMistake(m)}
+                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '2px' }}
+                            title="刪除錯題"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', paddingLeft: '23px' }}>
+                      {m.chapter_name && (
+                        <span className="pobi-tag-chip">{m.chapter_name}{m.unit_name ? ` / ${m.unit_name}` : ''}</span>
+                      )}
+                      {m.familiarity_name && (
+                        <span className="pobi-tag-chip">熟悉度：{m.familiarity_name}</span>
+                      )}
+                      {imgTotal > 0 && (
+                        <span className="pobi-tag-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <ImageIcon size={11} /> {imgTotal} 張圖
+                        </span>
+                      )}
+                    </div>
+
+                    {media.qDesc && (
+                      <div
+                        style={{
+                          paddingLeft: '23px',
+                          fontSize: '0.79rem',
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.5,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {media.qDesc}
+                      </div>
+                    )}
+
+                    {imgTotal > 0 && (
+                      <div
+                        style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingLeft: '23px', paddingTop: '2px' }}
+                        onClick={e => e.stopPropagation()}
+                        data-testid={`workshop-mistake-images-${m.id}`}
+                      >
+                        {media.qImages.map((src, idx) => (
+                          <div
+                            key={`q-${idx}`}
+                            onClick={() => onImageClick?.(src)}
+                            title="點擊放大檢視題目圖片"
+                            style={{
+                              position: 'relative',
+                              width: '84px',
+                              height: '64px',
+                              borderRadius: '7px',
+                              overflow: 'hidden',
+                              border: '1.5px solid #D97706',
+                              backgroundColor: 'var(--bg-secondary)',
+                              cursor: onImageClick ? 'zoom-in' : 'default',
+                              flexShrink: 0
+                            }}
+                          >
+                            <img src={src} alt={`題目圖 ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <span style={{ position: 'absolute', left: '3px', bottom: '3px', fontSize: '0.64rem', fontWeight: 700, padding: '0 4px', borderRadius: '3px', backgroundColor: 'rgba(15, 23, 42, 0.82)', color: '#FFFFFF' }}>
+                              題{media.qImages.length > 1 ? idx + 1 : ''}
+                            </span>
+                          </div>
+                        ))}
+                        {media.aImages.map((src, idx) => (
+                          <div
+                            key={`a-${idx}`}
+                            onClick={() => onImageClick?.(src)}
+                            title="點擊放大檢視解析圖片"
+                            style={{
+                              position: 'relative',
+                              width: '84px',
+                              height: '64px',
+                              borderRadius: '7px',
+                              overflow: 'hidden',
+                              border: '1.5px solid #10B981',
+                              backgroundColor: 'var(--bg-secondary)',
+                              cursor: onImageClick ? 'zoom-in' : 'default',
+                              flexShrink: 0
+                            }}
+                          >
+                            <img src={src} alt={`解析圖 ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <span style={{ position: 'absolute', left: '3px', bottom: '3px', fontSize: '0.64rem', fontWeight: 700, padding: '0 4px', borderRadius: '3px', backgroundColor: 'rgba(4, 120, 87, 0.88)', color: '#FFFFFF' }}>
+                              解{media.aImages.length > 1 ? idx + 1 : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Step 3 Export Choice Buttons */}
+        <div
+          className="no-print"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--glass-border)'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setExportChoice('ai_zip')}
+            data-testid="workshop-submode-ai-zip"
+            style={{
+              padding: '13px 16px',
+              borderRadius: '11px',
+              border: exportChoice === 'ai_zip' ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+              backgroundColor: exportChoice === 'ai_zip' ? 'var(--warning-bg)' : 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Sparkles size={19} style={{ color: 'var(--accent-secondary)' }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.94rem' }}>匯出外部 AI 提示資料包 (.zip)</div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>單一提詞檔 + 所有題目／解析圖片打包</div>
+              </div>
+            </div>
+            <ArrowRight size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setExportChoice('exam_paper')}
+            data-testid="workshop-submode-exam-paper"
+            style={{
+              padding: '13px 16px',
+              borderRadius: '11px',
+              border: exportChoice === 'exam_paper' ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+              backgroundColor: exportChoice === 'exam_paper' ? 'var(--warning-bg)' : 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Printer size={19} style={{ color: 'var(--accent-secondary)' }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.94rem' }}>匯出考卷（A4 防跨頁切割）</div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>練習卷／解析卷 PDF 與行動系統列印</div>
+              </div>
+            </div>
+            <ArrowRight size={16} />
+          </button>
+        </div>
+
+        {/* Export Option 1: External AI Prompt ZIP */}
+        {exportChoice === 'ai_zip' && (
+          <div className="no-print" style={{ padding: '16px 18px', borderRadius: '12px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '14px' }} data-testid="workshop-ai-zip-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Package size={17} style={{ color: 'var(--accent-secondary)' }} />
+                  <span>外部 AI 提示資料包設定（共 {finalExportMistakes.length} 題 · {selectedMediaSummary.totalImages} 張圖）</span>
+                </div>
+                <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  內含 1 份完整提詞檔（<code>00_AI提詞與錯題清單.txt</code>，絕不重複包裝）與 <code>images/</code> 圖片資料夾。
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleCopyPromptText}
+                  disabled={finalExportMistakes.length === 0}
+                  className="btn btn-secondary"
+                  style={{ padding: '7px 13px', fontSize: '0.82rem' }}
+                >
+                  {copiedPrompt ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copiedPrompt ? '已複製文字' : '僅複製文字提詞'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadAiPromptZip}
+                  disabled={packingZip || finalExportMistakes.length === 0}
+                  data-testid="download-ai-prompt-zip-btn"
+                  className="btn btn-primary"
+                  style={{ padding: '8px 18px', fontSize: '0.86rem', fontWeight: 700 }}
+                >
+                  {packingZip ? <Loader2 size={15} className="animate-spin" /> : <Package size={15} />}
+                  <span>{packingZip ? zipProgress || '打包中...' : '打包下載外部 AI 提示資料包 (.zip)'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: '10px 12px', borderRadius: '9px', backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)', color: 'var(--warning-text)', fontSize: '0.8rem', lineHeight: 1.55, display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <HelpCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span>
+                下載後免解壓縮，直接將整個 <code>.zip</code> 上傳到 ChatGPT／Gemini／Claude 並請 AI 閱讀裡面的 <code>00_AI提詞與錯題清單.txt</code> 與 <code>images/</code> 圖片即可！
+              </span>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                選擇提詞範本（可至左側「AI 提詞管理」新增或客製化）：
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
+                {allPromptTemplates.map(tpl => {
+                  const active = tpl.id === selectedPromptTemplate.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => setActivePromptTemplateId(tpl.id)}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: '9px',
+                        border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                        backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        textAlign: 'left',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: '0.84rem', display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                        <span>{tpl.name}</span>
+                        {tpl.isRecommended && <span className="badge-recommended-tag">推薦</span>}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{tpl.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Option 2: Exam Paper */}
+        {exportChoice === 'exam_paper' && (
+          <div data-testid="workshop-exam-paper-panel">
+            <ExportPDF
+              embedded
+              mistakeIds={finalExportIds}
+              initialMistakes={finalExportMistakes}
+              defaultSubjectName={subjectName}
+              onImageClick={onImageClick}
+            />
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function WorkshopFilterRow({
+function MultiSelectPillRow({
   label,
   items,
   selectedIds,
@@ -1576,7 +1684,7 @@ function WorkshopFilterRow({
   onClear
 }: {
   label: string;
-  items: Array<{ id: string; name: string; inactive?: boolean }>;
+  items: Array<{ id: string; name: string }>;
   selectedIds: string[];
   uncategorizedLabel: string;
   onToggle: (id: string) => void;
@@ -1584,22 +1692,13 @@ function WorkshopFilterRow({
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' }}>
-      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '56px', fontWeight: 600 }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '88px', fontWeight: 700 }}>
         {label}：
       </span>
       <button
         type="button"
         onClick={onClear}
-        style={{
-          padding: '4px 10px',
-          fontSize: '0.78rem',
-          borderRadius: '14px',
-          cursor: 'pointer',
-          border: selectedIds.length === 0 ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-          background: selectedIds.length === 0 ? '#FDE68A' : 'var(--glass-bg)',
-          color: selectedIds.length === 0 ? '#1C1917' : 'var(--text-secondary)',
-          fontWeight: selectedIds.length === 0 ? 700 : 500
-        }}
+        className={`pobi-filter-pill ${selectedIds.length === 0 ? 'is-active' : ''}`}
       >
         全部
       </button>
@@ -1610,35 +1709,16 @@ function WorkshopFilterRow({
             key={item.id}
             type="button"
             onClick={() => onToggle(item.id)}
-            style={{
-              padding: '4px 10px',
-              fontSize: '0.78rem',
-              borderRadius: '14px',
-              cursor: 'pointer',
-              border: active ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
-              background: active ? '#FDE68A' : 'var(--glass-bg)',
-              color: active ? '#1C1917' : 'var(--text-primary)',
-              fontWeight: active ? 700 : 500,
-              opacity: item.inactive ? 0.6 : 1
-            }}
+            className={`pobi-filter-pill ${active ? 'is-active' : ''}`}
           >
             {item.name}
-            {item.inactive ? ' (停用)' : ''}
           </button>
         );
       })}
       <button
         type="button"
         onClick={() => onToggle(UNCATEGORIZED_ID)}
-        style={{
-          padding: '4px 10px',
-          fontSize: '0.78rem',
-          borderRadius: '14px',
-          cursor: 'pointer',
-          border: `1px solid ${selectedIds.includes(UNCATEGORIZED_ID) ? '#f59e0b' : 'var(--glass-border)'}`,
-          background: selectedIds.includes(UNCATEGORIZED_ID) ? 'rgba(245, 158, 11, 0.2)' : 'var(--glass-bg)',
-          color: selectedIds.includes(UNCATEGORIZED_ID) ? '#b45309' : 'var(--text-muted)'
-        }}
+        className={`pobi-filter-pill ${selectedIds.includes(UNCATEGORIZED_ID) ? 'is-active' : ''}`}
       >
         {uncategorizedLabel}
       </button>
@@ -1649,11 +1729,13 @@ function WorkshopFilterRow({
 function WorkshopDonutChart({
   rows,
   totalLabel,
-  onSelectSlice
+  selectedKeys,
+  onSelectKey
 }: {
-  rows: Array<{ id: string; name: string; count: number; pct: number; color: string }>;
+  rows: Array<{ key: string; name: string; count: number; color: string }>;
   totalLabel: string;
-  onSelectSlice: (id: string) => void;
+  selectedKeys: string[];
+  onSelectKey: (key: string) => void;
 }) {
   const sumCounts = rows.reduce((acc, r) => acc + r.count, 0);
   const radius = 68;
@@ -1662,7 +1744,7 @@ function WorkshopDonutChart({
 
   return (
     <svg width="190" height="190" viewBox="0 0 200 200">
-      <circle cx="100" cy="100" r={radius} fill="transparent" stroke="rgba(120, 113, 108, 0.14)" strokeWidth="26" />
+      <circle cx="100" cy="100" r={radius} fill="transparent" stroke="rgba(148, 163, 184, 0.2)" strokeWidth="26" />
       {sumCounts > 0 &&
         rows.map(row => {
           if (row.count <= 0) return null;
@@ -1670,27 +1752,28 @@ function WorkshopDonutChart({
           const dash = fraction * circumference;
           const offset = -accumulated * circumference;
           accumulated += fraction;
+          const active = selectedKeys.includes(row.key);
           return (
             <circle
-              key={row.id}
+              key={row.key}
               cx="100"
               cy="100"
               r={radius}
               fill="transparent"
               stroke={row.color}
-              strokeWidth="26"
+              strokeWidth={active ? '32' : '26'}
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={offset}
               transform="rotate(-90 100 100)"
-              style={{ cursor: 'pointer' }}
-              onClick={() => onSelectSlice(row.id)}
+              style={{ cursor: 'pointer', transition: 'stroke-width 0.15s' }}
+              onClick={() => onSelectKey(row.key)}
             >
-              <title>{`${row.name}: ${row.count} 題`}</title>
+              <title>{`${row.name}: ${row.count} 題（點擊多選）`}</title>
             </circle>
           );
         })}
       <text x="100" y="96" textAnchor="middle" fill="var(--text-secondary)" fontSize="12">
-        篩選總計
+        範圍總計
       </text>
       <text x="100" y="118" textAnchor="middle" fill="var(--text-primary)" fontSize="18" fontWeight="bold">
         {totalLabel}

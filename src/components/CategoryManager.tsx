@@ -346,10 +346,14 @@ export default function CategoryManager({
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      const effectiveMode =
+        deleteMode === 'unassign' && ['subject', 'chapter', 'unit'].includes(deleteTarget.dimension)
+          ? 'move_to_uncategorized'
+          : deleteMode;
       const params = new URLSearchParams({
         id: deleteTarget.id,
         dimension: deleteTarget.dimension,
-        mode: deleteMode
+        mode: effectiveMode
       });
       if (deleteMode === 'reassign' && reassignTargetId) {
         params.set('targetId', reassignTargetId);

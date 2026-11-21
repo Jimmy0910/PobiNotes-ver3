@@ -4,8 +4,7 @@ import { apiRequest } from '../utils/api';
 import {
   type CategoriesBundle,
   type MistakeRecord,
-  buildNextReviewMeta,
-  getMistakeReviewMeta
+  buildNextReviewMeta
 } from '../types';
 import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import {
@@ -18,8 +17,6 @@ import {
   Eye,
   CheckCircle2,
   RotateCcw,
-  Clock,
-  ArrowRight,
   Loader2
 } from 'lucide-react';
 
@@ -71,10 +68,6 @@ export default function DailyReviewModal({
 
   const content = useMemo(() => {
     return currentMistake ? extractCardContent(currentMistake) : null;
-  }, [currentMistake]);
-
-  const currentMeta = useMemo(() => {
-    return currentMistake ? getMistakeReviewMeta(currentMistake) : null;
   }, [currentMistake]);
 
   const currentSubjectSchedule = useMemo(() => {
@@ -258,7 +251,7 @@ export default function DailyReviewModal({
               </div>
               <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>今日複習任務完成</h3>
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', maxWidth: '400px', lineHeight: 1.6 }}>
-                本次共完成 {completedCount} 道錯題重測，系統已依據您的熟練度自動排定下次間隔複習日期並記錄於單題進步軌跡。
+                本次共完成 {completedCount} 道錯題重測，系統已依據該科熟悉度設定自動排定下次間隔複習日期。
               </p>
               <button
                 type="button"
@@ -271,34 +264,21 @@ export default function DailyReviewModal({
             </div>
           ) : currentMistake && content ? (
             <>
-              {/* Subject/Chapter + History Trail */}
+              {/* Subject/Chapter Badges */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   {currentMistake.subject_name && (
-                    <span style={{ padding: '2px 8px', borderRadius: '5px', backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '0.76rem', fontWeight: 700 }}>
+                    <span className="pobi-tag-chip" style={{ fontSize: '0.76rem', fontWeight: 700 }}>
                       {currentMistake.subject_name}
                     </span>
                   )}
                   {currentMistake.chapter_name && (
-                    <span style={{ padding: '2px 8px', borderRadius: '5px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', fontSize: '0.76rem', fontWeight: 600 }}>
+                    <span className="pobi-tag-chip" style={{ fontSize: '0.76rem', fontWeight: 600 }}>
                       {currentMistake.chapter_name}
                       {currentMistake.unit_name ? ` / ${currentMistake.unit_name}` : ''}
                     </span>
                   )}
                 </div>
-
-                {currentMeta && currentMeta.history.length > 0 && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-                    <Clock size={12} />
-                    <span>歷程：</span>
-                    {currentMeta.history.slice(-4).map((h, i, arr) => (
-                      <span key={h.timestamp + '-' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                        <span>{h.date.slice(5)} {h.familiarityName}</span>
-                        {i < arr.length - 1 && <ArrowRight size={11} />}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Title & Question */}

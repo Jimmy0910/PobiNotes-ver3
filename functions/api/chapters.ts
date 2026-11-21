@@ -184,6 +184,10 @@ export const onRequestDelete: PagesFunction<Env, any, UserContext> = async (cont
 
     if (mode === 'purge') {
       await env.DB.prepare(`DELETE FROM mistakes WHERE chapter_id = ? AND (user_id = ? OR user_id IS NULL)`).bind(id, userId).run();
+    } else if (mode === 'move_to_uncategorized') {
+      await env.DB.prepare(
+        `UPDATE mistakes SET subject_id = NULL, chapter_id = NULL, unit_id = NULL, updated_at = ? WHERE chapter_id = ? AND (user_id = ? OR user_id IS NULL)`
+      ).bind(now, id, userId).run();
     } else if (mode === 'reassign' && targetId && targetId !== 'uncategorized') {
       const targetChap = await env.DB.prepare(`SELECT subject_id FROM chapters WHERE id = ?`).bind(targetId).first() as any;
       await env.DB.prepare(

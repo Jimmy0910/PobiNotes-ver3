@@ -4,7 +4,6 @@ import {
   type CategoriesBundle,
   type MistakeRecord,
   buildNextReviewMeta,
-  getMistakeReviewMeta,
   isMistakeDueForReview
 } from '../types';
 import {
@@ -17,6 +16,7 @@ import MistakeEditor from './MistakeEditor';
 import ImageAnnotatorModal from './ImageAnnotatorModal';
 import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
 import SharePackModal from './SharePackModal';
+import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import CategoryManager from './CategoryManager';
 import SubjectDailyReviewPanel from './SubjectDailyReviewPanel';
 import SubjectAnalyticsWorkshop from './SubjectAnalyticsWorkshop';
@@ -32,8 +32,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Share2,
-  Clock,
-  ArrowRight,
   Tag,
   Plus,
   X,
@@ -54,7 +52,7 @@ function resolveImg(key?: string): string {
     key.startsWith('blob:') ||
     key.startsWith('http://') ||
     key.startsWith('https://') ||
-    key.startsWith('/api/images/')
+    key.startsWith('/')
   ) {
     return key;
   }
@@ -246,6 +244,8 @@ export default function NotebookOpenView({
   const [sharePackOverride, setSharePackOverride] = useState<{ title: string; mistakes: MistakeRecord[] } | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
   const [chapterMenu, setChapterMenu] = useState<{ chapId: string; chapName: string; x: number; y: number } | null>(null);
+  const [deleteScopeTarget, setDeleteScopeTarget] = useState<DeleteScopeTarget | null>(null);
+  const [deletingScope, setDeletingScope] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selfTestMode, setSelfTestMode] = useState<boolean>(false); // 自測模式：預設展開解析，切換後隱藏解析
   const [expandedMistakeIds, setExpandedMistakeIds] = useState<Record<string, boolean>>({});
@@ -299,29 +299,57 @@ export default function NotebookOpenView({
     }
   };
 
-  const handleDeleteChapter = async (chapId: string, chapName: string) => {
+  const handleDeleteChapter = (chapId: string, chapName: string) => {
     const count = subjectMistakes.filter(m => m.chapter_id === chapId).length;
-    const ok = await confirmDialog({
-      title: '刪除章節確認',
-      message:
-        count > 0
-          ? `確定要刪除章節「${chapName}」嗎？此章節下有 ${count} 道錯題，刪除後錯題會安全保留於《${activeSubject.name}》未分類章節中。`
-          : `確定要刪除章節「${chapName}」嗎？`,
-      confirmText: '確認刪除',
-      cancelText: '取消',
-      danger: true
+    setDeleteScopeTarget({
+      dimension: 'chapter',
+      id: chapId,
+      name: chapName,
+      mistakeCount: count
     });
-    if (!ok) return;
+  };
+
+  const handleDeleteUnit = (unitId: string, unitName: string) => {
+    const count = subjectMistakes.filter(m => m.unit_id === unitId).length;
+    setDeleteScopeTarget({
+      dimension: 'unit',
+      id: unitId,
+      name: unitName,
+      mistakeCount: count
+    });
+  };
+
+  const handleConfirmDeleteScope = async (choice: 'move_to_uncategorized' | 'purge') => {
+    if (!deleteScopeTarget) return;
+    setDeletingScope(true);
     try {
-      await apiRequest(`/api/chapters?id=${chapId}&mode=unassign`, { method: 'DELETE' });
-      if (selectedChapterId === chapId) {
-        setSelectedChapterId(null);
-        setSelectedUnitId(null);
+      const apiMode = choice === 'purge' ? 'purge' : 'move_to_uncategorized';
+      if (deleteScopeTarget.dimension === 'chapter') {
+        await apiRequest(`/api/chapters?id=${deleteScopeTarget.id}&mode=${apiMode}`, { method: 'DELETE' });
+        if (selectedChapterId === deleteScopeTarget.id) {
+          setSelectedChapterId(null);
+          setSelectedUnitId(null);
+        }
+      } else if (deleteScopeTarget.dimension === 'unit') {
+        await apiRequest(`/api/categories?id=${deleteScopeTarget.id}&dimension=unit&mode=${apiMode}`, { method: 'DELETE' });
+        if (selectedUnitId === deleteScopeTarget.id) {
+          setSelectedUnitId(null);
+        }
       }
+      const deletedName = deleteScopeTarget.name;
+      const deletedDim = deleteScopeTarget.dimension === 'chapter' ? '章節' : '小單元';
+      setDeleteScopeTarget(null);
       await onRefreshAll?.();
-      showToast(`已刪除章節「${chapName}」`, 'success');
+      showToast(
+        choice === 'purge'
+          ? `已永久刪除${deletedDim}「${deletedName}」及底下題目`
+          : `已刪除${deletedDim}「${deletedName}」，題目已安全移至左側「未分類區」`,
+        'success'
+      );
     } catch (err: any) {
-      showToast(err?.message || '刪除章節失敗', 'error');
+      showToast(err?.message || '刪除失敗', 'error');
+    } finally {
+      setDeletingScope(false);
     }
   };
 
@@ -1414,7 +1442,7 @@ export default function NotebookOpenView({
                     style={{
                       background: 'none',
                       border: 'none',
-                      padding: '3px 8px 3px 3px',
+                      padding: '3px 4px 3px 3px',
                       color: isSelected ? '#92400E' : 'var(--text-muted)',
                       cursor: 'pointer',
                       display: 'inline-flex',
@@ -1423,6 +1451,26 @@ export default function NotebookOpenView({
                     title={`搬運單元「${unit.name}」（支援提升為章節或移至其他章節）`}
                   >
                     <Move size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`delete-unit-${unit.id}`}
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleDeleteUnit(unit.id, unit.name);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '3px 8px 3px 2px',
+                      color: '#DC2626',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                    title={`刪除小單元「${unit.name}」`}
+                  >
+                    <Trash2 size={12} />
                   </button>
                 </div>
               );
@@ -1602,54 +1650,6 @@ export default function NotebookOpenView({
                       </button>
                     </div>
                   </div>
-
-                  {/* Attempt History / Progress Trajectory */}
-                  {(() => {
-                    const reviewMeta = getMistakeReviewMeta(m);
-                    if (reviewMeta.history.length === 0) return null;
-                    return (
-                      <div
-                        data-testid={`attempt-history-${m.id}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: '8px',
-                          padding: '6px 10px',
-                          borderRadius: '7px',
-                          backgroundColor: '#FAF7F0',
-                          border: '1px solid rgba(180, 83, 9, 0.14)',
-                          fontSize: '0.75rem',
-                          color: '#57534E'
-                        }}
-                      >
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                          <Clock size={12} style={{ color: '#B45309' }} />
-                          <span style={{ fontWeight: 700, color: '#92400E' }}>進步軌跡：</span>
-                          {reviewMeta.history.slice(-5).map((attempt, aIdx, arr) => (
-                            <span key={attempt.timestamp + '-' + aIdx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <span
-                                style={{
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#FFFFFF',
-                                  border: '1px solid var(--glass-border)',
-                                  fontWeight: 600
-                                }}
-                              >
-                                {attempt.date.slice(5)} {attempt.familiarityName}
-                              </span>
-                              {aIdx < arr.length - 1 && <ArrowRight size={11} style={{ color: '#A8A29E' }} />}
-                            </span>
-                          ))}
-                        </div>
-                        <span style={{ color: '#78716C', fontVariantNumeric: 'tabular-nums' }}>
-                          下次複習：{reviewMeta.nextReviewDate}
-                        </span>
-                      </div>
-                    );
-                  })()}
 
                   {/* Question Content (Text & Images) */}
                   {(extracted.qDesc || extracted.qImages.length > 0) && (
@@ -1882,6 +1882,16 @@ export default function NotebookOpenView({
             await onRefreshAll?.();
             setScheduleTick(t => t + 1);
           }}
+        />
+      )}
+
+      {/* DELETE CHAPTER / UNIT SCOPE MODAL */}
+      {deleteScopeTarget && (
+        <DeleteScopeModal
+          target={deleteScopeTarget}
+          busy={deletingScope}
+          onCancel={() => setDeleteScopeTarget(null)}
+          onConfirm={handleConfirmDeleteScope}
         />
       )}
 

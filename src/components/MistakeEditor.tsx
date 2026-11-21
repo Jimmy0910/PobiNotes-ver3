@@ -8,7 +8,7 @@ import { Save, X, Image as ImageIcon, Loader2, Tag, Plus } from 'lucide-react';
 
 function resolveImageUrl(key?: string): string {
   if (!key) return '';
-  if (key.startsWith('data:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/api/images/')) {
+  if (key.startsWith('data:') || key.startsWith('blob:') || key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) {
     return key;
   }
   return `/api/images/${key}`;
@@ -50,7 +50,8 @@ export default function MistakeEditor({
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
   // Core metadata fields (Requirement 5)
-  const { showToast } = useUiFeedback();
+  const { showToast, confirmDialog } = useUiFeedback();
+  const [familiarityError, setFamiliarityError] = useState(false);
   const [title, setTitle] = useState('');
   const [mistakeDate, setMistakeDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [subjectId, setSubjectId] = useState<string>('');
@@ -378,6 +379,7 @@ export default function MistakeEditor({
   const handleFamiliaritySelect = (fId: string) => {
     const nextFId = familiarityId === fId ? '' : fId;
     setFamiliarityId(nextFId);
+    if (nextFId) setFamiliarityError(false);
 
     // Keep answerData clean from legacy mastery field
     setAnswerData(prev => {
@@ -391,6 +393,27 @@ export default function MistakeEditor({
     if (!title.trim()) {
       showToast('請輸入錯題名稱', 'error');
       return;
+    }
+
+    // Mandatory Familiarity check (強制勾選熟悉度)
+    if (!familiarityId) {
+      setFamiliarityError(true);
+      showToast('請先勾選「熟悉度」（順／卡／不會／誤解），此項目為必填！', 'error');
+      const famEl = document.getElementById('mistake-editor-familiarity-box');
+      if (famEl) famEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // Non-blocking Error Reason reminder when creating a new mistake
+    if (!mistake && errorReasonIds.length === 0) {
+      const proceedWithoutReason = await confirmDialog({
+        title: '尚未勾選「錯因」提醒',
+        message: '您還沒有勾選這道題目的「錯因標籤」（例如觀念模糊、粗心計算等）。補充錯因可讓後續的弱點分析更精準；此欄位非強制，確定要略過錯因直接儲存嗎？',
+        confirmText: '略過錯因，直接儲存',
+        cancelText: '返回勾選錯因',
+        danger: false
+      });
+      if (!proceedWithoutReason) return;
     }
 
     setLoading(true);
@@ -603,10 +626,27 @@ export default function MistakeEditor({
               </div>
             </div>
 
-            {/* Row 3: Familiarity (Single-select) & Error Reasons (Multi-select) */}
+            {/* Row 3: Familiarity (Required Single-select) & Error Reasons (Optional Multi-select with reminder) */}
             <div className="grid grid-cols-2" style={{ gap: '16px' }}>
-              <div>
-                <label className="form-label">4. 熟悉度（單選，再次點擊可取消）</label>
+              <div
+                id="mistake-editor-familiarity-box"
+                style={{
+                  padding: familiarityError ? '10px 12px' : '0',
+                  borderRadius: '10px',
+                  border: familiarityError ? '1.5px solid var(--danger)' : 'none',
+                  backgroundColor: familiarityError ? 'var(--danger-glow)' : 'transparent',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>4. 熟悉度</span>
+                  <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '0.78rem' }}>* 必選</span>
+                </label>
+                {familiarityError && (
+                  <div style={{ fontSize: '0.76rem', color: 'var(--danger)', fontWeight: 700, marginBottom: '6px' }} data-testid="editor-familiarity-required-warning">
+                    請先勾選本題的熟悉度（順／卡／不會／誤解）才能儲存。
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {categories.familiarities
                     .filter(f => f.is_active === 1 || f.id === familiarityId)
@@ -654,8 +694,11 @@ export default function MistakeEditor({
               </div>
 
               <div>
-                <label className="form-label">
-                  5. 錯因（{categories.errorReasonMode === 'single' ? '單選模式' : '可多選'}｜可用選單切換通用 / 特定科目 / 章節錯因）
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span>5. 錯因（{categories.errorReasonMode === 'single' ? '單選模式' : '可多選'}）</span>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--warning-text)', backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)', padding: '1px 7px', borderRadius: '999px' }}>
+                    建議勾選（非強制）
+                  </span>
                 </label>
 
                 {/* Dropdown Menus to filter scope (Global / Specific Subject / Specific Chapter) and pick Error Reason */}

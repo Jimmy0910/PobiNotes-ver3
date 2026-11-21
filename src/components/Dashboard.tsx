@@ -28,6 +28,7 @@ import {
 export type AppViewType =
   | 'bookshelf'
   | 'notebook'
+  | 'uncategorized'
   | 'all'
   | 'dashboard'
   | 'chapter'

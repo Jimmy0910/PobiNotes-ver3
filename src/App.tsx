@@ -2,15 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiRequest } from './utils/api';
 import {
   type CategoriesBundle,
-  type FilterState,
-  type MistakeRecord,
-  createEmptyFilterState
+  type MistakeRecord
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
 import PobiTutorialModal from './components/PobiTutorialModal';
 import BackupRestoreModal from './components/BackupRestoreModal';
 import SharedPackView from './components/SharedPackView';
+import UncategorizedView from './components/UncategorizedView';
 import { useUiFeedback } from './components/UiFeedbackProvider';
 import type { AppViewType } from './components/Dashboard';
 import PromptGenerator from './components/PromptGenerator';
@@ -85,10 +84,17 @@ export default function App() {
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
   const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('prompt');
 
-  // Global synchronized Categories & Mistakes state + persistent Filter state
+  // Global synchronized Categories & Mistakes state
   const [categories, setCategories] = useState<CategoriesBundle>(EMPTY_CATEGORIES);
   const [allMistakes, setAllMistakes] = useState<MistakeRecord[]>([]);
-  const [analyticsFilter, setAnalyticsFilter] = useState<FilterState>(() => createEmptyFilterState());
+
+  const uncategorizedCount = useMemo(() => {
+    const validSubjectIds = new Set(categories.subjects.map(s => s.id));
+    const validChapterIds = new Set(categories.chapters.map(c => c.id));
+    return allMistakes.filter(
+      m => !m.subject_id || !validSubjectIds.has(m.subject_id) || !m.chapter_id || !validChapterIds.has(m.chapter_id)
+    ).length;
+  }, [allMistakes, categories.subjects, categories.chapters]);
 
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -112,6 +118,7 @@ export default function App() {
 
   const currentViewTitle = useMemo(() => {
     if (activeView === 'bookshelf') return '我的數位書架';
+    if (activeView === 'uncategorized') return '未分類區';
     if (activeView === 'notebook') {
       const subj = categories.subjects.find(s => s.id === selectedSubjectId);
       return subj ? `${subj.name} 錯題手帳` : '錯題手帳';
@@ -180,7 +187,6 @@ export default function App() {
     } else {
       setCategories(EMPTY_CATEGORIES);
       setAllMistakes([]);
-      setAnalyticsFilter(createEmptyFilterState());
       setShowPobiTutorial(false);
     }
   }, [user, refreshAllData]);
@@ -244,20 +250,28 @@ export default function App() {
             mistake_date: yesterday,
             template_id: 'default-exam',
             template_fields: {
-              questionFields: [{ id: 'q_desc', label: '題幹內容', type: 'textarea' }],
-              answerFields: [{ id: 'a_desc', label: '完整解析', type: 'textarea' }]
+              questionFields: [
+                { id: 'q_desc', label: '題幹內容', type: 'textarea' },
+                { id: 'q_image', label: '題目圖片', type: 'image' }
+              ],
+              answerFields: [
+                { id: 'a_desc', label: '完整解析', type: 'textarea' },
+                { id: 'a_image', label: '詳解圖片', type: 'image' }
+              ]
             },
             data: {
               questionData: {
-                q_desc: '已知 f(x) = x^2 - 4x + 7，求在閉區間 [0, 3] 上的最大值與最小值。'
+                q_desc: '已知 f(x) = x^2 - 4x + 7，求在閉區間 [0, 3] 上的最大值與最小值。',
+                q_image: '/demo/parabola-q.png'
               },
               answerData: {
-                a_desc: '配方得 f(x) = (x - 2)^2 + 3，頂點 x = 2 在區間 [0, 3] 內，故最小值為 f(2) = 3；比較端點 f(0) = 7、f(3) = 4，最大值為 7。'
+                a_desc: '配方得 f(x) = (x - 2)^2 + 3，頂點 x = 2 在區間 [0, 3] 內，故最小值為 f(2) = 3；比較端點 f(0) = 7、f(3) = 4，最大值為 7。',
+                a_image: '/demo/parabola-a.png'
               },
               reviewMeta: {
                 nextReviewDate: yesterday,
-                reviewCount: 1,
-                history: [{ date: yesterday, timestamp: Date.now() - 86400000 * 2, familiarityId: 'fam-3', familiarityName: '不會' }]
+                reviewCount: 0,
+                history: []
               }
             },
             created_at: Date.now() - 86400000 * 2,
@@ -467,6 +481,7 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         user={user}
+        uncategorizedCount={uncategorizedCount}
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenGuide={() => {
@@ -610,7 +625,7 @@ export default function App() {
         <div className="main-layout binder-stage-container" style={{ display: 'flex', flex: 1, padding: 0 }}>
 
         {/* Bookshelf View (default fallback for any unmapped view) */}
-        {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
+        {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'uncategorized', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
           <div style={{ flex: 1, width: '100%' }}>
             <BookshelfView
               categories={categories}
@@ -636,6 +651,18 @@ export default function App() {
           </div>
         )}
 
+        {/* Uncategorized Staging View (未分類區) */}
+        {activeView === 'uncategorized' && (
+          <div style={{ flex: 1, width: '100%' }}>
+            <UncategorizedView
+              categories={categories}
+              allMistakes={allMistakes}
+              onRefreshAll={refreshAllData}
+              onImageClick={src => setZoomedImage(src)}
+            />
+          </div>
+        )}
+
         {/* Notebook Open View (Subject Hub: 查看錯題 / 每日複習 / 分析與工坊) */}
         {activeView === 'notebook' && selectedSubjectId && (
           <div style={{ flex: 1, width: '100%' }}>
@@ -653,12 +680,7 @@ export default function App() {
         )}
 
         {activeView === 'prompt' && (
-          <PromptGenerator
-            mistakes={allMistakes}
-            categories={categories}
-            filter={analyticsFilter}
-            preselectedMistakeIds={[]}
-          />
+          <PromptGenerator />
         )}
 
         {activeView === 'templates' && (

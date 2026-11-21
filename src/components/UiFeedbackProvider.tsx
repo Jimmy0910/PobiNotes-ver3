@@ -125,7 +125,7 @@ export function UiFeedbackProvider({ children }: { children: React.ReactNode }) 
             data-testid="ui-toast-stack"
             style={{
               position: 'fixed',
-              bottom: 'max(20px, env(safe-area-inset-bottom))',
+              top: '72px',
               right: '20px',
               left: 'auto',
               maxWidth: 'min(420px, calc(100vw - 32px))',
@@ -146,6 +146,7 @@ export function UiFeedbackProvider({ children }: { children: React.ReactNode }) 
               return (
                 <div
                   key={t.id}
+                  className={`pobi-toast-item pobi-toast-${t.type}`}
                   style={{
                     pointerEvents: 'auto',
                     backgroundColor: colors.bg,

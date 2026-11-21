@@ -9,7 +9,7 @@ export function resolveImgUrl(key?: string): string {
     trimmed.startsWith('blob:') ||
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
-    trimmed.startsWith('/api/images/')
+    trimmed.startsWith('/')
   ) {
     return trimmed;
   }
@@ -25,6 +25,7 @@ export function isLikelyImageValue(val: unknown): boolean {
     s.startsWith('http://') ||
     s.startsWith('https://') ||
     s.startsWith('/api/images/') ||
+    s.startsWith('/demo/') ||
     /\.(png|jpe?g|webp|gif|svg|bmp|heic)$/i.test(s) ||
     /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s)
   );

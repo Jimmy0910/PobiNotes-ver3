@@ -1,6 +1,7 @@
 import type { AppViewType } from './Dashboard';
 import {
   BookOpen,
+  Inbox,
   FileCode,
   Sparkles,
   Shield,
@@ -22,6 +23,7 @@ interface BinderSpineNavProps {
     username: string;
     is_admin: number;
   };
+  uncategorizedCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
   onOpenGuide: () => void;
@@ -36,18 +38,34 @@ export default function BinderSpineNav({
   collapsed,
   onToggleCollapse,
   user,
+  uncategorizedCount = 0,
   onOpenGuide,
   onOpenFeedback,
   onLogout,
   onOpenDeleteAccount
 }: BinderSpineNavProps) {
-  const navItems = [
+  const navItems: Array<{
+    id: AppViewType;
+    label: string;
+    testId: string;
+    icon: React.ReactNode;
+    active: boolean;
+    badge?: number;
+  }> = [
     {
       id: 'bookshelf' as AppViewType,
       label: '我的書架',
       testId: 'nav-bookshelf',
       icon: <BookOpen size={18} strokeWidth={1.8} />,
       active: activeView === 'bookshelf' || activeView === 'notebook'
+    },
+    {
+      id: 'uncategorized' as AppViewType,
+      label: '未分類區',
+      testId: 'nav-uncategorized',
+      icon: <Inbox size={18} strokeWidth={1.8} />,
+      active: activeView === 'uncategorized',
+      badge: uncategorizedCount > 0 ? uncategorizedCount : undefined
     },
     {
       id: 'templates' as AppViewType,
@@ -150,7 +168,23 @@ export default function BinderSpineNav({
               }}
             >
               <span className="binder-nav-icon">{item.icon}</span>
-              {!collapsed && <span className="binder-nav-label">{item.label}</span>}
+              {!collapsed && <span className="binder-nav-label" style={{ flex: 1 }}>{item.label}</span>}
+              {!collapsed && item.badge !== undefined && (
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--warning-bg)',
+                    border: '1px solid var(--warning-border)',
+                    color: 'var(--warning-text)',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>

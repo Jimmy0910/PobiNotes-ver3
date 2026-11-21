@@ -1033,6 +1033,10 @@ export const onRequestDelete: PagesFunction<Env, any, UserContext> = async (cont
       const chapSubjectId = chapInfo?.subject_id || null;
       if (mode === 'purge') {
         await env.DB.prepare(`DELETE FROM mistakes WHERE chapter_id = ? AND (user_id = ? OR user_id IS NULL)`).bind(id, userId).run();
+      } else if (mode === 'move_to_uncategorized') {
+        await env.DB.prepare(
+          `UPDATE mistakes SET subject_id = NULL, chapter_id = NULL, unit_id = NULL, updated_at = ? WHERE chapter_id = ? AND (user_id = ? OR user_id IS NULL)`
+        ).bind(now, id, userId).run();
       } else {
         let newChapId: string | null = null;
         let newSubjId: string | null = chapSubjectId;
@@ -1060,6 +1064,9 @@ export const onRequestDelete: PagesFunction<Env, any, UserContext> = async (cont
     } else if (dimension === 'unit') {
       if (mode === 'purge') {
         await env.DB.prepare(`DELETE FROM mistakes WHERE unit_id = ? AND user_id = ?`).bind(id, userId).run();
+      } else if (mode === 'move_to_uncategorized') {
+        await env.DB.prepare(`UPDATE mistakes SET subject_id = NULL, chapter_id = NULL, unit_id = NULL, updated_at = ? WHERE unit_id = ? AND user_id = ?`)
+          .bind(now, id, userId).run();
       } else {
         const newUnitId = (mode === 'reassign' && targetId && targetId !== 'uncategorized') ? targetId : null;
         await env.DB.prepare(`UPDATE mistakes SET unit_id = ?, updated_at = ? WHERE unit_id = ? AND user_id = ?`)

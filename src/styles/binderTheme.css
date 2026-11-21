@@ -2768,3 +2768,298 @@ html[data-theme="dark"] .book-cover button.book-cover-menu-btn svg,
   color: #FFFFFF !important;
   stroke: #FFFFFF !important;
 }
+
+/* ==========================================================================
+   POBI REUSABLE STEP PILLS, TAG CHIPS, FILTER PILLS & VISUAL HEATMAP SCALE
+   ========================================================================== */
+.pobi-step-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background-color: #D97706;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.pobi-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background-color: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+}
+
+.pobi-filter-pill {
+  padding: 4px 11px;
+  font-size: 0.79rem;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: all 0.14s ease;
+}
+
+.pobi-filter-pill.is-active {
+  border: 1.5px solid #D97706 !important;
+  background-color: #FDE68A !important;
+  color: #1C1917 !important;
+  font-weight: 700 !important;
+}
+
+/* Visual Heatmap 5-Tier Color Scale (Light Mode) */
+.pobi-heat-cell-0 {
+  background-color: #F8FAFC;
+  color: #64748B;
+}
+.pobi-heat-cell-1 {
+  background-color: #FEF3C7;
+  color: #92400E;
+}
+.pobi-heat-cell-2 {
+  background-color: #FCD34D;
+  color: #78350F;
+}
+.pobi-heat-cell-3 {
+  background-color: #F59E0B;
+  color: #1C1917;
+}
+.pobi-heat-cell-4 {
+  background-color: #DC2626;
+  color: #FFFFFF;
+}
+
+.pobi-heat-tile:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+}
+
+/* ==========================================================================
+   COMPREHENSIVE DARK MODE OVERRIDE LAYER
+   All boxes, cards, tags, labels, buttons, inputs & text become dark surface + white text
+   (Excludes #print-sheet-preview which is the virtual A4 print paper)
+   ========================================================================== */
+html[data-theme="dark"] .pobi-step-pill {
+  background-color: #F59E0B !important;
+  color: #0F172A !important;
+}
+
+html[data-theme="dark"] .pobi-tag-chip {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+  color: #FFFFFF !important;
+}
+
+html[data-theme="dark"] .pobi-filter-pill {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+html[data-theme="dark"] .pobi-filter-pill.is-active {
+  background-color: #B45309 !important;
+  border-color: #FBBF24 !important;
+  color: #FFFFFF !important;
+}
+
+/* Visual Heatmap 5-Tier Color Scale (Dark Mode - High Contrast White Text) */
+html[data-theme="dark"] .pobi-heat-cell-0 {
+  background-color: #131D2E !important;
+  color: #94A3B8 !important;
+}
+html[data-theme="dark"] .pobi-heat-cell-1 {
+  background-color: #422006 !important;
+  color: #FEF3C7 !important;
+}
+html[data-theme="dark"] .pobi-heat-cell-2 {
+  background-color: #78350F !important;
+  color: #FFFFFF !important;
+}
+html[data-theme="dark"] .pobi-heat-cell-3 {
+  background-color: #B45309 !important;
+  color: #FFFFFF !important;
+}
+html[data-theme="dark"] .pobi-heat-cell-4 {
+  background-color: #B91C1C !important;
+  color: #FFFFFF !important;
+}
+
+/* Override any hardcoded inline light backgrounds in Dark Mode (except virtual A4 paper) */
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(255, 255, 255)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FFFFFF"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #ffffff"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background: rgb(255, 255, 255)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background: #ffffff"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background: #FFFFFF"] {
+  background-color: #162032 !important;
+  background: #162032 !important;
+  color: #FFFFFF !important;
+  border-color: #2A3952 !important;
+}
+
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(250, 247, 240)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FAF7F0"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(245, 245, 244)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #F5F5F4"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(243, 244, 246)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #F3F4F6"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(248, 250, 252)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #F8FAFC"] {
+  background-color: #111A2B !important;
+  color: #F8FAFC !important;
+  border-color: #2A3952 !important;
+}
+
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(255, 251, 235)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FFFBEB"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(254, 243, 199)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FEF3C7"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(253, 230, 138)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FDE68A"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(236, 253, 245)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #ECFDF5"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(239, 246, 255)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #EFF6FF"] {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+  border-color: #475569 !important;
+}
+
+/* Override any hardcoded inline dark text colors in Dark Mode (except virtual A4 paper) */
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(28, 25, 23)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #1C1917"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(68, 64, 60)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #44403C"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(87, 83, 78)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #57534E"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(55, 65, 81)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #374151"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(146, 64, 14)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #92400E"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(120, 53, 15)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #78350F"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(180, 83, 9)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #B45309"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(4, 120, 87)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #047857"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(20, 83, 45)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #14532D"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(6, 95, 70)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #065F46"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(29, 78, 216)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #1D4ED8"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(185, 28, 28)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #B91C1C"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(153, 27, 27)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #991B1B"] {
+  color: #FFFFFF !important;
+}
+
+html[data-theme="dark"] .glass,
+html[data-theme="dark"] .glass-card,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .notebook-page,
+html[data-theme="dark"] .scrapbook-card {
+  background-color: #131D2E !important;
+  color: #FFFFFF !important;
+  border-color: #2A3952 !important;
+}
+
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .notebook-tool-btn,
+html[data-theme="dark"] .export-opt-btn {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="dark"] .notebook-tool-btn:hover,
+html[data-theme="dark"] .export-opt-btn:hover {
+  background-color: #29384F !important;
+  color: #FFFFFF !important;
+}
+
+html[data-theme="dark"] .export-opt-btn.active {
+  background-color: #B45309 !important;
+  border-color: #FBBF24 !important;
+  color: #FFFFFF !important;
+}
+
+html[data-theme="dark"] .input,
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .pobi-user-pill,
+html[data-theme="dark"] .navbar-user-info {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .pobi-user-pill span,
+html[data-theme="dark"] .navbar-user-info span {
+  color: #FFFFFF !important;
+}
+
+html[data-theme="dark"] .pobi-toast-item {
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-theme="dark"] .pobi-toast-success {
+  background-color: #064E3B !important;
+  border-color: #10B981 !important;
+}
+
+html[data-theme="dark"] .pobi-toast-error {
+  background-color: #450A0A !important;
+  border-color: #EF4444 !important;
+}
+
+html[data-theme="dark"] .pobi-toast-info {
+  background-color: #451A03 !important;
+  border-color: #F59E0B !important;
+}
+
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: rgb(254, 242, 242)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="background-color: #FEF2F2"] {
+  background-color: #3B1219 !important;
+  color: #FFFFFF !important;
+  border-color: #EF4444 !important;
+}
+
+html[data-theme="dark"] table,
+html[data-theme="dark"] th,
+html[data-theme="dark"] td {
+  color: #FFFFFF !important;
+  border-color: #2A3952 !important;
+}
+
+html[data-theme="dark"] #print-sheet-preview {
+  color-scheme: light !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="dark"] #print-sheet-preview table,
+html[data-theme="dark"] #print-sheet-preview th,
+html[data-theme="dark"] #print-sheet-preview td {
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}

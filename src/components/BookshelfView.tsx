@@ -4,6 +4,7 @@ import type { CategoriesBundle, MistakeRecord } from '../types';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
 import SharePackModal from './SharePackModal';
+import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import {
   parseNotebookStyle,
   serializeNotebookStyle,
@@ -59,9 +60,11 @@ export default function BookshelfView({
   onOpenPobiTutorial,
   onRefreshAll
 }: BookshelfViewProps) {
-  const { showToast, confirmDialog, promptDialog } = useUiFeedback();
+  const { showToast, promptDialog } = useUiFeedback();
   const [bookMenu, setBookMenu] = useState<{ subjectId: string; subjectName: string; x: number; y: number } | null>(null);
   const [shareSubject, setShareSubject] = useState<{ title: string; mistakes: MistakeRecord[] } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteScopeTarget | null>(null);
+  const [deletingSubject, setDeletingSubject] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [selectedPalette, setSelectedPalette] = useState('navy');
@@ -93,25 +96,35 @@ export default function BookshelfView({
     }
   };
 
-  const handleDeleteSubject = async (subjectId: string, subjectName: string) => {
+  const handleDeleteSubject = (subjectId: string, subjectName: string) => {
     const count = mistakes.filter(m => m.subject_id === subjectId).length;
-    const ok = await confirmDialog({
-      title: '刪除錯題本確認',
-      message:
-        count > 0
-          ? `確定要刪除《${subjectName}》錯題本嗎？此本包含 ${count} 道錯題，刪除後錯題會安全保留為未分類。`
-          : `確定要刪除《${subjectName}》錯題本嗎？`,
-      confirmText: '確認刪除',
-      cancelText: '取消',
-      danger: true
+    setDeleteTarget({
+      dimension: 'subject',
+      id: subjectId,
+      name: subjectName,
+      mistakeCount: count
     });
-    if (!ok) return;
+  };
+
+  const handleConfirmDeleteSubject = async (choice: 'move_to_uncategorized' | 'purge') => {
+    if (!deleteTarget) return;
+    setDeletingSubject(true);
     try {
-      await apiRequest(`/api/subjects?id=${subjectId}&mode=unassign`, { method: 'DELETE' });
+      const apiMode = choice === 'purge' ? 'purge' : 'unassign';
+      await apiRequest(`/api/subjects?id=${deleteTarget.id}&mode=${apiMode}`, { method: 'DELETE' });
+      const name = deleteTarget.name;
+      setDeleteTarget(null);
       await onRefreshAll?.();
-      showToast(`已刪除《${subjectName}》錯題本`, 'success');
+      showToast(
+        choice === 'purge'
+          ? `已永久刪除《${name}》錯題本及底下所有題目`
+          : `已刪除《${name}》錯題本，題目已安全移至左側「未分類區」`,
+        'success'
+      );
     } catch (err: any) {
       showToast(err?.message || '刪除失敗', 'error');
+    } finally {
+      setDeletingSubject(false);
     }
   };
 
@@ -779,6 +792,16 @@ export default function BookshelfView({
           defaultTitle={shareSubject.title}
           mistakes={shareSubject.mistakes}
           onClose={() => setShareSubject(null)}
+        />
+      )}
+
+      {/* DELETE SUBJECT SCOPE MODAL */}
+      {deleteTarget && (
+        <DeleteScopeModal
+          target={deleteTarget}
+          busy={deletingSubject}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDeleteSubject}
         />
       )}
     </div>
