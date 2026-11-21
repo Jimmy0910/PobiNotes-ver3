@@ -316,7 +316,7 @@ export default function BookshelfView({
                     {/* Book Header */}
                     <div className="book-header">
                       <div className="book-badge-icon">
-                        <IconComp className="w-4 h-4 text-amber-200" />
+                        <IconComp className="w-4 h-4" color="#FFFFFF" stroke="#FFFFFF" />
                       </div>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', zIndex: 5 }}>
                         <span className="book-mistake-pill">

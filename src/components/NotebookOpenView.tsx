@@ -757,6 +757,7 @@ export default function NotebookOpenView({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
+                className="notebook-subject-badge-icon"
                 style={{
                   width: '28px',
                   height: '28px',
@@ -765,10 +766,10 @@ export default function NotebookOpenView({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: palette.primary
+                  color: '#FFFFFF'
                 }}
               >
-                <SubjectIcon size={16} />
+                <SubjectIcon size={16} color="#FFFFFF" stroke="#FFFFFF" />
               </div>
               <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1C1917' }}>
                 《{activeSubject.name}》手帳

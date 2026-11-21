@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
+import { useUiFeedback } from './UiFeedbackProvider';
 import type { CategoriesBundle } from '../types';
 import {
   X,
@@ -87,6 +88,7 @@ export default function PobiTutorialModal({
   onClose,
   onRefreshAll
 }: PobiTutorialModalProps) {
+  const { showToast } = useUiFeedback();
   const [stepIdx, setStepIdx] = useState(0);
   const [seeding, setSeeding] = useState(false);
   const [seededDone, setSeededDone] = useState(false);
@@ -200,8 +202,10 @@ export default function PobiTutorialModal({
 
       await onRefreshAll();
       setSeededDone(true);
-    } catch (err) {
+      showToast('已成功生成《POBI 教學範例-數學》與範例圖解錯題！', 'success');
+    } catch (err: any) {
       console.error('生成教學測試資料失敗:', err);
+      showToast(err?.message || '生成教學測試錯題本失敗，請稍後再試', 'error');
     } finally {
       setSeeding(false);
     }

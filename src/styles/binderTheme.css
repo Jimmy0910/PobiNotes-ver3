@@ -1656,7 +1656,7 @@ html:not([data-theme="dark"]) .btn-secondary,
 html:not([data-theme="dark"]) button.btn-secondary,
 html:not([data-theme="dark"]) .notebook-tool-btn {
   background: #fdfbf7 !important;
-  border: 1.5px solid #d6cfc7 !important;
+  border: 1px solid #d6cfc7 !important;
   color: #1c1917 !important;
   font-weight: 600 !important;
 }
@@ -2976,11 +2976,27 @@ html[data-theme="dark"] .scrapbook-card {
 }
 
 html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] button.btn-secondary,
 html[data-theme="dark"] .notebook-tool-btn,
 html[data-theme="dark"] .export-opt-btn {
   background-color: #1E293B !important;
   color: #FFFFFF !important;
-  border-color: #334155 !important;
+  border: 1px solid #334155 !important;
+  font-weight: 600 !important;
+}
+
+/* Mistake notebook small badge logos: always crisp white strokes in both Light & Dark Mode */
+html:not([data-theme="dark"]) .notebook-subject-badge-icon,
+html[data-theme="dark"] .notebook-subject-badge-icon,
+.notebook-subject-badge-icon,
+html:not([data-theme="dark"]) .notebook-subject-badge-icon svg,
+html[data-theme="dark"] .notebook-subject-badge-icon svg,
+.notebook-subject-badge-icon svg,
+html:not([data-theme="dark"]) .book-badge-icon svg,
+html[data-theme="dark"] .book-badge-icon svg,
+.book-badge-icon svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
 }
 
 html[data-theme="dark"] .btn-secondary:hover,

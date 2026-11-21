@@ -717,7 +717,7 @@ select optgroup {
   background-color: #101B2E !important;
   color: #ffffff !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 [data-theme="dark"] select.input option,

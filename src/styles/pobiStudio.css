@@ -195,7 +195,8 @@ html:not([data-theme="dark"]) .notebook-page-left [class*="bg-amber"] { backgrou
 .notebook-outer-tabs { gap: 9px; }
 .notebook-tab-item { box-shadow: 1px 2px 6px rgba(60,40,20,.08); background: #f7f2e8; border-color: #dfd4c3; color: #4a3c30; }
 .notebook-tab-item.active { background: #FDE68A; border-color: #D97706; color: #1C1917 !important; font-weight: 700; box-shadow: 0 2px 8px rgba(180,83,9,.2); }
-html:not([data-theme="dark"]) .notebook-tool-btn { padding: 7px 10px; font-weight: 550; background: #faf6ee !important; color: #4a3c30 !important; border: 1px solid #dfd4c3 !important; }
+.notebook-tool-btn { padding: 7px 10px !important; font-weight: 600 !important; }
+html:not([data-theme="dark"]) .notebook-tool-btn { background: #faf6ee !important; color: #4a3c30 !important; border: 1px solid #dfd4c3 !important; }
 html:not([data-theme="dark"]) .notebook-tool-btn:hover { background: #ede2d1 !important; color: #2e2319 !important; border-color: #cbbaa3 !important; }
 .notebook-sheet-content, .modal-content { border: 1px solid #DCE3EC !important; border-radius: 7px !important; box-shadow: 0 18px 48px rgba(11,18,32,.2) !important; }
 .notebook-sheet-overlay, .modal-overlay { background: rgba(11,18,32,.42) !important; backdrop-filter: blur(2px) !important; }

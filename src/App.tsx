@@ -216,6 +216,11 @@ export default function App() {
   }, [theme]);
 
   const handleLoginSuccess = (loggedInUser: User) => {
+    if (loggedInUser.id !== 'demo-guest') {
+      try {
+        localStorage.removeItem('pobi_local_user');
+      } catch {}
+    }
     setUser(loggedInUser);
     setShowAuthView(false);
     setActiveView('bookshelf');
@@ -294,6 +299,9 @@ export default function App() {
     } catch (e) {
       console.error('登出異常：', e);
     } finally {
+      try {
+        localStorage.removeItem('pobi_local_user');
+      } catch {}
       setUser(null);
       setSelectedSubjectId(null);
       setActiveView('bookshelf');

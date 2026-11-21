@@ -968,6 +968,17 @@ async function handleLocalFallback<T = any>(
   return { success: true } as any as T;
 }
 
+function isDemoGuestMode(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.USER);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return parsed?.id === 'demo-guest';
+  } catch {
+    return false;
+  }
+}
+
 export async function apiRequest<T = any>(
   endpoint: string,
   options: Omit<RequestInit, 'body'> & { body?: any } = {}
@@ -975,6 +986,25 @@ export async function apiRequest<T = any>(
   const method = (options.method || 'GET').toUpperCase();
   const rawBody = options.body;
   let parsedBodyData = rawBody;
+  if (typeof rawBody === 'string') {
+    try {
+      parsedBodyData = JSON.parse(rawBody);
+    } catch {
+      parsedBodyData = rawBody;
+    }
+  }
+
+  // In Demo Guest mode (no account login), bypass backend auth-protected /api endpoints
+  // and handle all reads/writes locally in browser storage so Demo works identically on Cloudflare Pages.
+  if (
+    isDemoGuestMode() &&
+    endpoint.startsWith('/api') &&
+    !endpoint.startsWith('/api/auth/login') &&
+    !endpoint.startsWith('/api/auth/register') &&
+    !endpoint.startsWith('/api/share')
+  ) {
+    return await handleLocalFallback<T>(endpoint, method, parsedBodyData);
+  }
 
   const url = `${BASE_URL}${endpoint}`;
   
