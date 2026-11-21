@@ -6,6 +6,12 @@ import { useUiFeedback } from './UiFeedbackProvider';
 import SharePackModal from './SharePackModal';
 import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import {
+  GoldCornerOrnaments,
+  GoldGeometricDivider,
+  EmeraldSilkGlow,
+  AcademicHandDrawnBackdrop
+} from './PobiDesignElements';
+import {
   parseNotebookStyle,
   serializeNotebookStyle,
   getNotebookPalette,
@@ -184,9 +190,14 @@ export default function BookshelfView({
   };
 
   return (
-    <div className="bookshelf-room animate-fade-in">
+    <div className="bookshelf-room pobi-paper-fiber animate-fade-in" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* 5. Subtle Academic Hand-Drawn Technical Sketches */}
+      <AcademicHandDrawnBackdrop subject="all" opacity={0.055} />
+      {/* 4. Soft Forest Emerald Silk Glow along header aura */}
+      <EmeraldSilkGlow variant="banner" />
+
       {/* Top Navigation Bar */}
-      <header className="bookshelf-header">
+      <header className="bookshelf-header" style={{ position: 'relative', zIndex: 2, borderBottom: 'none', paddingBottom: '10px', marginBottom: '12px' }}>
         <div className="bookshelf-title-group">
           <h1>
             <Library className="w-7 h-7 text-pobi-blue dark:text-blue-400" />
@@ -265,9 +276,15 @@ export default function BookshelfView({
         </div>
       </header>
 
+      {/* 3. Gold Geometric Section Divider */}
+      <div style={{ position: 'relative', zIndex: 2, marginBottom: '20px' }}>
+        <GoldGeometricDivider />
+      </div>
+
       {/* Main Bookshelf Stage */}
-      <main className="bookshelf-stage">
-        <section className={`shelf-unit ${theme === 'dark' ? 'shelf-unit-dark' : 'shelf-unit-light'}`}>
+      <main className="bookshelf-stage" style={{ position: 'relative', zIndex: 2 }}>
+        <section className={`shelf-unit ${theme === 'dark' ? 'shelf-unit-dark' : 'shelf-unit-light'}`} style={{ position: 'relative' }}>
+          <GoldCornerOrnaments size={38} inset={6} opacity={0.55} corners={['tl', 'tr']} />
           <div className="shelf-books-row">
             {/* Subject Book Covers */}
             {categories.subjects.map((subject, index) => {

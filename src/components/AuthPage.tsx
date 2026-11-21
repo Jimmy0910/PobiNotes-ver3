@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
 import { LogIn, UserPlus, Key, User, ShieldCheck, Sun, Moon } from 'lucide-react';
+import {
+  GoldCornerOrnaments,
+  GoldGeometricDivider,
+  EmeraldSilkGlow,
+  AcademicHandDrawnBackdrop
+} from './PobiDesignElements';
 
 interface AuthPageProps {
   onLoginSuccess: (user: { id: string; username: string; is_admin: number }) => void;
@@ -63,8 +69,15 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
 
   return (
     <div className="binder-auth-stage">
+      {/* 5. Academic Hand-Drawn Technical Sketches Background */}
+      <AcademicHandDrawnBackdrop subject="all" />
+      {/* 4. Flowing Deep Forest Emerald Silk Wave Glow */}
+      <EmeraldSilkGlow variant="backdrop" />
+      {/* 3. Gold Geometric Page Corner Ornaments */}
+      <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
+
       {/* Top Bar with Theme Toggle */}
-      <div className="binder-auth-top-bar">
+      <div className="binder-auth-top-bar" style={{ position: 'relative', zIndex: 3 }}>
         <button
           type="button"
           onClick={toggleTheme}
@@ -85,8 +98,10 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
         </button>
       </div>
 
-      <div className="binder-auth-wrapper">
-        <div className="binder-auth-card">
+      <div className="binder-auth-wrapper" style={{ position: 'relative', zIndex: 2 }}>
+        <div className="binder-auth-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          {/* 3. Gold Geometric Corner Brackets on Dossier Card */}
+          <GoldCornerOrnaments size={44} inset={8} opacity={0.62} corners={['tr', 'br']} />
           {/* Brass Binder Rings along the left gutter */}
           <div className="binder-auth-rings" aria-hidden="true">
             <div className="binder-auth-ring-hole" />
@@ -107,8 +122,9 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
               POBI STUDIO
             </h1>
             <p className="binder-auth-subtitle">
-              {isLogin ? '數位錯題手帳 · 學術診斷簽到處' : '建立專屬數位活頁手帳帳戶'}
+              {isLogin ? '數位錯題手帳 · Explore. Decode. Understand.' : '建立專屬數位活頁手帳帳戶'}
             </p>
+            <GoldGeometricDivider style={{ marginTop: '12px' }} />
           </div>
 
           {/* Feedback Alerts */}

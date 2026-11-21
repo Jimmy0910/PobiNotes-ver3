@@ -18,6 +18,7 @@ import {
 } from '../utils/promptTemplates';
 import { useUiFeedback } from './UiFeedbackProvider';
 import ExportPDF from './ExportPDF';
+import { GoldCornerOrnaments, GoldGeometricDivider } from './PobiDesignElements';
 import {
   FolderTree,
   Activity,
@@ -794,10 +795,14 @@ export default function SubjectAnalyticsWorkshop({
         </div>
       </section>
 
+      {/* 3. Gold Geometric Section Divider */}
+      <GoldGeometricDivider className="no-print" style={{ margin: '2px 0' }} />
+
       {/* =================================================================
           STEP 2: 勾選範圍（可多選）並查看統計圖表（可多選圖表項目）
          ================================================================= */}
-      <section className="glass pobi-academic-grid no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '2px solid rgba(200, 154, 80, 0.5)' }}>
+      <section className="glass pobi-engineering-grid no-print" style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '2px solid rgba(200, 154, 80, 0.55)' }}>
+        <GoldCornerOrnaments size={40} inset={6} opacity={0.58} corners={['tl', 'tr', 'bl', 'br']} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="pobi-step-pill">步驟 2</span>

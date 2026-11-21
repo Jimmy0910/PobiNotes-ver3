@@ -16,6 +16,12 @@ import {
   Moon
 } from 'lucide-react';
 import { useUiFeedback } from './UiFeedbackProvider';
+import {
+  GoldCornerOrnaments,
+  GoldGeometricDivider,
+  EmeraldSilkGlow,
+  AcademicHandDrawnBackdrop
+} from './PobiDesignElements';
 
 const OFFICIAL_SHARE_URL = 'https://pobinotes-ver3.pages.dev/';
 
@@ -95,6 +101,8 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
     <div
       className="pobi-paper-stage"
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         minHeight: '100dvh',
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-primary)',
@@ -102,9 +110,18 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
         flexDirection: 'column'
       }}
     >
+      {/* 5. Academic Hand-Drawn Technical Sketches Watermark */}
+      <AcademicHandDrawnBackdrop subject="all" />
+      {/* 4. Subtle Emerald Silk Wave Accent along top aura */}
+      <EmeraldSilkGlow variant="banner" />
+      {/* 3. Gold Geometric Page Corner Ornaments */}
+      <GoldCornerOrnaments size={62} inset={12} opacity={0.48} corners={['tl', 'tr']} />
+
       {/* Top Bar */}
       <header
         style={{
+          position: 'relative',
+          zIndex: 2,
           width: '100%',
           maxWidth: '1120px',
           margin: '0 auto',
@@ -113,7 +130,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
-          borderBottom: '1px solid rgba(200, 154, 80, 0.3)'
+          borderBottom: '1px solid rgba(200, 154, 80, 0.35)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -163,6 +180,8 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
       {/* Hero Section */}
       <main
         style={{
+          position: 'relative',
+          zIndex: 2,
           flex: 1,
           width: '100%',
           maxWidth: '1120px',
@@ -170,7 +189,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           padding: '28px 24px 56px 24px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '44px'
+          gap: '38px'
         }}
       >
         <section
@@ -321,35 +340,18 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             className="pobi-studio-hero-card"
             style={{
               borderRadius: '14px',
-              padding: '26px 24px',
+              padding: '28px 26px',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px'
             }}
           >
-            {/* Subtle Academic Geometric Watermark */}
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 220 220"
-              style={{
-                position: 'absolute',
-                right: '-24px',
-                bottom: '-24px',
-                width: '180px',
-                height: '180px',
-                opacity: 0.12,
-                pointerEvents: 'none',
-                color: '#C89A50'
-              }}
-            >
-              <circle cx="110" cy="110" r="82" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
-              <circle cx="110" cy="110" r="54" fill="none" stroke="currentColor" strokeWidth="1" />
-              <line x1="20" y1="110" x2="200" y2="110" stroke="currentColor" strokeWidth="0.9" />
-              <line x1="110" y1="20" x2="110" y2="200" stroke="currentColor" strokeWidth="0.9" />
-              <path d="M 45 155 Q 110 45 175 155" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
+            {/* 4. Flowing Emerald Silk Ribbon Glow */}
+            <EmeraldSilkGlow variant="hero" />
+            {/* 3. Gold Geometric L-Corner Ornaments */}
+            <GoldCornerOrnaments size={52} inset={6} opacity={0.78} color="#E4C284" />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 2 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <img
                   src="/pobi-mascot.jpg"
@@ -411,6 +413,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             </div>
           </div>
         </section>
+
+        {/* 3. Gold Geometric Section Divider */}
+        <GoldGeometricDivider />
 
         {/* Feature Grid */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>

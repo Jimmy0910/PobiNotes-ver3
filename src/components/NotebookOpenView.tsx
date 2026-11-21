@@ -23,6 +23,11 @@ import SubjectAnalyticsWorkshop from './SubjectAnalyticsWorkshop';
 import DailyReviewModal from './DailyReviewModal';
 import { useUiFeedback } from './UiFeedbackProvider';
 import {
+  GoldCornerOrnaments,
+  AcademicHandDrawnBackdrop,
+  resolveAcademicSketchSubject
+} from './PobiDesignElements';
+import {
   ArrowLeft,
   BookOpen,
   FolderPlus,
@@ -781,9 +786,18 @@ export default function NotebookOpenView({
     );
   };
 
+  const sketchSubject = resolveAcademicSketchSubject(activeSubject.name);
+  const isScienceOrMath = sketchSubject === 'physics_chem' || sketchSubject === 'math';
+
   return (
-    <div style={{ flex: 1, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-      <div style={{ width: '100%', maxWidth: '1160px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div
+      className={isScienceOrMath ? 'pobi-paper-fiber pobi-engineering-grid' : 'pobi-paper-fiber'}
+      style={{ position: 'relative', overflow: 'hidden', flex: 1, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}
+    >
+      {/* 5. Subject-Aware Academic Hand-Drawn Technical Sketches (理化/生物/地科/數學) */}
+      <AcademicHandDrawnBackdrop subject={sketchSubject} />
+
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: '1160px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
         {/* TOP TOOLBAR: BREADCRUMB, STATS, SECONDARY ACTIONS, AND PROMINENT "+ 新增錯題" BUTTON */}
         <div
@@ -804,6 +818,8 @@ export default function NotebookOpenView({
             boxShadow: '0 2px 10px rgba(41, 37, 31, 0.045)'
           }}
         >
+          {/* 3. Gold Geometric Corner Ornaments */}
+          <GoldCornerOrnaments size={34} inset={5} opacity={0.58} corners={['tr', 'br']} />
           {renderAcademicSketch(activeSubject.name)}
           {/* Left: Back button & Subject Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
