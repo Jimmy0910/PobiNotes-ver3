@@ -2719,7 +2719,7 @@ ${scopeInstruction}
                   title="點擊後，本批次所有尚未標記的題目將一律設為不會並直接寫入錯題本"
                 >
                   {submittingBatch ? <RefreshCw size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  {submittingBatch ? '正在寫入錯題索引與手帳...' : '全部一律標示為不會（一鍵寫入錯題本）'}
+                  {submittingBatch ? '正在寫入錯題本與手帳...' : '全部一律標示為不會（一鍵寫入錯題本）'}
                 </button>
               </div>
 
@@ -3089,10 +3089,10 @@ ${scopeInstruction}
                 <CheckCircle2 size={36} />
               </div>
               <h3 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                整份考卷錯題已全數寫入錯題索引與手帳！
+                整份考卷錯題已全數寫入錯題本！
               </h3>
               <p style={{ margin: 0, fontSize: '0.94rem', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.6 }}>
-                本批共 <strong style={{ color: 'var(--accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{savedCount || reviewItems.length} 道錯題</strong> 已同步寫入資料庫與「錯題索引」，包含題目圖片、多張解析圖片與解析說明文字。
+                本批共 <strong style={{ color: 'var(--accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{savedCount || reviewItems.length} 道錯題</strong> 已同步寫入對應科目錯題本，包含題目圖片、多張解析圖片與解析說明文字。
               </p>
 
               <div style={{ display: 'flex', gap: '14px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -3102,7 +3102,7 @@ ${scopeInstruction}
                   onClick={onClose}
                   style={{ padding: '10px 24px', fontSize: '0.92rem', fontWeight: 600 }}
                 >
-                  完成並查看錯題本與索引
+                  完成並查看錯題本
                 </button>
                 <button
                   type="button"

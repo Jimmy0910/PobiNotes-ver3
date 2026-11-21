@@ -49,7 +49,7 @@ const TRACK_PRESETS: TrackPreset[] = [
     sampleChapter: '多項式與不等式',
     sampleMistake: {
       title: '【範例】二次函數極值與區間限制判別',
-      qDesc: '已知 f(x) = x^2 - 4x + 7，在閉區間 [0, 3] 上的最大值與最小值分別為何？（點擊此題的「掌握度」或進入「今日待複習」體驗複習排程）',
+      qDesc: '已知 f(x) = x^2 - 4x + 7，在閉區間 [0, 3] 上的最大值與最小值分別為何？（可於該科手帳的「每日複習」體驗 POBI 閃卡複習與自訂週期）',
       aDesc: '1. 先配方：f(x) = (x - 2)^2 + 3，頂點 x = 2 落在區間 [0, 3] 內。\n2. 最小值在 x = 2 處，f(2) = 3。\n3. 端點比較：f(0) = 7、f(3) = 4，故最大值為 7。\n【破題提醒】看到區間極值一定要先確認頂點是否落在區間內！'
     }
   },
@@ -316,7 +316,7 @@ export default function OnboardingModal({ categories, onComplete, onSkip }: Onbo
                 <div style={{ fontSize: '0.86rem', lineHeight: 1.55 }}>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>預先建立 1 題示範錯題（推薦）</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    放入「{selectedTrack.subjects[0].name} / {selectedTrack.sampleChapter}」，方便立刻體驗自測隱藏解析、今日待複習與 A4 試卷列印。
+                    放入「{selectedTrack.subjects[0].name} / {selectedTrack.sampleChapter}」，方便立刻體驗查看錯題、POBI 每日複習與分析與工坊（AI 提詞包／A4 練習卷）。
                   </div>
                 </div>
               </label>

@@ -88,8 +88,8 @@ export default function UsageGuide() {
                   <MoreVertical size={15} /> 書封與章節三點（⋮）管理選單
                 </h4>
                 <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.85rem', color: 'var(--binder-text-body)', lineHeight: 1.75 }}>
-                  <li><strong>書封「⋮」</strong>：分享此錯題本、重新命名、刪除。</li>
-                  <li><strong>章節標籤「⋮」</strong>：分享此章節題目包、重新命名、搬移（三層下拉選單自由搬遷）、刪除。</li>
+                  <li><strong>書封白色「⋮」</strong>：無論淺色或深色模式皆以清晰白色圖示顯示，可分享此錯題本、重新命名或刪除。</li>
+                  <li><strong>章節標籤「⋮」</strong>：分享此章節題目包、重新命名、搬移（科目／章節／小單元三層下拉選單）、刪除。</li>
                 </ul>
               </div>
 
@@ -147,7 +147,7 @@ export default function UsageGuide() {
                   步驟一：進階多維度篩選
                 </h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.65, color: 'var(--binder-text-body)' }}>
-                  整合原本的「錯題索引」與「弱點分析」。可依章節、小單元、熟悉度、錯因、標籤、日期區間與關鍵字即時交叉篩選本科錯題範圍。
+                  以進階多維度篩選為主畫面，可依章節、小單元、熟悉度、錯因、標籤、日期區間與關鍵字即時交叉鎖定本科錯題範圍。
                 </p>
               </div>
 
@@ -156,9 +156,18 @@ export default function UsageGuide() {
                   按鈕 1：學習診斷（分類占比 / 熱度表）
                 </h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.65, color: 'var(--binder-text-body)' }}>
-                  檢視章節、單元、熟悉度與錯因占比（長條圖／圓餅圖），以及雙維度熱度表（點擊任一熱度格即可快速篩選弱點並前往工坊）。
+                  檢視章節、單元、熟悉度與錯因占比（長條圖／圓餅圖），以及雙維度弱點熱度表；點擊任一熱度格可立即篩選該弱點並前往工坊。
                 </p>
               </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px 18px', borderLeft: '4px solid #D97706' }}>
+              <h4 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', fontWeight: 700, color: '#92400E' }}>
+                按鈕 2：錯題清單（含圖片縮圖預覽）與兩大工坊模式
+              </h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.65, color: 'var(--binder-text-body)' }}>
+                清單卡片會直接顯示每道錯題的題幹摘要、題目圖片縮圖（「題」標記）與解析圖片縮圖（「解」標記），點擊縮圖可放大檢視原圖，自由勾選後即可套用下方兩大工坊模式：
+              </p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>

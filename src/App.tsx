@@ -4,13 +4,11 @@ import {
   type CategoriesBundle,
   type FilterState,
   type MistakeRecord,
-  createEmptyFilterState,
-  isMistakeDueForReview
+  createEmptyFilterState
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
 import PobiTutorialModal from './components/PobiTutorialModal';
-import DailyReviewModal from './components/DailyReviewModal';
 import BackupRestoreModal from './components/BackupRestoreModal';
 import SharedPackView from './components/SharedPackView';
 import { useUiFeedback } from './components/UiFeedbackProvider';
@@ -63,8 +61,6 @@ export default function App() {
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [showPobiTutorial, setShowPobiTutorial] = useState(false);
   const [isNewUserTutorial, setIsNewUserTutorial] = useState(false);
-  const [showDailyReview, setShowDailyReview] = useState(false);
-  const [customReviewQueue, setCustomReviewQueue] = useState<MistakeRecord[] | null>(null);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [sharedPackId, setSharedPackId] = useState<string | null>(() => {
     try {
@@ -88,7 +84,6 @@ export default function App() {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
   const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('prompt');
-  const [scheduleTick, setScheduleTick] = useState(0);
 
   // Global synchronized Categories & Mistakes state + persistent Filter state
   const [categories, setCategories] = useState<CategoriesBundle>(EMPTY_CATEGORIES);
@@ -161,11 +156,6 @@ export default function App() {
     };
     checkSession();
   }, []);
-
-  const dueMistakes = useMemo(() => {
-    void scheduleTick;
-    return allMistakes.filter(m => isMistakeDueForReview(m));
-  }, [allMistakes, scheduleTick]);
 
   // Load categories and mistakes whenever user logs in
   useEffect(() => {
@@ -636,17 +626,12 @@ export default function App() {
                 setBatchImportStage('prompt');
                 setShowBatchImportModal(true);
               }}
-              onOpenDailyReview={() => {
-                setCustomReviewQueue(null);
-                setShowDailyReview(true);
-              }}
               onOpenPobiTutorial={() => {
                 setIsNewUserTutorial(false);
                 setShowPobiTutorial(true);
               }}
               onRefreshAll={refreshAllData}
               onOpenBackupRestore={() => setShowBackupRestore(true)}
-              dueReviewCount={dueMistakes.length}
             />
           </div>
         )}
@@ -663,7 +648,6 @@ export default function App() {
               onAddUnit={handleAddUnitFromNotebook}
               onRefreshAll={refreshAllData}
               onUpdateMistake={handleUpdateSingleMistake}
-              onScheduleChanged={() => setScheduleTick(t => t + 1)}
             />
           </div>
         )}
@@ -867,20 +851,6 @@ export default function App() {
             } catch {}
             setShowPobiTutorial(false);
           }}
-          onRefreshAll={refreshAllData}
-        />
-      )}
-
-      {/* Daily Spaced Repetition / POBI Flashcard Review Modal */}
-      {showDailyReview && (
-        <DailyReviewModal
-          dueMistakes={customReviewQueue && customReviewQueue.length > 0 ? customReviewQueue : dueMistakes}
-          categories={categories}
-          onClose={() => {
-            setShowDailyReview(false);
-            setCustomReviewQueue(null);
-          }}
-          onReviewUpdated={handleUpdateSingleMistake}
           onRefreshAll={refreshAllData}
         />
       )}

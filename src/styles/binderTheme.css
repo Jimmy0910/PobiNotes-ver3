@@ -2745,3 +2745,26 @@ html.dark .notebook-submit-btn:hover {
 .notebook-submit-btn:active {
   transform: translateY(1px) !important;
 }
+
+/* Book cover 3-dot menu button: always pure white icon in both light and dark modes */
+html:not([data-theme="dark"]) .book-cover button.book-cover-menu-btn,
+html[data-theme="dark"] .book-cover button.book-cover-menu-btn,
+.book-cover button.book-cover-menu-btn {
+  color: #FFFFFF !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+html:not([data-theme="dark"]) .book-cover button.book-cover-menu-btn:hover,
+html[data-theme="dark"] .book-cover button.book-cover-menu-btn:hover,
+.book-cover button.book-cover-menu-btn:hover {
+  color: #FFFFFF !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+}
+
+html:not([data-theme="dark"]) .book-cover button.book-cover-menu-btn svg,
+html[data-theme="dark"] .book-cover button.book-cover-menu-btn svg,
+.book-cover button.book-cover-menu-btn svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}

@@ -1184,7 +1184,7 @@ export default function SubjectAnalyticsWorkshop({
                 目前篩選條件下沒有符合的錯題，請調整上方篩選條件。
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '10px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
                 {filteredMistakes.map(m => {
                   const checked = selectedIds.includes(m.id);
                   const media = extractMistakeMediaAndText(m);
@@ -1192,16 +1192,17 @@ export default function SubjectAnalyticsWorkshop({
                   return (
                     <div
                       key={m.id}
+                      data-testid={`workshop-mistake-card-${m.id}`}
                       onClick={() => toggleSelectMistake(m.id)}
                       style={{
-                        padding: '10px 12px',
-                        borderRadius: '9px',
+                        padding: '12px 13px',
+                        borderRadius: '10px',
                         border: checked ? '1.5px solid #D97706' : '1px solid var(--glass-border)',
                         backgroundColor: checked ? '#FFFBEB' : '#FAF7F0',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '6px'
+                        gap: '8px'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
@@ -1256,6 +1257,119 @@ export default function SubjectAnalyticsWorkshop({
                           </span>
                         )}
                       </div>
+
+                      {/* Question Text Snippet */}
+                      {media.qDesc && (
+                        <div
+                          style={{
+                            paddingLeft: '23px',
+                            fontSize: '0.79rem',
+                            color: '#57534E',
+                            lineHeight: 1.5,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {media.qDesc}
+                        </div>
+                      )}
+
+                      {/* Visible Question & Answer Image Thumbnails (click to zoom) */}
+                      {imgTotal > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '8px',
+                            flexWrap: 'wrap',
+                            paddingLeft: '23px',
+                            paddingTop: '2px'
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          data-testid={`workshop-mistake-images-${m.id}`}
+                        >
+                          {media.qImages.map((src, idx) => (
+                            <div
+                              key={`q-${idx}`}
+                              onClick={() => onImageClick?.(src)}
+                              title="點擊放大檢視題目圖片"
+                              style={{
+                                position: 'relative',
+                                width: '84px',
+                                height: '64px',
+                                borderRadius: '7px',
+                                overflow: 'hidden',
+                                border: '1.5px solid #D97706',
+                                backgroundColor: '#FFFFFF',
+                                cursor: onImageClick ? 'zoom-in' : 'default',
+                                flexShrink: 0
+                              }}
+                            >
+                              <img
+                                src={src}
+                                alt={`題目圖 ${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              <span
+                                style={{
+                                  position: 'absolute',
+                                  left: '3px',
+                                  bottom: '3px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  padding: '0 4px',
+                                  borderRadius: '3px',
+                                  backgroundColor: 'rgba(28, 25, 23, 0.78)',
+                                  color: '#FFFFFF'
+                                }}
+                              >
+                                題{media.qImages.length > 1 ? idx + 1 : ''}
+                              </span>
+                            </div>
+                          ))}
+
+                          {media.aImages.map((src, idx) => (
+                            <div
+                              key={`a-${idx}`}
+                              onClick={() => onImageClick?.(src)}
+                              title="點擊放大檢視解析圖片"
+                              style={{
+                                position: 'relative',
+                                width: '84px',
+                                height: '64px',
+                                borderRadius: '7px',
+                                overflow: 'hidden',
+                                border: '1.5px solid #10B981',
+                                backgroundColor: '#FFFFFF',
+                                cursor: onImageClick ? 'zoom-in' : 'default',
+                                flexShrink: 0
+                              }}
+                            >
+                              <img
+                                src={src}
+                                alt={`解析圖 ${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              <span
+                                style={{
+                                  position: 'absolute',
+                                  left: '3px',
+                                  bottom: '3px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  padding: '0 4px',
+                                  borderRadius: '3px',
+                                  backgroundColor: 'rgba(4, 120, 87, 0.85)',
+                                  color: '#FFFFFF'
+                                }}
+                              >
+                                解{media.aImages.length > 1 ? idx + 1 : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
