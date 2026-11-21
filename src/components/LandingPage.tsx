@@ -19,7 +19,6 @@ import { useUiFeedback } from './UiFeedbackProvider';
 import {
   GoldCornerOrnaments,
   GoldGeometricDivider,
-  EmeraldSilkGlow,
   AcademicHandDrawnBackdrop
 } from './PobiDesignElements';
 
@@ -112,8 +111,6 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
     >
       {/* 5. Academic Hand-Drawn Technical Sketches Watermark */}
       <AcademicHandDrawnBackdrop subject="all" />
-      {/* 4. Subtle Emerald Silk Wave Accent along top aura */}
-      <EmeraldSilkGlow variant="banner" />
       {/* 3. Gold Geometric Page Corner Ornaments */}
       <GoldCornerOrnaments size={62} inset={12} opacity={0.48} corners={['tl', 'tr']} />
 
@@ -346,8 +343,6 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
               gap: '14px'
             }}
           >
-            {/* 4. Flowing Emerald Silk Ribbon Glow */}
-            <EmeraldSilkGlow variant="hero" />
             {/* 3. Gold Geometric L-Corner Ornaments */}
             <GoldCornerOrnaments size={52} inset={6} opacity={0.78} color="#E4C284" />
 

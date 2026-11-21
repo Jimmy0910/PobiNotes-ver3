@@ -2861,7 +2861,6 @@ html:not([data-theme="dark"]) .pobi-paper-fiber {
   background-color: #F5F0E6;
   background-image:
     radial-gradient(ellipse 68% 42% at 14% 6%, rgba(200, 154, 80, 0.11) 0%, transparent 62%),
-    radial-gradient(ellipse 54% 40% at 88% 12%, rgba(20, 91, 56, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 46% 32% at 72% 88%, rgba(217, 119, 6, 0.045) 0%, transparent 64%),
     inset 0 0 80px rgba(176, 155, 122, 0.14),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65 0.92' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.15'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23f)' opacity='0.055'/%3E%3C/svg%3E");
@@ -2900,23 +2899,6 @@ html[data-theme="dark"] .pobi-engineering-grid {
   background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px !important;
 }
 
-/* 4. 墨綠色光暈 (Deep Forest Emerald Silk Glow Opacity Tuning per Theme & Variant) */
-.pobi-emerald-silk-hero {
-  opacity: 0.92;
-}
-html:not([data-theme="dark"]) .pobi-emerald-silk-banner {
-  opacity: 0.24;
-}
-html[data-theme="dark"] .pobi-emerald-silk-banner {
-  opacity: 0.65;
-}
-html:not([data-theme="dark"]) .pobi-emerald-silk-backdrop {
-  opacity: 0.34;
-}
-html[data-theme="dark"] .pobi-emerald-silk-backdrop {
-  opacity: 0.85;
-}
-
 /* 5. 學術手繪線稿 (Academic Hand-Drawn Sketches Layer) */
 html:not([data-theme="dark"]) .pobi-academic-sketch-layer {
   color: #5C554C;
@@ -2927,12 +2909,11 @@ html[data-theme="dark"] .pobi-academic-sketch-layer {
   opacity: 0.085;
 }
 
-/* Auth Stage Integration (登入頁面融合 紙張紋理 / 工程網格 / 墨綠光暈 / 學術手繪線稿) */
+/* Auth Stage Integration (登入頁面融合 紙張紋理 / 工程網格 / 學術手繪線稿) */
 html:not([data-theme="dark"]) .binder-auth-stage {
   background-color: #F5F0E6 !important;
   background-image:
-    radial-gradient(ellipse 65% 45% at 50% 100%, rgba(20, 91, 56, 0.14) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(200, 154, 80, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(200, 154, 80, 0.12) 0%, transparent 60%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65 0.92' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23f)' opacity='0.05'/%3E%3C/svg%3E") !important;
   overflow: hidden;
 }

@@ -4,7 +4,6 @@ import { LogIn, UserPlus, Key, User, ShieldCheck, Sun, Moon } from 'lucide-react
 import {
   GoldCornerOrnaments,
   GoldGeometricDivider,
-  EmeraldSilkGlow,
   AcademicHandDrawnBackdrop
 } from './PobiDesignElements';
 
@@ -71,8 +70,6 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
     <div className="binder-auth-stage">
       {/* 5. Academic Hand-Drawn Technical Sketches Background */}
       <AcademicHandDrawnBackdrop subject="all" />
-      {/* 4. Flowing Deep Forest Emerald Silk Wave Glow */}
-      <EmeraldSilkGlow variant="backdrop" />
       {/* 3. Gold Geometric Page Corner Ornaments */}
       <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
 

@@ -8,7 +8,6 @@ import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import {
   GoldCornerOrnaments,
   GoldGeometricDivider,
-  EmeraldSilkGlow,
   AcademicHandDrawnBackdrop
 } from './PobiDesignElements';
 import {
@@ -193,8 +192,6 @@ export default function BookshelfView({
     <div className="bookshelf-room pobi-paper-fiber animate-fade-in" style={{ position: 'relative', overflow: 'hidden' }}>
       {/* 5. Subtle Academic Hand-Drawn Technical Sketches */}
       <AcademicHandDrawnBackdrop subject="all" opacity={0.055} />
-      {/* 4. Soft Forest Emerald Silk Glow along header aura */}
-      <EmeraldSilkGlow variant="banner" />
 
       {/* Top Navigation Bar */}
       <header className="bookshelf-header" style={{ position: 'relative', zIndex: 2, borderBottom: 'none', paddingBottom: '10px', marginBottom: '12px' }}>
