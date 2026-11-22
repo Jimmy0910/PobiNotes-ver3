@@ -1099,7 +1099,9 @@ ${scopeInstruction}
         style={{
           width: '100%',
           maxWidth: '1120px',
-          maxHeight: '92vh',
+          height: 'min(860px, 90dvh)',
+          minHeight: 'min(700px, 88dvh)',
+          maxHeight: '92dvh',
           backgroundColor: 'var(--notebook-paper)',
           borderRadius: '16px',
           border: '1px solid var(--glass-border)',
@@ -1653,8 +1655,8 @@ ${scopeInstruction}
                 style={{
                   padding: '10px 14px',
                   borderRadius: '10px',
-                  backgroundColor: '#EFF6FF',
-                  border: '1px solid #93C5FD',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--accent-secondary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -1662,8 +1664,8 @@ ${scopeInstruction}
                   gap: '10px'
                 }}
               >
-                <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <Sparkles size={15} style={{ color: '#2563EB', flexShrink: 0 }} />
+                <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Sparkles size={15} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
                   <span>打包後的 ZIP <strong>免解壓縮</strong>，可直接拖進 ChatGPT / Gemini / Claude 並貼上指令分析。</span>
                 </div>
                 <button
@@ -1679,12 +1681,9 @@ ${scopeInstruction}
                   }}
                   className="btn btn-secondary"
                   style={{
-                    padding: '4px 10px',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    color: '#1D4ED8',
-                    borderColor: '#93C5FD',
-                    backgroundColor: '#FFFFFF'
+                    padding: '5px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700
                   }}
                 >
                   複製給 AI 的指令
@@ -1983,8 +1982,8 @@ ${scopeInstruction}
                   flexWrap: 'wrap',
                   gap: '12px',
                   padding: '14px 18px',
-                  backgroundColor: '#EFF6FF',
-                  border: '1.5px solid #3B82F6',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1.5px solid var(--accent-secondary)',
                   borderRadius: '10px'
                 }}
               >
@@ -1994,22 +1993,22 @@ ${scopeInstruction}
                       width: '36px',
                       height: '36px',
                       borderRadius: '8px',
-                      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                      backgroundColor: 'rgba(217, 119, 6, 0.16)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#2563EB',
+                      color: 'var(--accent-primary)',
                       flexShrink: 0
                     }}
                   >
                     <Archive size={20} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1E3A8A' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       一鍵打包圖片與提詞為 ZIP
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#1E40AF', marginTop: '2px' }}>
-                      共 <strong>{questionImages.length} 張題目圖</strong>、<strong>{answerImages.length} 張解析圖</strong> 與提詞檔，適合一次上傳多張考卷給 AI。
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      共 <strong style={{ color: 'var(--text-primary)' }}>{questionImages.length} 張題目圖</strong>、<strong style={{ color: 'var(--text-primary)' }}>{answerImages.length} 張解析圖</strong> 與提詞檔，適合一次上傳多張考卷給 AI。
                     </div>
                   </div>
                 </div>
@@ -2027,9 +2026,6 @@ ${scopeInstruction}
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
-                      backgroundColor: '#2563EB',
-                      borderColor: '#1D4ED8',
-                      color: '#FFFFFF',
                       opacity: (questionImages.length === 0 && answerImages.length === 0) ? 0.6 : 1,
                       cursor: (questionImages.length === 0 && answerImages.length === 0) ? 'not-allowed' : 'pointer'
                     }}
@@ -2044,7 +2040,7 @@ ${scopeInstruction}
                       ? (zipProgressText || '正在打包圖片中...')
                       : `打包下載 ZIP 壓縮檔 (${questionImages.length + answerImages.length} 張)`}
                   </button>
-                  <span style={{ fontSize: '0.72rem', color: '#3B82F6' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
                     內含：題目圖片/資料夾、解析圖片/資料夾、外部AI提詞說明.txt
                   </span>
                 </div>
@@ -2168,18 +2164,21 @@ ${scopeInstruction}
 
           {/* TAB 3: 調整順序與圖片配對工作台 */}
           {activeTab === 'match' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} className="animate-fade-in">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', minHeight: '100%', flex: 1 }} className="animate-fade-in">
               {parsedQuestions.length === 0 && (
                 <div
                   style={{
-                    padding: '32px 20px',
+                    flex: 1,
+                    minHeight: '320px',
+                    padding: '48px 20px',
                     borderRadius: '12px',
                     border: '1px dashed var(--glass-border)',
                     textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '12px'
+                    justifyContent: 'center',
+                    gap: '14px'
                   }}
                 >
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>

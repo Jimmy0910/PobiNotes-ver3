@@ -1015,9 +1015,9 @@ export default function SubjectAnalyticsWorkshop({
                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: row.color }} />
                         <span>{row.name}</span>
                       </span>
-                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)' }}>
                         <strong>{row.count} 題</strong>
-                        <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>({row.pctText})</span>
+                        <span style={{ color: 'var(--text-primary)', opacity: 0.9, marginLeft: '6px', fontWeight: 600 }}>({row.pctText})</span>
                       </span>
                     </div>
                     <div style={{ width: '100%', height: '7px', backgroundColor: 'rgba(148, 163, 184, 0.22)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1158,8 +1158,8 @@ export default function SubjectAnalyticsWorkshop({
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>{spot.count} 題</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{spot.pctText}</div>
+                      <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>{spot.count} 題</div>
+                      <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)', opacity: 0.92 }}>{spot.pctText}</div>
                     </div>
                   </button>
                 );
@@ -1286,10 +1286,10 @@ export default function SubjectAnalyticsWorkshop({
                                 <Check size={10} strokeWidth={3} />
                               </span>
                             )}
-                            <span style={{ fontSize: val > 0 ? '1.05rem' : '0.84rem', fontWeight: val > 0 ? 800 : 500, opacity: val > 0 ? 1 : 0.45 }}>
+                            <span style={{ fontSize: val > 0 ? '1.1rem' : '0.92rem', fontWeight: val > 0 ? 800 : 700, opacity: 1 }}>
                               {val}
                             </span>
-                            <span style={{ fontSize: '0.7rem', opacity: val > 0 ? 0.88 : 0.4 }}>
+                            <span style={{ fontSize: '0.76rem', fontWeight: val > 0 ? 700 : 600, opacity: val > 0 ? 1 : 0.82 }}>
                               {val > 0 ? `${pctVal}%` : '-'}
                             </span>
                           </button>
@@ -1306,8 +1306,8 @@ export default function SubjectAnalyticsWorkshop({
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontWeight: 800,
-                          fontSize: '0.82rem',
-                          color: 'var(--text-secondary)',
+                          fontSize: '0.84rem',
+                          color: 'var(--text-primary)',
                           fontVariantNumeric: 'tabular-nums'
                         }}
                       >
@@ -1777,10 +1777,10 @@ function WorkshopDonutChart({
             </circle>
           );
         })}
-      <text x="100" y="96" textAnchor="middle" fill="var(--text-secondary)" fontSize="12">
+      <text x="100" y="94" textAnchor="middle" fill="var(--text-primary)" opacity="0.88" fontSize="12" fontWeight="600">
         範圍總計
       </text>
-      <text x="100" y="118" textAnchor="middle" fill="var(--text-primary)" fontSize="18" fontWeight="bold">
+      <text x="100" y="118" textAnchor="middle" fill="var(--text-primary)" fontSize="19" fontWeight="800">
         {totalLabel}
       </text>
     </svg>

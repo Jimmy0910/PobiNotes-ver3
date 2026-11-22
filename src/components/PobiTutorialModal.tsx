@@ -103,15 +103,15 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
   },
   {
     id: 'export-exam',
-    title: '6. 列印練習卷（A4 防跨頁切割）',
-    tip: '點「匯出考卷」展開此列印練習卷區域，快速印出專屬考前複習卷：',
+    title: '6. 匯出練習卷（A4 防跨頁切割）',
+    tip: '在同一弱點範圍點此「匯出考卷」按鈕，即可快速印出專屬考前複習卷：',
     bullets: [
       '可選模擬練習卷、試卷附頁尾解析或完整解析卷。',
       '預設 A4 防跨頁切割排版，生成中可隨時取消，也支援手機／平板系統列印。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-exam-paper-panel"]') as HTMLElement | null) ||
       (document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="export-generate-pdf-btn"]') as HTMLElement | null) ||
       (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
   }
 ];
@@ -176,10 +176,7 @@ export default function PobiTutorialModal({
           window.setTimeout(() => {
             const pdfBtn = document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null;
             pdfBtn?.click();
-            window.setTimeout(() => {
-              const panel = document.querySelector('[data-testid="workshop-exam-paper-panel"]') as HTMLElement | null;
-              panel?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-            }, 180);
+            pdfBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
           }, 220);
         }, 160);
       }
@@ -195,6 +192,40 @@ export default function PobiTutorialModal({
     }
   }, [onNavigateView]);
 
+  // Lock background page scroll & touch drag while tutorial is open so spotlight never drifts
+  useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyTouch = document.body.style.touchAction;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    const preventScroll = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-testid="pobi-tutorial-coachmark"]')) return;
+      e.preventDefault();
+    };
+    const preventScrollKeys = (e: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Space', 'Home', 'End'].includes(e.code)) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    window.addEventListener('keydown', preventScrollKeys, { passive: false });
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.touchAction = prevBodyTouch;
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+      window.removeEventListener('keydown', preventScrollKeys);
+    };
+  }, []);
+
   const measureTarget = useCallback(() => {
     const el = currentStep.getTarget();
     if (!el) {
@@ -206,35 +237,33 @@ export default function PobiTutorialModal({
       setTargetRect(null);
       return;
     }
-    const maxVisibleH = Math.min(r.height, Math.max(220, window.innerHeight * 0.52));
     setTargetRect({
-      top: Math.max(12, r.top),
+      top: r.top,
       left: r.left,
       width: r.width,
-      height: maxVisibleH
+      height: r.height
     });
   }, [currentStep]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    // Scroll target into view cleanly once when entering a step, then lock its spotlight position
+    const scrollTimer = window.setTimeout(() => {
       const el = currentStep.getTarget();
       if (el) {
         try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
         } catch {}
       }
       measureTarget();
-    }, 220);
+    }, 240);
 
-    const interval = window.setInterval(measureTarget, 280);
+    const settleTimer = window.setTimeout(measureTarget, 460);
     window.addEventListener('resize', measureTarget);
-    window.addEventListener('scroll', measureTarget, true);
 
     return () => {
-      window.clearTimeout(timer);
-      window.clearInterval(interval);
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(settleTimer);
       window.removeEventListener('resize', measureTarget);
-      window.removeEventListener('scroll', measureTarget, true);
     };
   }, [currentStep, measureTarget]);
 
@@ -413,13 +442,16 @@ export default function PobiTutorialModal({
         }
       `}</style>
 
-      {/* Transparent click blocker backdrop so accidental background clicks NEVER jump or disturb the tour */}
+      {/* Transparent click & touch drag blocker backdrop so background cannot be dragged or clicked during tour */}
       <div
         aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 100035,
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+          userSelect: 'none',
           backgroundColor: targetRect ? 'transparent' : 'rgba(10, 18, 28, 0.56)'
         }}
       />

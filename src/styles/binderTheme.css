@@ -3097,26 +3097,31 @@ html[data-theme="dark"] .pobi-filter-pill.is-active {
   color: #FFFFFF !important;
 }
 
-/* Visual Heatmap 5-Tier Color Scale (Dark Mode - High Contrast White Text) */
+/* Visual Heatmap 5-Tier Color Scale (Dark Mode - High Contrast Crisp Numbers) */
 html[data-theme="dark"] .pobi-heat-cell-0 {
-  background-color: #131D2E !important;
-  color: #94A3B8 !important;
+  background-color: #162436 !important;
+  color: #E2E8F0 !important;
+  border-color: #334155 !important;
 }
 html[data-theme="dark"] .pobi-heat-cell-1 {
-  background-color: #422006 !important;
-  color: #FEF3C7 !important;
+  background-color: #5C2D0A !important;
+  color: #FFFFFF !important;
 }
 html[data-theme="dark"] .pobi-heat-cell-2 {
-  background-color: #78350F !important;
+  background-color: #8A3F0D !important;
   color: #FFFFFF !important;
 }
 html[data-theme="dark"] .pobi-heat-cell-3 {
-  background-color: #B45309 !important;
+  background-color: #C2580A !important;
   color: #FFFFFF !important;
 }
 html[data-theme="dark"] .pobi-heat-cell-4 {
-  background-color: #B91C1C !important;
+  background-color: #C81E1E !important;
   color: #FFFFFF !important;
+}
+html[data-theme="dark"] .pobi-heat-tile span {
+  color: inherit !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Override any hardcoded inline light backgrounds in Dark Mode (except virtual A4 paper) */
@@ -3183,6 +3188,14 @@ html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #065F46"],
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(29, 78, 216)"],
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #1D4ED8"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(30, 58, 138)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #1E3A8A"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(30, 64, 175)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #1E40AF"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(37, 99, 235)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #2563EB"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(59, 130, 246)"],
+html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #3B82F6"],
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(185, 28, 28)"],
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: #B91C1C"],
 html[data-theme="dark"] *:not(#print-sheet-preview):not(#print-sheet-preview *)[style*="color: rgb(153, 27, 27)"],
