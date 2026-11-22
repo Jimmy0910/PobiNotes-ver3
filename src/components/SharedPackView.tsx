@@ -37,7 +37,7 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
   const [pack, setPack] = useState<SharedPackData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [hideAnswers, setHideAnswers] = useState(false);
+  const [hideAnswers, setHideAnswers] = useState(true);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
@@ -185,12 +185,16 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
 
               <button
                 type="button"
-                onClick={() => setHideAnswers(prev => !prev)}
+                onClick={() => {
+                  setRevealedIds({});
+                  setHideAnswers(prev => !prev);
+                }}
+                data-testid="shared-toggle-all-answers-btn"
                 className="btn btn-secondary"
                 style={{ padding: '7px 14px', fontSize: '0.84rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 {hideAnswers ? <Eye size={15} /> : <EyeOff size={15} />}
-                <span>{hideAnswers ? '目前隱藏解答（自測中）' : '隱藏解答進行自測'}</span>
+                <span>{hideAnswers ? '展開全部答案與解析' : '隱藏全部答案與解析'}</span>
               </button>
             </div>
 
@@ -359,7 +363,19 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
                   <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '12px' }}>
                     {showAns ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#047857' }}>答案與詳解</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#047857' }}>答案與解析</div>
+                          {hideAnswers && (
+                            <button
+                              type="button"
+                              onClick={() => setRevealedIds(prev => ({ ...prev, [item.id]: false }))}
+                              className="btn btn-secondary"
+                              style={{ padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}
+                            >
+                              收折解析
+                            </button>
+                          )}
+                        </div>
                         {item.aDesc ? (
                           <p style={{ margin: 0, fontSize: '0.9rem', color: '#44403C', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{item.aDesc}</p>
                         ) : (
@@ -377,10 +393,11 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
                       <button
                         type="button"
                         onClick={() => setRevealedIds(prev => ({ ...prev, [item.id]: true }))}
+                        data-testid={`shared-reveal-answer-${item.id}`}
                         className="btn btn-secondary"
-                        style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                        style={{ width: '100%', padding: '10px', fontSize: '0.85rem', fontWeight: 600 }}
                       >
-                        點擊展開此題解析
+                        點擊展開此題答案與解析
                       </button>
                     )}
                   </div>

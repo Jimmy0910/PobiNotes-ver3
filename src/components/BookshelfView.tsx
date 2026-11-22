@@ -293,6 +293,8 @@ export default function BookshelfView({
               return (
                 <div
                   key={subject.id}
+                  data-testid={`book-card-${subject.id}`}
+                  data-pobi-demo-book={subject.name === 'POBI 教學範例-數學' ? '1' : undefined}
                   className="book-item-wrapper"
                   onClick={() => handleBookClick(subject.id)}
                   title={`點擊翻開《${subject.name}》錯題本主頁（查看錯題 / 每日複習 / 分析與工坊）`}
@@ -411,6 +413,7 @@ export default function BookshelfView({
             {/* Add New Notebook Card */}
             <div
               className="book-item-wrapper"
+              data-testid="bookshelf-add-book-card"
               onClick={() => setShowAddModal(true)}
               role="button"
               tabIndex={0}

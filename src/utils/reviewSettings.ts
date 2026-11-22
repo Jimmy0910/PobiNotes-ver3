@@ -76,7 +76,7 @@ function sanitizeDays(val: unknown, fallback: number | null): number | null {
   if (val === null || val === 'never' || val === 'NEVER') return null;
   const num = Number(val);
   if (Number.isFinite(num) && num >= 1) {
-    return Math.min(365, Math.round(num));
+    return Math.round(num);
   }
   return fallback;
 }

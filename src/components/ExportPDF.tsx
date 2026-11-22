@@ -17,7 +17,8 @@ import {
   Columns,
   Square,
   Award,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -117,6 +118,12 @@ export default function ExportPDF({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const cachedBlobRef = useRef<Blob | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const cancelGenerationRef = useRef<boolean>(false);
+
+  const handleCancelGeneratePdf = () => {
+    cancelGenerationRef.current = true;
+    setPdfProgressText('正在取消試卷生成...');
+  };
 
   const togglePreviewOption = (mistakeId: string, fieldId: string, optionValue: string) => {
     setCheckedStates(prev => {
@@ -248,6 +255,7 @@ export default function ExportPDF({
     const sheetEl = sheetRef.current || document.getElementById('print-sheet-preview');
     if (!sheetEl) return;
 
+    cancelGenerationRef.current = false;
     setIsGenerating(true);
     setPdfProgressText('載入所有題目與解析附圖中...');
     setPdfError(null);
@@ -291,6 +299,7 @@ export default function ExportPDF({
 
       // Allow browser layout reflow after pinning width
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (cancelGenerationRef.current) throw new Error('__PDF_CANCELLED__');
 
       const blocks = Array.from(sheetEl.querySelectorAll<HTMLElement>('[data-pdf-block="1"]'));
       if (blocks.length === 0) {
@@ -315,6 +324,7 @@ export default function ExportPDF({
       let cursorY = marginTop;
 
       for (let i = 0; i < blocks.length; i++) {
+        if (cancelGenerationRef.current) throw new Error('__PDF_CANCELLED__');
         const block = blocks[i];
         setPdfProgressText(`正在進行防跨頁 A4 排版 (${i + 1} / ${blocks.length})...`);
 
@@ -331,6 +341,7 @@ export default function ExportPDF({
           backgroundColor: '#ffffff',
           windowWidth: 960
         });
+        if (cancelGenerationRef.current) throw new Error('__PDF_CANCELLED__');
 
         if (canvas.width === 0 || canvas.height === 0) continue;
 
@@ -368,6 +379,7 @@ export default function ExportPDF({
         pdf.text(`Page ${p} / ${totalPages}  ·  A4`, pageW / 2, pageH - 6.5, { align: 'center' });
       }
 
+      if (cancelGenerationRef.current) throw new Error('__PDF_CANCELLED__');
       const pdfBlob = pdf.output('blob');
       cachedBlobRef.current = pdfBlob;
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -389,9 +401,14 @@ export default function ExportPDF({
       setPdfExpired(false);
       showToast(`已產生 ${totalPages} 頁 A4 試卷 PDF（防跨頁切割）`, 'success');
     } catch (err: any) {
-      console.error('PDF 生成失敗：', err);
-      setPdfError(err?.message || '建立 PDF 失敗，請重試或使用「系統列印」。');
+      if (err?.message === '__PDF_CANCELLED__' || cancelGenerationRef.current) {
+        showToast('已取消試卷生成', 'info');
+      } else {
+        console.error('PDF 生成失敗：', err);
+        setPdfError(err?.message || '建立 PDF 失敗，請重試或使用「系統列印」。');
+      }
     } finally {
+      cancelGenerationRef.current = false;
       sheetEl.style.width = prevWidth;
       sheetEl.style.maxWidth = prevMaxWidth;
       sheetEl.style.minWidth = prevMinWidth;
@@ -668,6 +685,19 @@ export default function ExportPDF({
             )}
           </button>
 
+          {isGenerating && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleCancelGeneratePdf}
+              data-testid="export-pdf-cancel-btn"
+              style={{ padding: '8px 14px', fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+            >
+              <X size={15} />
+              <span>取消生成</span>
+            </button>
+          )}
+
           <button
             className="notebook-tool-btn"
             onClick={handlePrint}
@@ -855,9 +885,32 @@ export default function ExportPDF({
 
       {/* Progress & Error Feedback */}
       {isGenerating && (
-        <div className="glass no-print animate-fade-in" style={{ padding: '12px 18px', borderLeft: '4px solid var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
-          <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>{pdfProgressText || '正在進行 A4 排版中...'}</span>
+        <div
+          className="glass no-print animate-fade-in"
+          style={{
+            padding: '12px 18px',
+            borderLeft: '4px solid var(--accent-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
+            <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>{pdfProgressText || '正在進行 A4 排版中...'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelGeneratePdf}
+            data-testid="export-pdf-progress-cancel-btn"
+            className="btn btn-danger"
+            style={{ padding: '5px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <X size={14} />
+            <span>取消</span>
+          </button>
         </div>
       )}
 

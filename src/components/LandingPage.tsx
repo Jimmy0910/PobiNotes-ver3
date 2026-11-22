@@ -66,8 +66,8 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
   const features = [
     {
       icon: BookOpen,
-      title: '單科三大模式與未分類暫存區',
-      desc: '左側精簡為我的書架、未分類區、模板管理、AI 提詞管理。打開任一科目即可切換「查看錯題 / 每日複習 / 分析與工坊」，刪除分類時可選擇將題目安全保留於未分類區。'
+      title: '單科手帳與未分類暫存區',
+      desc: '依科目建立獨立錯題本，翻開即可切換「查看錯題 / 每日複習 / 分析與工坊」，刪除分類時可將題目保留於未分類區。'
     },
     {
       icon: RotateCcw,
@@ -243,7 +243,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                 data-testid="landing-demo-btn"
               >
                 <Play size={16} />
-                <span>免註冊試玩 Demo（含範例圖片）</span>
+                <span>免註冊體驗 Demo</span>
               </button>
 
               <button

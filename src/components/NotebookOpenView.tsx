@@ -952,6 +952,7 @@ export default function NotebookOpenView({
             <button
               type="button"
               onClick={handleOpenAddMistake}
+              data-testid="notebook-add-mistake-btn"
               className="btn btn-primary"
               style={{
                 display: 'inline-flex',

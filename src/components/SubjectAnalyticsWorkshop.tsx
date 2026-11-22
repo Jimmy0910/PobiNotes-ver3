@@ -1592,7 +1592,7 @@ export default function SubjectAnalyticsWorkshop({
                   <span>外部 AI 提示資料包設定（共 {finalExportMistakes.length} 題 · {selectedMediaSummary.totalImages} 張圖）</span>
                 </div>
                 <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  內含 1 份完整提詞檔（<code>00_AI提詞與錯題清單.txt</code>，絕不重複包裝）與 <code>images/</code> 圖片資料夾。
+                  內含提詞與題目清單（<code>00_AI提詞與錯題清單.txt</code>）與 <code>images/</code> 圖片資料夾，可直接上傳給 AI 分析。
                 </div>
               </div>
 

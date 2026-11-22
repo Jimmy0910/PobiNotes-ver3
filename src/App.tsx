@@ -227,44 +227,84 @@ export default function App() {
     setActiveView('bookshelf');
   };
 
+  const clearGuestDemoStorage = () => {
+    const guestKeys = [
+      'pobi_local_mistakes',
+      'pobi_local_categories',
+      'pobi_local_prompt_templates',
+      'pobi_local_templates',
+      'pobi_subject_review_schedules_v1',
+      'pobi_local_user',
+      'pobi_onboarding_done_demo-guest'
+    ];
+    for (const k of guestKeys) {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    }
+  };
+
   const handleEnterDemo = async () => {
     try {
       const demoUser: User = { id: 'demo-guest', username: '體驗訪客', is_admin: 0 };
       localStorage.setItem('pobi_local_user', JSON.stringify(demoUser));
       localStorage.setItem('pobi_onboarding_done_demo-guest', '1');
-      // Remove any legacy uncategorized demo test mistakes so guest mode starts clean
+      // Always ensure guest mode has zero uncategorized mistakes
       try {
         const existingRaw = localStorage.getItem('pobi_local_mistakes');
+        const catRaw = localStorage.getItem('pobi_local_categories');
+        const parsedCats = catRaw ? JSON.parse(catRaw) : null;
+        const validSubjectIds = new Set(
+          Array.isArray(parsedCats?.subjects) ? parsedCats.subjects.map((s: any) => s?.id) : []
+        );
+        const validChapterIds = new Set(
+          Array.isArray(parsedCats?.chapters) ? parsedCats.chapters.map((c: any) => c?.id) : []
+        );
         if (existingRaw) {
           const existingList = JSON.parse(existingRaw);
           if (Array.isArray(existingList)) {
-            const cleaned = existingList.filter(
-              (m: any) => m?.id !== 'demo-m-1' && !String(m?.title || '').startsWith('【體驗範例】')
-            );
+            const cleaned = existingList.filter((m: any) => {
+              if (!m || m.id === 'demo-m-1' || String(m.title || '').startsWith('【體驗範例】')) return false;
+              const hasValidSubj = Boolean(m.subject_id) && validSubjectIds.has(m.subject_id);
+              const hasValidChap = Boolean(m.chapter_id) && validChapterIds.has(m.chapter_id);
+              return hasValidSubj && hasValidChap;
+            });
             localStorage.setItem('pobi_local_mistakes', JSON.stringify(cleaned));
           }
         }
       } catch {}
       setUser(demoUser);
       setActiveView('bookshelf');
-      showToast('已進入免註冊 Demo 體驗模式，可自由試用書架、閃卡複習與 POBI 範例生成', 'info');
+      showToast('已進入訪客體驗模式（登出後將自動清空重設）', 'info');
     } catch {
       setShowAuthView(true);
     }
   };
 
   const handleLogout = async () => {
+    const wasGuest = user?.id === 'demo-guest';
     try {
-      await apiRequest('/api/auth/logout', { method: 'POST' });
+      if (!wasGuest) {
+        await apiRequest('/api/auth/logout', { method: 'POST' });
+      }
     } catch (e) {
       console.error('登出異常：', e);
     } finally {
-      try {
-        localStorage.removeItem('pobi_local_user');
-      } catch {}
+      if (wasGuest) {
+        clearGuestDemoStorage();
+      } else {
+        try {
+          localStorage.removeItem('pobi_local_user');
+        } catch {}
+      }
       setUser(null);
+      setAllMistakes([]);
+      setCategories(EMPTY_CATEGORIES);
       setSelectedSubjectId(null);
       setActiveView('bookshelf');
+      if (wasGuest) {
+        showToast('已登出訪客模式，範例錯題本與使用紀錄皆已清空重設', 'info');
+      }
     }
   };
 
@@ -867,10 +907,14 @@ export default function App() {
         unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
       />
 
-      {/* POBI Interactive Tutorial Modal (Auto-plays for new accounts, replayable anytime) */}
+      {/* POBI Interactive Dynamic Spotlight Tutorial */}
       {showPobiTutorial && user && (
         <PobiTutorialModal
           categories={categories}
+          activeView={activeView}
+          selectedSubjectId={selectedSubjectId}
+          onNavigateView={view => setActiveView(view)}
+          onOpenNotebook={handleOpenNotebook}
           isNewUser={isNewUserTutorial}
           onClose={() => {
             try {

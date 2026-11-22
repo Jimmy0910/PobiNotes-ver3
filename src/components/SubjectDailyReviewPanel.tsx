@@ -50,11 +50,31 @@ export default function SubjectDailyReviewPanel({
   const [schedule, setSchedule] = useState<SubjectFamiliaritySchedule>(() =>
     getSubjectReviewSchedule(subjectId)
   );
+  const [draftDays, setDraftDays] = useState<Record<CanonicalFamiliarityKey, string>>(() => {
+    const initial = getSubjectReviewSchedule(subjectId);
+    return {
+      不會: initial['不會'] === null ? '' : String(initial['不會']),
+      卡: initial['卡'] === null ? '' : String(initial['卡']),
+      誤解: initial['誤解'] === null ? '' : String(initial['誤解']),
+      順: initial['順'] === null ? '' : String(initial['順'])
+    };
+  });
   const [scheduleVersion, setScheduleVersion] = useState(0);
   const [showScheduleEditor, setShowScheduleEditor] = useState(true);
 
+  const syncDraftsFromSchedule = (next: SubjectFamiliaritySchedule) => {
+    setDraftDays({
+      不會: next['不會'] === null ? '' : String(next['不會']),
+      卡: next['卡'] === null ? '' : String(next['卡']),
+      誤解: next['誤解'] === null ? '' : String(next['誤解']),
+      順: next['順'] === null ? '' : String(next['順'])
+    });
+  };
+
   useEffect(() => {
-    setSchedule(getSubjectReviewSchedule(subjectId));
+    const loaded = getSubjectReviewSchedule(subjectId);
+    setSchedule(loaded);
+    syncDraftsFromSchedule(loaded);
   }, [subjectId]);
 
   const subjectChapters = useMemo(() => {
@@ -203,11 +223,39 @@ export default function SubjectDailyReviewPanel({
       ...prev,
       [key]: value
     }));
+    setDraftDays(prev => ({
+      ...prev,
+      [key]: value === null ? '' : String(value)
+    }));
+  };
+
+  const handleDraftDaysChange = (key: CanonicalFamiliarityKey, rawInput: string) => {
+    const digitsOnly = rawInput.replace(/[^\d]/g, '');
+    setDraftDays(prev => ({ ...prev, [key]: digitsOnly }));
+    if (digitsOnly !== '') {
+      const parsed = parseInt(digitsOnly, 10);
+      if (Number.isFinite(parsed) && parsed >= 1) {
+        setSchedule(prev => ({ ...prev, [key]: parsed }));
+      }
+    }
   };
 
   const handleSaveSchedule = () => {
-    const saved = saveSubjectReviewSchedule(subjectId, schedule);
+    const nextSchedule: SubjectFamiliaritySchedule = { ...schedule };
+    for (const meta of FAMILIARITY_SCHEDULE_META) {
+      if (nextSchedule[meta.key] !== null) {
+        const raw = (draftDays[meta.key] || '').trim();
+        const parsed = parseInt(raw, 10);
+        if (!raw || !Number.isFinite(parsed) || parsed < 1) {
+          showToast(`請為「${meta.label}」輸入大於 0 的間隔天數，或切換為「不再複習」`, 'error');
+          return;
+        }
+        nextSchedule[meta.key] = parsed;
+      }
+    }
+    const saved = saveSubjectReviewSchedule(subjectId, nextSchedule);
     setSchedule(saved);
+    syncDraftsFromSchedule(saved);
     setScheduleVersion(v => v + 1);
     onScheduleChanged?.();
     showToast(`已儲存《${subjectName}》的熟悉度複習排程設定`, 'success');
@@ -216,6 +264,7 @@ export default function SubjectDailyReviewPanel({
   const handleResetSchedule = () => {
     const defaults = resetSubjectReviewSchedule(subjectId);
     setSchedule(defaults);
+    syncDraftsFromSchedule(defaults);
     setScheduleVersion(v => v + 1);
     onScheduleChanged?.();
     showToast(`已恢復《${subjectName}》預設複習週期（1 / 3 / 5 / 14 天）`, 'info');
@@ -583,20 +632,15 @@ export default function SubjectDailyReviewPanel({
                         {!isNever ? (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <input
-                              type="number"
-                              min={1}
-                              max={365}
-                              value={val}
-                              onChange={e => {
-                                const parsed = parseInt(e.target.value, 10);
-                                handleUpdateScheduleItem(
-                                  meta.key,
-                                  Number.isFinite(parsed) && parsed >= 1 ? Math.min(365, parsed) : 1
-                                );
-                              }}
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              placeholder="天數"
+                              value={draftDays[meta.key]}
+                              onChange={e => handleDraftDaysChange(meta.key, e.target.value)}
                               data-testid={`schedule-days-input-${meta.key}`}
                               style={{
-                                width: '62px',
+                                width: '74px',
                                 height: '30px',
                                 padding: '2px 8px',
                                 borderRadius: '6px',
@@ -605,7 +649,8 @@ export default function SubjectDailyReviewPanel({
                                 color: '#1C1917',
                                 fontWeight: 700,
                                 fontSize: '0.84rem',
-                                textAlign: 'center'
+                                textAlign: 'center',
+                                fontVariantNumeric: 'tabular-nums'
                               }}
                             />
                             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#44403C' }}>天後</span>

@@ -1,89 +1,106 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
 import type { CategoriesBundle } from '../types';
+import type { AppViewType } from './Dashboard';
 import {
   X,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
-  BookOpen,
   Sparkles,
-  FolderTree,
-  RotateCcw,
-  Printer,
   Loader2,
-  Play
+  MousePointerClick
 } from 'lucide-react';
 
 interface PobiTutorialModalProps {
   categories: CategoriesBundle;
+  activeView: AppViewType;
+  selectedSubjectId: string | null;
+  onNavigateView: (view: AppViewType) => void;
+  onOpenNotebook: (subjectId: string) => void;
   isNewUser?: boolean;
   onClose: () => void;
   onRefreshAll: () => Promise<void>;
 }
 
-const TUTORIAL_STEPS = [
+interface SpotlightStep {
+  id: string;
+  title: string;
+  tip: string;
+  actionHint: string;
+  getTarget: () => HTMLElement | null;
+  advanceOnTargetClick?: boolean;
+}
+
+interface TargetRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+const SPOTLIGHT_STEPS: SpotlightStep[] = [
   {
-    id: 1,
-    title: '第 1 步：認識精簡側邊欄並生成含示範圖片的錯題本',
-    icon: BookOpen,
-    speech:
-      '汪！你好，我是比熊 POBI！左側導覽精簡為「我的書架」、「未分類區」、「模板管理」、「AI 提詞管理」四大入口。點下方按鈕，我會立刻幫你建立《POBI 教學範例-數學》錯題本（含 2 題附真實題目圖與詳解圖的範例題）！',
-    highlights: [
-      '「我的書架」：點書封進入該科三大模式；右上角白色「⋮」可分享、更名或刪除（刪除時可選連同題目刪除或將題目移至未分類區）。',
-      '「未分類區」：集中保管尚未歸類或刪除分類後保留的題目；「AI 提詞管理」專注自訂提詞範本，無須在管理頁勾選題目。'
-    ]
+    id: 'bookshelf-open',
+    title: '點擊翻開錯題本',
+    tip: '點任一本錯題本封面即可進入；也可先點下方按鈕，一鍵建立附圖解的示範錯題本。',
+    actionHint: '點擊發亮書封（或按「下一步」自動翻開）',
+    getTarget: () =>
+      (document.querySelector('[data-pobi-demo-book="1"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid^="book-card-"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="bookshelf-add-book-card"]') as HTMLElement | null),
+    advanceOnTargetClick: true
   },
   {
-    id: 2,
-    title: '第 2 步：單題錄入規範與 4 階段 AI 考卷批次匯入',
-    icon: Sparkles,
-    speech:
-      '新增錯題時，系統會強制提醒你勾選「熟悉度（順／卡／不會／誤解）」，並貼心提醒是否補充「錯因」（錯因非強制），讓後續統計更精準！寫完考卷也能用書架「AI 考卷批次匯入」4 階段快速建檔。',
-    highlights: [
-      '單題支援上傳題目圖與多張詳解圖，並可開啟紅筆手寫標註。',
-      '4 階段批次匯入：1. 設計提詞 -> 2. 上傳圖片／打包 ZIP 交給外部 AI 分析 -> 3. 調整題目與多圖配對 -> 4. 極速審核入庫。'
-    ]
+    id: 'notebook-add',
+    title: '新增錯題',
+    tip: '點「新增錯題」拍照或貼上題目與解析圖，並必選「熟悉度」以便追蹤複習。',
+    actionHint: '認識此按鈕位置後，按「下一步」繼續',
+    getTarget: () => document.querySelector('[data-testid="notebook-add-mistake-btn"]') as HTMLElement | null,
+    advanceOnTargetClick: false
   },
   {
-    id: 3,
-    title: '第 3 步：翻開單科錯題本 — 分頁 1「查看錯題」',
-    icon: FolderTree,
-    speech:
-      '點擊任一本錯題本進入單科主頁，上方提供「查看錯題」、「每日複習」、「分析與工坊」三大分頁。在「查看錯題」中可用章節與小單元整理題目，刪除任一章節或小單元時都會貼心詢問要連同題目刪除還是放到「未分類區」！',
-    highlights: [
-      '章節直立三點「⋮」可分享此章節題目包、重新命名、跨層級搬移或刪除。',
-      '內嵌「分類與標籤管理」並支援唯讀連結分享，收件人免登入即可依章節／小單元篩選瀏覽。'
-    ]
+    id: 'hub-review',
+    title: '切換「每日複習」',
+    tip: '點此進入閃卡複習室，可自選章節單元，並設定各科熟悉度的間隔複習天數。',
+    actionHint: '點擊「每日複習」分頁（或按「下一步」）',
+    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null,
+    advanceOnTargetClick: true
   },
   {
-    id: 4,
-    title: '第 4 步：單科分頁 2「每日複習」— POBI 閃卡與各科排程',
-    icon: RotateCcw,
-    speech:
-      '切換到「每日複習」，我會先幫你把本科所有章節與小單元「預設全選」，勾選範圍即可開始閃卡重測！不同科目可各自設定「不會／卡／誤解／順」幾天後重測，或直接設為「不再複習」。',
-    highlights: [
-      '預設複習週期：不會 (+1天)、卡 (+3天)、誤解 (+5天)、順 (+14天)，每科皆可獨立修改或停用排程。',
-      '深淺色主題皆可一鍵切換，深色模式全面採深底白字保護雙眼。'
-    ]
+    id: 'hub-workshop',
+    title: '切換「分析與工坊」',
+    tip: '查看弱點熱度圖並多選範圍，一鍵匯出 AI 提示資料包（ZIP）或 A4 防切題考卷。',
+    actionHint: '點擊「分析與工坊」分頁（或按「下一步」）',
+    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null,
+    advanceOnTargetClick: true
   },
   {
-    id: 5,
-    title: '第 5 步：單科分頁 3「分析與工坊」三步驟與備份還原',
-    icon: Printer,
-    speech:
-      '「分析與工坊」採用清楚的三步驟流程：1. 選擇分析模式（章節與單元／熟悉度與錯因／自訂標籤） -> 2. 勾選範圍並檢視視覺化弱點熱度圖與占比圖表（圖表項目支援多選！） -> 3. 預覽題目與圖片縮圖，一鍵匯出外部 AI 提示資料包（ZIP）或 A4 防跨頁練習卷！',
-    highlights: [
-      '外部 AI 提示資料包 (.zip) 僅包裝 1 份完整提詞檔與所有題目／解析圖片，不重複打包，直接整包上傳給 ChatGPT／Gemini／Claude 即可分析。',
-      'A4 練習卷與解析卷皆防跨頁切題並支援行動裝置系統列印；書架右上角「備份與還原」支援跨帳號上傳還原 ZIP／JSON，隨時可點「POBI 教學」重播本導覽！'
-    ]
+    id: 'nav-uncategorized',
+    title: '未分類區（暫存題庫）',
+    tip: '刪除科目、章節或單元時選擇保留的題目會暫存在這裡，隨時可批次歸類。',
+    actionHint: '點擊左側「未分類區」或按「下一步」',
+    getTarget: () => document.querySelector('[data-testid="nav-uncategorized"]') as HTMLElement | null,
+    advanceOnTargetClick: true
+  },
+  {
+    id: 'nav-prompt',
+    title: 'AI 提詞管理',
+    tip: '在這裡管理與自訂 AI 解題提詞，匯出 AI 資料包時可直接套用。開始整理錯題吧！',
+    actionHint: '點擊「完成教學」結束導覽',
+    getTarget: () => document.querySelector('[data-testid="nav-prompt"]') as HTMLElement | null,
+    advanceOnTargetClick: false
   }
 ];
 
 export default function PobiTutorialModal({
   categories,
+  activeView,
+  selectedSubjectId,
+  onNavigateView,
+  onOpenNotebook,
   isNewUser = false,
   onClose,
   onRefreshAll
@@ -92,20 +109,101 @@ export default function PobiTutorialModal({
   const [stepIdx, setStepIdx] = useState(0);
   const [seeding, setSeeding] = useState(false);
   const [seededDone, setSeededDone] = useState(false);
+  const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
+  const targetElRef = useRef<HTMLElement | null>(null);
+
+  const pickPreferredSubjectId = useCallback((): string | null => {
+    const demoSubj = categories.subjects.find(s => s.name === 'POBI 教學範例-數學');
+    if (demoSubj) return demoSubj.id;
+    if (selectedSubjectId && categories.subjects.some(s => s.id === selectedSubjectId)) {
+      return selectedSubjectId;
+    }
+    return categories.subjects[0]?.id || null;
+  }, [categories.subjects, selectedSubjectId]);
+
+  const currentStep = SPOTLIGHT_STEPS[stepIdx];
+
+  // Ensure the page is on the right view for the current step
+  useEffect(() => {
+    if (stepIdx === 0 && activeView !== 'bookshelf') {
+      onNavigateView('bookshelf');
+    } else if (stepIdx >= 1 && stepIdx <= 3 && activeView !== 'notebook') {
+      const subjId = pickPreferredSubjectId();
+      if (subjId) {
+        onOpenNotebook(subjId);
+      }
+    }
+  }, [stepIdx, activeView, onNavigateView, onOpenNotebook, pickPreferredSubjectId]);
+
+  // Measure target element rect dynamically on scroll, resize, or DOM changes
+  const measureTarget = useCallback(() => {
+    const el = currentStep.getTarget();
+    targetElRef.current = el;
+    if (!el) {
+      setTargetRect(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) {
+      setTargetRect(null);
+      return;
+    }
+    setTargetRect({
+      top: r.top,
+      left: r.left,
+      width: r.width,
+      height: r.height
+    });
+  }, [currentStep]);
 
   useEffect(() => {
-    const prevHtml = document.documentElement.style.overflow;
-    const prevBody = document.body.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.documentElement.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-    };
-  }, []);
+    // Scroll target into view smoothly on step change, then measure
+    const timer = window.setTimeout(() => {
+      const el = currentStep.getTarget();
+      if (el) {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        } catch {}
+      }
+      measureTarget();
+    }, 120);
 
-  const currentStep = TUTORIAL_STEPS[stepIdx];
-  const StepIcon = currentStep.icon;
+    const interval = window.setInterval(measureTarget, 260);
+    window.addEventListener('resize', measureTarget);
+    window.addEventListener('scroll', measureTarget, true);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener('resize', measureTarget);
+      window.removeEventListener('scroll', measureTarget, true);
+    };
+  }, [currentStep, measureTarget]);
+
+  // Interactive Click-to-Advance on the real spotlighted element
+  useEffect(() => {
+    if (!currentStep.advanceOnTargetClick) return;
+    const handleDocClick = (e: MouseEvent) => {
+      const targetEl = targetElRef.current;
+      if (!targetEl) return;
+      if (targetEl.contains(e.target as Node)) {
+        window.setTimeout(() => {
+          setStepIdx(prev => (prev < SPOTLIGHT_STEPS.length - 1 ? prev + 1 : prev));
+        }, 180);
+      }
+    };
+    document.addEventListener('click', handleDocClick, true);
+    return () => document.removeEventListener('click', handleDocClick, true);
+  }, [currentStep.advanceOnTargetClick]);
+
+  // Keyboard Escape to exit tour
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   const handleGenerateTestData = async () => {
     if (seeding || seededDone) return;
@@ -202,258 +300,346 @@ export default function PobiTutorialModal({
 
       await onRefreshAll();
       setSeededDone(true);
-      showToast('已成功生成《POBI 教學範例-數學》與範例圖解錯題！', 'success');
+      showToast('已生成《POBI 教學範例-數學》示範錯題本！', 'success');
+      window.setTimeout(measureTarget, 150);
     } catch (err: any) {
       console.error('生成教學測試資料失敗:', err);
-      showToast(err?.message || '生成教學測試錯題本失敗，請稍後再試', 'error');
+      showToast(err?.message || '生成示範錯題本失敗，請稍後再試', 'error');
     } finally {
       setSeeding(false);
     }
   };
 
+  const handleNext = () => {
+    if (stepIdx === 0) {
+      const subjId = pickPreferredSubjectId();
+      if (subjId) {
+        onOpenNotebook(subjId);
+      }
+      setStepIdx(1);
+      return;
+    }
+    if (stepIdx === 2) {
+      const el = document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null;
+      if (el) el.click();
+      setStepIdx(3);
+      return;
+    }
+    if (stepIdx === 3) {
+      const el = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
+      if (el) el.click();
+      setStepIdx(4);
+      return;
+    }
+    if (stepIdx < SPOTLIGHT_STEPS.length - 1) {
+      setStepIdx(stepIdx + 1);
+    } else {
+      onClose();
+    }
+  };
+
+  const handlePrev = () => {
+    if (stepIdx === 1) {
+      onNavigateView('bookshelf');
+    }
+    if (stepIdx > 0) {
+      setStepIdx(stepIdx - 1);
+    }
+  };
+
+  // Compute safe floating tooltip card coordinates near targetRect
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const cardW = Math.min(350, vw - 24);
+  const estCardH = stepIdx === 0 ? 275 : 215;
+  const pad = 8;
+
+  let cardTop = Math.max(16, (vh - estCardH) / 2);
+  let cardLeft = Math.max(12, (vw - cardW) / 2);
+
+  if (targetRect) {
+    const spaceBelow = vh - (targetRect.top + targetRect.height + pad);
+    const spaceAbove = targetRect.top - pad;
+    const spaceRight = vw - (targetRect.left + targetRect.width + pad);
+
+    if (targetRect.left < 240 && spaceRight >= cardW + 20) {
+      // Sidebar item -> place card cleanly to the right
+      cardLeft = targetRect.left + targetRect.width + 18;
+      cardTop = Math.min(Math.max(16, targetRect.top - 12), vh - estCardH - 16);
+    } else if (spaceBelow >= estCardH + 20) {
+      cardTop = targetRect.top + targetRect.height + 16;
+      cardLeft = Math.min(Math.max(12, targetRect.left + targetRect.width / 2 - cardW / 2), vw - cardW - 12);
+    } else if (spaceAbove >= estCardH + 20) {
+      cardTop = Math.max(16, targetRect.top - estCardH - 16);
+      cardLeft = Math.min(Math.max(12, targetRect.left + targetRect.width / 2 - cardW / 2), vw - cardW - 12);
+    } else if (spaceRight >= cardW + 20) {
+      cardLeft = targetRect.left + targetRect.width + 16;
+      cardTop = Math.min(Math.max(16, targetRect.top), vh - estCardH - 16);
+    } else {
+      cardLeft = Math.max(12, targetRect.left - cardW - 16);
+      cardTop = Math.min(Math.max(16, targetRect.top), vh - estCardH - 16);
+    }
+  }
+
   return createPortal(
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100dvh',
-        zIndex: 100050,
-        background: 'rgba(15, 23, 42, 0.74)',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        boxSizing: 'border-box'
-      }}
-      onClick={e => {
-        if (e.target === e.currentTarget && !seeding) onClose();
-      }}
-    >
-      <div
-        data-testid="pobi-tutorial-modal"
-        style={{
-          width: '100%',
-          maxWidth: '620px',
-          maxHeight: 'min(88dvh, 88vh)',
-          backgroundColor: 'var(--bg-secondary, #FFFFFF)',
-          color: 'var(--text-primary, #1C1917)',
-          borderRadius: '16px',
-          border: '1px solid var(--glass-border)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}
-      >
-        {/* Header with Top-Right Close Button */}
+    <>
+      <style>{`
+        @keyframes pobiSpotlightPulse {
+          0%, 100% { box-shadow: 0 0 0 9999px rgba(10, 18, 28, 0.56), 0 0 0 3px #F59E0B, 0 0 18px rgba(245, 158, 11, 0.72); }
+          50% { box-shadow: 0 0 0 9999px rgba(10, 18, 28, 0.56), 0 0 0 6px #FBBF24, 0 0 26px rgba(251, 191, 36, 0.92); }
+        }
+      `}</style>
+
+      {/* Spotlight Cutout Frame — pointerEvents: none so the actual highlighted button remains 100% clickable! */}
+      {targetRect ? (
+        <div
+          data-testid="pobi-spotlight-ring"
+          style={{
+            position: 'fixed',
+            top: `${Math.max(0, targetRect.top - pad)}px`,
+            left: `${Math.max(0, targetRect.left - pad)}px`,
+            width: `${targetRect.width + pad * 2}px`,
+            height: `${targetRect.height + pad * 2}px`,
+            borderRadius: '11px',
+            border: '2.5px solid #F59E0B',
+            zIndex: 100040,
+            pointerEvents: 'none',
+            transition: 'all 0.24s cubic-bezier(0.22, 1, 0.36, 1)',
+            animation: 'pobiSpotlightPulse 1.8s ease-in-out infinite'
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: '-26px',
+              left: '0px',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              backgroundColor: '#D97706',
+              color: '#FFFFFF',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.28)'
+            }}
+          >
+            <MousePointerClick size={12} />
+            步驟 {stepIdx + 1}
+          </span>
+        </div>
+      ) : (
         <div
           style={{
-            padding: '15px 20px',
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(10, 18, 28, 0.54)',
+            zIndex: 100040,
+            pointerEvents: 'none'
+          }}
+        />
+      )}
+
+      {/* Floating Interactive POBI Coachmark Card */}
+      <div
+        role="dialog"
+        aria-label="POBI 互動教學引導"
+        data-testid="pobi-tutorial-coachmark"
+        className="glass animate-fade-in"
+        style={{
+          position: 'fixed',
+          top: `${cardTop}px`,
+          left: `${cardLeft}px`,
+          width: `${cardW}px`,
+          maxWidth: 'calc(100vw - 24px)',
+          borderRadius: '14px',
+          border: '2px solid #D97706',
+          boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
+          zIndex: 100050,
+          overflow: 'hidden',
+          transition: 'top 0.24s cubic-bezier(0.22, 1, 0.36, 1), left 0.24s cubic-bezier(0.22, 1, 0.36, 1)'
+        }}
+      >
+        {/* Header with POBI Bichon Avatar & Top-Right Close X */}
+        <div
+          style={{
+            padding: '11px 14px',
             borderBottom: '1px solid var(--glass-border)',
-            backgroundColor: 'var(--bg-primary, #FAF7F0)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexShrink: 0
+            gap: '8px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Play size={16} style={{ color: '#B45309' }} />
-            <span style={{ fontWeight: 700, fontSize: '0.98rem', color: '#92400E' }}>
-              POBI 互動教學模式 {isNewUser ? '（新帳戶導覽）' : '（重播）'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <img
+              src="/pobi-mascot.jpg"
+              alt="比熊 POBI"
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                objectPosition: 'center 25%',
+                border: '1.5px solid #D97706',
+                flexShrink: 0
+              }}
+            />
+            <div>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#D97706' }}>
+                {isNewUser ? 'POBI 新手引導' : 'POBI 互動導覽'} · {stepIdx + 1} / {SPOTLIGHT_STEPS.length}
+              </div>
+              <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {currentStep.title}
+              </div>
+            </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            disabled={seeding}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}
-            title="關閉教學"
+            aria-label="結束教學"
+            data-testid="pobi-tutorial-close-btn"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '7px',
+              border: '1px solid var(--glass-border)',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
           >
-            <X size={20} />
+            <X size={15} />
           </button>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Progress Pills */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {TUTORIAL_STEPS.map((s, idx) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setStepIdx(idx)}
-                style={{
-                  flex: 1,
-                  height: '6px',
-                  borderRadius: '999px',
-                  border: 'none',
-                  backgroundColor: idx <= stepIdx ? '#D97706' : 'var(--glass-border)',
-                  cursor: 'pointer',
-                  padding: 0
-                }}
-                title={s.title}
-              />
-            ))}
+        {/* Concise Body */}
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+            {currentStep.tip}
+          </p>
+
+          <div
+            style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            <MousePointerClick size={13} style={{ color: '#D97706', flexShrink: 0 }} />
+            <span>{currentStep.actionHint}</span>
           </div>
 
-          {/* Step Heading */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '9px', backgroundColor: 'rgba(217, 119, 6, 0.14)', color: '#B45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <StepIcon size={19} />
-            </div>
-            <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700 }}>{currentStep.title}</h3>
-          </div>
-
-          {/* POBI Bichon Speech Bubble */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-            <div
-              style={{
-                width: '72px',
-                height: '72px',
-                borderRadius: '50%',
-                border: '2px solid #D97706',
-                backgroundColor: '#FFFBEB',
-                overflow: 'hidden',
-                flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(180, 83, 9, 0.16)'
-              }}
-            >
-              <img src="/pobi-mascot.jpg" alt="比熊 POBI" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%' }} />
-            </div>
-            <div
-              style={{
-                flex: 1,
-                backgroundColor: '#FFFBEB',
-                border: '1px solid #FDE68A',
-                borderRadius: '12px',
-                padding: '13px 15px',
-                fontSize: '0.9rem',
-                lineHeight: 1.65,
-                color: '#1C1917'
-              }}
-            >
-              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#B45309', marginBottom: '4px' }}>
-                比熊 POBI 導覽員
-              </div>
-              {currentStep.speech}
-            </div>
-          </div>
-
-          {/* Interactive Test Data Seeder on Step 1 */}
+          {/* Step 1 Optional Seed Demo Notebook Action */}
           {stepIdx === 0 && (
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: '10px',
-                border: seededDone ? '1.5px solid #10B981' : '1.5px dashed #D97706',
-                backgroundColor: seededDone ? '#ECFDF5' : 'var(--bg-primary, #FAF7F0)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}
-            >
-              <div style={{ fontSize: '0.84rem', color: seededDone ? '#065F46' : 'var(--text-secondary)', lineHeight: 1.5 }}>
-                {seededDone ? (
-                  <strong>已成功生成《POBI 教學範例-數學》錯題本與 2 題附範例圖片之測試錯題！</strong>
-                ) : (
-                  <span>想要立刻實作體驗嗎？點此生成 1 本含章節、單元、範例題目圖與詳解圖的測試錯題本：</span>
-                )}
-              </div>
-              {!seededDone && (
+            <div style={{ paddingTop: '2px' }}>
+              {seededDone ? (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    color: 'var(--success)'
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>已建立《POBI 教學範例-數學》，可直接點擊書封翻開！</span>
+                </div>
+              ) : (
                 <button
                   type="button"
                   onClick={handleGenerateTestData}
                   disabled={seeding}
-                  className="btn btn-primary"
-                  style={{ padding: '7px 14px', fontSize: '0.83rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   data-testid="pobi-seed-test-data-btn"
+                  className="btn btn-secondary"
+                  style={{
+                    width: '100%',
+                    padding: '7px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
                 >
                   {seeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  <span>{seeding ? '生成測試錯題本中...' : '一鍵生成測試錯題本'}</span>
+                  <span>{seeding ? '建立示範錯題本中...' : '一鍵生成示範錯題本（含圖解）'}</span>
                 </button>
               )}
             </div>
           )}
-
-          {/* Highlights */}
-          <div style={{ backgroundColor: 'var(--bg-primary, #FAF7F0)', border: '1px solid var(--glass-border)', borderRadius: '10px', padding: '14px 16px' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E', marginBottom: '8px' }}>重點操作提醒</div>
-            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.86rem', color: 'var(--text-body)', lineHeight: 1.75 }}>
-              {currentStep.highlights.map((h, i) => (
-                <li key={i}>{h}</li>
-              ))}
-            </ul>
-          </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer Controls */}
         <div
           style={{
-            padding: '12px 20px',
+            padding: '10px 14px',
             borderTop: '1px solid var(--glass-border)',
-            backgroundColor: 'var(--bg-primary, #FAF7F0)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '10px',
-            flexShrink: 0
+            gap: '8px'
           }}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={seeding}
-            className="btn btn-text"
-            style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}
-          >
-            略過（後續可隨時重播）
-          </button>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {SPOTLIGHT_STEPS.map((s, idx) => (
+              <span
+                key={s.id}
+                style={{
+                  width: idx === stepIdx ? '16px' : '6px',
+                  height: '6px',
+                  borderRadius: '999px',
+                  backgroundColor: idx === stepIdx ? '#D97706' : 'var(--glass-border)',
+                  transition: 'all 0.2s ease'
+                }}
+              />
+            ))}
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {stepIdx > 0 && (
               <button
                 type="button"
-                onClick={() => setStepIdx(i => Math.max(0, i - 1))}
+                onClick={handlePrev}
                 className="btn btn-secondary"
-                style={{ padding: '7px 14px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                style={{ padding: '5px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >
-                <ArrowLeft size={14} /> 上一步
+                <ArrowLeft size={13} /> 上一步
               </button>
             )}
-            {stepIdx < TUTORIAL_STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={() => setStepIdx(i => i + 1)}
-                className="btn btn-primary"
-                style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                data-testid="pobi-tutorial-next-btn"
-              >
-                下一步 <ArrowRight size={14} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn btn-primary"
-                style={{ padding: '8px 18px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                data-testid="pobi-tutorial-finish-btn"
-              >
-                <CheckCircle2 size={15} /> 完成教學，開始使用
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleNext}
+              data-testid="pobi-tutorial-next-btn"
+              className="btn btn-primary"
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>{stepIdx === SPOTLIGHT_STEPS.length - 1 ? '完成教學' : '下一步'}</span>
+              {stepIdx < SPOTLIGHT_STEPS.length - 1 ? <ArrowRight size={13} /> : <CheckCircle2 size={13} />}
+            </button>
           </div>
         </div>
       </div>
-    </div>,
+    </>,
     document.body
   );
 }
