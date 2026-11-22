@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   BookOpen,
   Sparkles,
@@ -14,8 +14,8 @@ import {
   Inbox,
   Sun,
   Moon,
-  Eye,
-  EyeOff,
+  Volume2,
+  VolumeX,
   Clock,
   Layers,
   Target
@@ -37,7 +37,8 @@ interface LandingPageProps {
 export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProps) {
   const { showToast } = useUiFeedback();
   const [copiedSiteUrl, setCopiedSiteUrl] = useState(false);
-  const [showSampleAnswer, setShowSampleAnswer] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const promoVideoRef = useRef<HTMLVideoElement | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
@@ -386,12 +387,13 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             </div>
           </div>
 
-          {/* Right Live Interactive Product Showcase Card (Deep Forest Green Hardcover Studio) */}
+          {/* Right Product Promo Video Showcase Card (Deep Forest Green Hardcover Studio) */}
           <div
             className="pobi-studio-hero-card"
+            data-testid="landing-promo-video-card"
             style={{
               borderRadius: '16px',
-              padding: '24px 24px 22px 24px',
+              padding: '22px 22px 20px 22px',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px'
@@ -399,8 +401,8 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           >
             <GoldCornerOrnaments size={50} inset={6} opacity={0.78} color="#E4C284" />
 
-            {/* Showcase Top Header with POBI Mascot */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 2, gap: '10px' }}>
+            {/* Showcase Top Header with POBI Mascot & Audio Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 2, gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <img
                   src="/pobi-mascot.jpg"
@@ -409,94 +411,84 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                 />
                 <div>
                   <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.98rem', color: '#FBF8F1', letterSpacing: '0.03em' }}>
-                    實境錯題自測體驗
+                    POBI STUDIO 產品介紹影片
                   </div>
                   <div style={{ fontSize: '0.72rem', color: '#E4C284', letterSpacing: '0.04em' }}>
-                    比熊 POBI 陪你從錯題找出破題關鍵
+                    34 秒快速認識數位錯題手帳完整流程
                   </div>
                 </div>
               </div>
-              <span
+              <button
+                type="button"
+                onClick={() => {
+                  const nextMuted = !isVideoMuted;
+                  setIsVideoMuted(nextMuted);
+                  if (promoVideoRef.current) {
+                    promoVideoRef.current.muted = nextMuted;
+                    if (!nextMuted && promoVideoRef.current.paused) {
+                      promoVideoRef.current.play().catch(() => {});
+                    }
+                  }
+                }}
+                data-testid="landing-promo-mute-btn"
                 style={{
-                  padding: '3px 10px',
+                  padding: '5px 11px',
                   borderRadius: '999px',
-                  fontSize: '0.72rem',
+                  fontSize: '0.74rem',
                   fontWeight: 700,
-                  border: '1px solid rgba(200, 154, 80, 0.55)',
-                  backgroundColor: 'rgba(11, 64, 43, 0.65)',
-                  color: '#F3E5C8',
+                  border: '1px solid rgba(228, 194, 132, 0.65)',
+                  backgroundColor: isVideoMuted ? 'rgba(217, 119, 6, 0.92)' : 'rgba(11, 64, 43, 0.78)',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
                   flexShrink: 0
                 }}
               >
-                互動預覽
-              </span>
+                {isVideoMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                <span>{isVideoMuted ? '開啟配樂' : '靜音播放'}</span>
+              </button>
             </div>
 
-            {/* Interactive Live Mistake Card Preview */}
+            {/* Embedded 16:9 Commercial Promo Video */}
             <div
               style={{
                 position: 'relative',
                 zIndex: 2,
-                backgroundColor: '#FBF8F1',
-                color: '#29251F',
                 borderRadius: '11px',
-                border: '1px solid rgba(200, 154, 80, 0.55)',
-                padding: '14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)'
+                overflow: 'hidden',
+                border: '1.5px solid rgba(228, 194, 132, 0.55)',
+                backgroundColor: '#0B402B',
+                boxShadow: '0 10px 24px rgba(0, 0, 0, 0.28)',
+                aspectRatio: '16 / 9',
+                width: '100%'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span style={{ padding: '2px 8px', borderRadius: '5px', backgroundColor: '#145B38', color: '#FFFFFF', fontSize: '0.72rem', fontWeight: 700 }}>
-                    數學 · 二次函數與極值
-                  </span>
-                  <span style={{ padding: '2px 8px', borderRadius: '5px', backgroundColor: '#FEF3C7', border: '1px solid #D97706', color: '#92400E', fontSize: '0.72rem', fontWeight: 700 }}>
-                    掌握度：卡
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.72rem', color: '#81796E', fontWeight: 600 }}>#學測必考</span>
-              </div>
-
-              <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #E2D9C9', backgroundColor: '#FFFFFF' }}>
-                <img
-                  src={showSampleAnswer ? '/demo/parabola-a.png' : '/demo/parabola-q.png'}
-                  alt={showSampleAnswer ? '二次函數範例詳解圖' : '二次函數範例題目圖'}
-                  style={{ width: '100%', height: '165px', objectFit: 'contain', display: 'block', backgroundColor: '#FAF7F0' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.76rem', color: '#585147', fontWeight: 600 }}>
-                  {showSampleAnswer ? '已展開詳解：配方找頂點並比較端點值' : '自測模式：先思考解法，再點擊對照圖解'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowSampleAnswer(prev => !prev)}
-                  data-testid="landing-sample-toggle-btn"
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '7px',
-                    border: '1px solid #D97706',
-                    backgroundColor: showSampleAnswer ? '#145B38' : '#D97706',
-                    color: '#FFFFFF',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}
-                >
-                  {showSampleAnswer ? <EyeOff size={13} /> : <Eye size={13} />}
-                  <span>{showSampleAnswer ? '切回題目圖' : '點擊展開解析'}</span>
-                </button>
-              </div>
+              <video
+                ref={promoVideoRef}
+                src="/pobi-promo.mp4"
+                poster="/pobi-promo-poster.jpg"
+                autoPlay
+                loop
+                muted={isVideoMuted}
+                playsInline
+                controls
+                preload="metadata"
+                data-testid="landing-promo-video"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                  backgroundColor: '#0B402B'
+                }}
+              >
+                您的瀏覽器不支援內嵌影片播放，請改用新版瀏覽器觀看。
+              </video>
             </div>
 
-            {/* Compact 4-Step Mastery Strip inside Showcase */}
+            {/* Compact 4-Step Feature Strip below Video */}
             <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
               {[
                 { step: '01', label: 'AI 考卷批次建檔' },
