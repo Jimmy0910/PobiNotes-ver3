@@ -91,25 +91,27 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
   {
     id: 'ai-prompt-pack',
     title: '5. 外部 AI 提示資料包（ZIP）',
-    tip: '切換至「分析與工坊」，透過占比圖與弱點熱度表多選弱點範圍後：',
+    tip: '在「分析與工坊」勾選好弱點範圍後，點此「匯出外部 AI 提示資料包」：',
     bullets: [
-      '選擇「外部 AI 提示資料包」，挑選自訂或內建 AI 提詞。',
-      '下載單一 ZIP 檔（內含提詞清單與所有題目解析圖片），直接整包上傳給 ChatGPT / Gemini / Claude 即可分析。'
+      '挑選內建或自訂提詞範本，一鍵打包成單一 ZIP 檔。',
+      'ZIP 內含提詞清單與所有題目／解析圖片，直接整包上傳給 ChatGPT / Gemini / Claude 即可分析。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-tab-ai"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="workshop-ai-zip-panel"]') as HTMLElement | null) ||
       (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
   },
   {
     id: 'export-exam',
-    title: '6. 匯出練習卷（A4 防跨頁切割）',
-    tip: '在同一弱點範圍切換「匯出考卷」，快速產出考前實戰試卷：',
+    title: '6. 列印練習卷（A4 防跨頁切割）',
+    tip: '點「匯出考卷」展開此列印練習卷區域，快速印出專屬考前複習卷：',
     bullets: [
-      '支援模擬練習卷、試卷附頁尾解析、完整解析卷三種排版。',
-      '採 A4 防跨頁切割排版，生成中可隨時取消，亦支援行動裝置系統列印。'
+      '可選模擬練習卷、試卷附頁尾解析或完整解析卷。',
+      '預設 A4 防跨頁切割排版，生成中可隨時取消，也支援手機／平板系統列印。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-tab-pdf"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="workshop-exam-paper-panel"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null) ||
       (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
   }
 ];
@@ -162,18 +164,23 @@ export default function PobiTutorialModal({
           const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
           tab?.click();
           window.setTimeout(() => {
-            const aiBtn = document.querySelector('[data-testid="workshop-tab-ai"]') as HTMLElement | null;
+            const aiBtn = document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null;
             aiBtn?.click();
-          }, 180);
+            aiBtn?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          }, 220);
         }, 160);
       } else if (nextIdx === 5) {
         window.setTimeout(() => {
           const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
           tab?.click();
           window.setTimeout(() => {
-            const pdfBtn = document.querySelector('[data-testid="workshop-tab-pdf"]') as HTMLElement | null;
+            const pdfBtn = document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null;
             pdfBtn?.click();
-          }, 180);
+            window.setTimeout(() => {
+              const panel = document.querySelector('[data-testid="workshop-exam-paper-panel"]') as HTMLElement | null;
+              panel?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+            }, 180);
+          }, 220);
         }, 160);
       }
     },
@@ -199,11 +206,12 @@ export default function PobiTutorialModal({
       setTargetRect(null);
       return;
     }
+    const maxVisibleH = Math.min(r.height, Math.max(220, window.innerHeight * 0.52));
     setTargetRect({
-      top: r.top,
+      top: Math.max(12, r.top),
       left: r.left,
       width: r.width,
-      height: r.height
+      height: maxVisibleH
     });
   }, [currentStep]);
 

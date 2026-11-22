@@ -1305,18 +1305,12 @@ ${scopeInstruction}
                   gap: '12px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: '1 1 480px' }}>
-                  <div style={{ color: 'var(--accent-primary)', marginTop: '2px' }}>
-                    <HelpCircle size={20} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 400px' }}>
+                  <div style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>
+                    <HelpCircle size={18} />
                   </div>
-                  <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    <strong>第一階段：自由多選科目／章節範圍，自動產生專屬 AI 辨識提詞</strong>
-                    <br />
-                    1. 在下方勾選本次考卷涵蓋的<strong>一個或多個科目與章節</strong>（若只勾選 1 個科目與 1 個章節，提詞會自動要求 AI 將全部錯題放入該章節；若勾選多個科目與章節，AI 會在您指定的範圍內精準分類）。
-                    <br />
-                    2. 點擊「複製提詞並前往第 2 步」，開啟外部 AI（ChatGPT、Gemini 或 Claude）上傳題目圖與解析圖並貼上提詞。
-                    <br />
-                    3. <strong>圖片較多時的推薦做法</strong>：若手邊有整份模擬考或多張照片，部分外部 AI 對話框有單次上傳張數限制，建議於第 2 步上傳後使用本系統內建的<strong>「打包全部圖片為 ZIP 壓縮檔」</strong>功能，一鍵打包下載後直接傳給外部 AI！
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>第 1 步：勾選本次考卷的科目與章節</strong>，系統將自動產生專屬 AI 辨識提詞，複製後前往第 2 步。
                   </div>
                 </div>
 
@@ -1613,10 +1607,10 @@ ${scopeInstruction}
                   borderRadius: '10px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Zap size={18} style={{ color: 'var(--success)' }} />
-                  <span style={{ fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
-                    上傳考卷題目圖與解析圖並貼上外部 AI 回傳的 JSON（完成本份進入審核後將依上方設定自動清空暫存）：
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Zap size={17} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>第 2 步：</strong>上傳題目與解析圖片，交給外部 AI 分析後貼回 JSON。
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1653,53 +1647,48 @@ ${scopeInstruction}
                 </div>
               </div>
 
-              {/* Clear Beginner Guide: ZIP can be uploaded directly to AI */}
+              {/* Concise ZIP-to-AI Tip */}
               <div
                 data-testid="zip-to-ai-guide"
                 style={{
-                  padding: '14px 16px',
+                  padding: '10px 14px',
                   borderRadius: '10px',
                   backgroundColor: '#EFF6FF',
                   border: '1px solid #93C5FD',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={15} style={{ color: '#2563EB' }} />
-                    <span>新手教學：下載的 ZIP 壓縮檔可以直接丟給 AI 分析（不須解壓縮！）</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const promptLine = '請解壓縮這個 ZIP 檔案，依照裡面的「外部AI提詞說明.txt」規則，讀取「題目圖片/」與「解析圖片/」資料夾中的所有圖片，分析並輸出完整 JSON 陣列。';
-                      try {
-                        await navigator.clipboard.writeText(promptLine);
-                        showToast('已複製給 AI 的對話指令，上傳 ZIP 後直接貼上送出即可！', 'success');
-                      } catch {
-                        showToast('請手動輸入：請解壓縮此 ZIP 並依外部AI提詞說明.txt 輸出 JSON', 'info');
-                      }
-                    }}
-                    className="btn btn-secondary"
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      color: '#1D4ED8',
-                      borderColor: '#93C5FD',
-                      backgroundColor: '#FFFFFF'
-                    }}
-                  >
-                    一鍵複製給 AI 的對話指令
-                  </button>
+                <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Sparkles size={15} style={{ color: '#2563EB', flexShrink: 0 }} />
+                  <span>打包後的 ZIP <strong>免解壓縮</strong>，可直接拖進 ChatGPT / Gemini / Claude 並貼上指令分析。</span>
                 </div>
-                <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '0.82rem', color: '#1E40AF', lineHeight: 1.7 }}>
-                  <li>先在下方「1. 題目圖片區」與「2. 解析圖片區」選好全部考卷照片，點擊<strong>「打包下載 ZIP 壓縮檔」</strong>（系統會自動包進所有圖片與 <code>外部AI提詞說明.txt</code>）。</li>
-                  <li>打開 <strong>ChatGPT</strong>、<strong>Google Gemini</strong> 或 <strong>Claude</strong>，直接把整個 <code>.zip</code> 檔拖曳上傳到對話框（<strong>不用手動解壓縮</strong>，也不怕單次上傳張數上限）。</li>
-                  <li>貼上右上方複製的對話指令送出，等 AI 產出 JSON 後點擊「Copy code」，貼回下方「3. 貼上外部 AI 分析結果」即可進入第 3 步調整配對！</li>
-                </ol>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const promptLine = '請解壓縮這個 ZIP 檔案，依照裡面的「外部AI提詞說明.txt」規則，讀取「題目圖片/」與「解析圖片/」資料夾中的所有圖片，分析並輸出完整 JSON 陣列。';
+                    try {
+                      await navigator.clipboard.writeText(promptLine);
+                      showToast('已複製給 AI 的對話指令，上傳 ZIP 後直接貼上送出即可！', 'success');
+                    } catch {
+                      showToast('請手動輸入：請解壓縮此 ZIP 並依外部AI提詞說明.txt 輸出 JSON', 'info');
+                    }
+                  }}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    color: '#1D4ED8',
+                    borderColor: '#93C5FD',
+                    backgroundColor: '#FFFFFF'
+                  }}
+                >
+                  複製給 AI 的指令
+                </button>
               </div>
 
               {/* Dual Dropzone Containers */}
@@ -2016,11 +2005,11 @@ ${scopeInstruction}
                     <Archive size={20} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1E3A8A' }}>
-                      圖片較多？一鍵打包為 ZIP 壓縮檔（自動附帶第 1 階段 AI 提詞說明）
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1E3A8A' }}>
+                      一鍵打包圖片與提詞為 ZIP
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#1E40AF', marginTop: '3px', lineHeight: 1.5 }}>
-                      當題目與解析照片數量較多時（如整份模擬考），直接拖曳到 ChatGPT / Claude / Gemini 常受限於單次貼圖張數限制。點擊右側即可將目前上傳的 <strong>{questionImages.length} 張題目圖</strong> 與 <strong>{answerImages.length} 張解析圖</strong> 依序分類打包為單一 ZIP 壓縮檔，並自動附帶提詞 txt 檔，直接傳給外部 AI 進行高速批次辨識！
+                    <div style={{ fontSize: '0.78rem', color: '#1E40AF', marginTop: '2px' }}>
+                      共 <strong>{questionImages.length} 張題目圖</strong>、<strong>{answerImages.length} 張解析圖</strong> 與提詞檔，適合一次上傳多張考卷給 AI。
                     </div>
                   </div>
                 </div>
@@ -2096,8 +2085,8 @@ ${scopeInstruction}
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1C1917' }}>
-                    3. 貼上外部 AI 分析結果 (JSON 代碼)，或直接點選右側「+ 手動新增配對題目」：
+                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1C1917' }}>
+                    3. 貼上 AI 回傳的 JSON（或手動新增題目）：
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {aiJsonInput && (
@@ -2193,8 +2182,8 @@ ${scopeInstruction}
                     gap: '12px'
                   }}
                 >
-                  <div style={{ fontSize: '0.94rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    尚未解析出任何題目，請先於第 2 步上傳圖片並貼上外部 AI 回傳的 JSON，或手動新增配對題目。
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    尚未載入題目，請返回第 2 步貼上 AI JSON 或手動新增。
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button type="button" className="btn btn-secondary" onClick={() => setActiveTab('upload')}>
@@ -2273,7 +2262,7 @@ ${scopeInstruction}
                       4. 調整題目順序與「題目圖 / 多張解析圖」配對（共 {parsedQuestions.length} 題）：
                     </span>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      可上下移動順序、修改科目章節與說明，並為單一題目勾選多張解析圖片
+                      確認順序、章節與解析圖配對即可進入審核
                     </span>
                   </div>
 
@@ -2719,7 +2708,7 @@ ${scopeInstruction}
                   title="點擊後，本批次所有尚未標記的題目將一律設為不會並直接寫入錯題本"
                 >
                   {submittingBatch ? <RefreshCw size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  {submittingBatch ? '正在寫入錯題本與手帳...' : '全部一律標示為不會（一鍵寫入錯題本）'}
+                  {submittingBatch ? '寫入中...' : '全部標為「不會」並入庫'}
                 </button>
               </div>
 
