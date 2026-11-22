@@ -22,7 +22,6 @@ import {
   Library,
   Plus,
   BookOpen,
-  HelpCircle,
   MessageSquare,
   Check,
   X,
@@ -31,8 +30,7 @@ import {
   MoreVertical,
   Share2,
   Edit2,
-  Trash2,
-  Play
+  Trash2
 } from 'lucide-react';
 
 interface BookshelfViewProps {
@@ -56,13 +54,11 @@ export default function BookshelfView({
   mistakes,
   onOpenNotebook,
   onAddSubject,
-  onOpenGuideModal,
   onOpenFeedbackModal,
   theme,
   currentUser,
   onOpenBatchImport,
   onOpenBackupRestore,
-  onOpenPobiTutorial,
   onRefreshAll
 }: BookshelfViewProps) {
   const { showToast, promptDialog } = useUiFeedback();
@@ -210,6 +206,7 @@ export default function BookshelfView({
             <button
               type="button"
               onClick={onOpenBatchImport}
+              data-testid="bookshelf-batch-import-btn"
               className="notebook-tool-btn"
               style={{
                 backgroundColor: '#FDE68A',
@@ -227,16 +224,6 @@ export default function BookshelfView({
 
           <button
             type="button"
-            onClick={onOpenGuideModal}
-            className="notebook-tool-btn"
-            title="系統導引手冊"
-          >
-            <HelpCircle className="w-4 h-4" />
-            使用導引
-          </button>
-
-          <button
-            type="button"
             onClick={onOpenFeedbackModal}
             className="notebook-tool-btn"
             title="意見回饋與評分"
@@ -244,19 +231,6 @@ export default function BookshelfView({
             <MessageSquare className="w-4 h-4" />
             帳號與回饋
           </button>
-
-          {onOpenPobiTutorial && (
-            <button
-              type="button"
-              onClick={onOpenPobiTutorial}
-              className="notebook-tool-btn"
-              title="重播 POBI 比熊互動教學"
-              data-testid="bookshelf-pobi-tutorial-btn"
-            >
-              <Play className="w-4 h-4" />
-              POBI 教學
-            </button>
-          )}
 
           {onOpenBackupRestore && (
             <button

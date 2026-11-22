@@ -561,23 +561,20 @@ export default function NotebookOpenView({
     }
   };
 
-  // Cycle Familiarity directly on mistake card and append attempt history
-  const handleCycleFamiliarity = async (mistake: MistakeRecord) => {
+  // Change Familiarity directly via dropdown on mistake card
+  const handleChangeFamiliarity = async (mistake: MistakeRecord, nextFamId: string) => {
     const activeFams = categories.familiarities.filter(f => f.is_active === 1);
-    if (activeFams.length === 0) return;
+    const nextFam = activeFams.find(f => f.id === nextFamId) || categories.familiarities.find(f => f.id === nextFamId);
+    if (!nextFam) return;
 
-    const currentIndex = activeFams.findIndex(
-      f => f.id === mistake.familiarity_id || f.name === mistake.familiarity_name
-    );
-    const nextIndex = (currentIndex + 1) % activeFams.length;
-    const nextFam = activeFams[nextIndex];
     const nextReviewMeta = buildNextReviewMeta(mistake, nextFam.id, nextFam.name);
     const nextData = {
-      ...mistake.data,
+      ...(mistake.data || {}),
       reviewMeta: nextReviewMeta
     };
 
-    const updated = {
+    const previousMistake = mistake;
+    const updated: MistakeRecord = {
       ...mistake,
       familiarity_id: nextFam.id,
       familiarity_name: nextFam.name,
@@ -591,15 +588,25 @@ export default function NotebookOpenView({
         method: 'PUT',
         body: {
           id: mistake.id,
+          title: mistake.title,
+          subjectId: mistake.subject_id,
+          chapterId: mistake.chapter_id,
+          unitId: mistake.unit_id,
+          familiarityId: nextFam.id,
           familiarity_id: nextFam.id,
+          errorReasonIds: mistake.error_reason_ids || [],
+          tags: mistake.tags || [],
+          mistakeDate: mistake.mistake_date,
           data: nextData
         }
       });
       await onRefreshAll?.();
-      showToast(`已更新掌握度為「${nextFam.name}」（下次複習：${nextReviewMeta.nextReviewDate}）`, 'success');
-    } catch (e) {
+      const nextHint = nextReviewMeta.nextReviewDate ? `（下次複習：${nextReviewMeta.nextReviewDate}）` : '（不再排程複習）';
+      showToast(`已更新掌握度為「${nextFam.name}」${nextHint}`, 'success');
+    } catch (e: any) {
       console.error('更新掌握度失敗', e);
-      showToast('更新掌握度失敗', 'error');
+      onUpdateMistake?.(previousMistake);
+      showToast(e?.message || '更新掌握度失敗', 'error');
     }
   };
 
@@ -1693,12 +1700,23 @@ export default function NotebookOpenView({
                         </span>
                       )}
 
-                      {/* Clickable Familiarity Badge (Cycles to next familiarity on click) */}
-                      <button
-                        type="button"
-                        onClick={() => handleCycleFamiliarity(m)}
+                      {/* Dropdown Familiarity Selector */}
+                      <select
+                        value={
+                          m.familiarity_id ||
+                          categories.familiarities.find(f => f.name === m.familiarity_name)?.id ||
+                          ''
+                        }
+                        onChange={e => {
+                          if (e.target.value) {
+                            handleChangeFamiliarity(m, e.target.value);
+                          }
+                        }}
+                        data-testid={`mistake-familiarity-select-${m.id}`}
+                        aria-label="調整掌握度"
+                        title="選擇以直接調整此題掌握度"
                         style={{
-                          padding: '3px 10px',
+                          padding: '3px 8px',
                           borderRadius: '6px',
                           backgroundColor: badgeStyle.bg,
                           border: badgeStyle.border,
@@ -1706,14 +1724,20 @@ export default function NotebookOpenView({
                           fontSize: '0.78rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
+                          outline: 'none'
                         }}
-                        title="點擊切換掌握度"
                       >
-                        {badgeStyle.label}
-                      </button>
+                        {!m.familiarity_id && !m.familiarity_name && (
+                          <option value="">掌握度：未設定</option>
+                        )}
+                        {categories.familiarities
+                          .filter(f => f.is_active === 1 || f.id === m.familiarity_id)
+                          .map(fam => (
+                            <option key={fam.id} value={fam.id}>
+                              掌握度：{fam.name}
+                            </option>
+                          ))}
+                      </select>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

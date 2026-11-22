@@ -504,6 +504,11 @@ export default function App() {
           setActiveView('guide');
           if (window.innerWidth <= 768) setSidebarCollapsed(true);
         }}
+        onOpenPobiTutorial={() => {
+          setIsNewUserTutorial(false);
+          setShowPobiTutorial(true);
+          if (window.innerWidth <= 768) setSidebarCollapsed(true);
+        }}
         onOpenFeedback={() => {
           openFeedbackModal();
           if (window.innerWidth <= 768) setSidebarCollapsed(true);

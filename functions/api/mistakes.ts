@@ -448,8 +448,8 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
     const mistakeDate = body.mistakeDate !== undefined ? body.mistakeDate : body.mistake_date;
     const mistakeData = body.data || body.content;
 
-    if (!id || !title || title.trim() === '' || !mistakeData) {
-      return new Response(JSON.stringify({ error: 'id, title, and data are required.' }), {
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'id is required.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -469,6 +469,9 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
       });
     }
 
+    const nextTitle = (typeof title === 'string' && title.trim() !== '') ? title.trim() : existing.title;
+    const rawMistakeData = mistakeData !== undefined ? mistakeData : existing.data;
+
     let nextSubjectId = subjectId !== undefined ? (subjectId || null) : existing.subject_id;
     let nextChapterId = chapterId !== undefined ? (chapterId || null) : existing.chapter_id;
     let nextUnitId = unitId !== undefined ? (unitId || null) : existing.unit_id;
@@ -486,7 +489,7 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
       }
     }
 
-    const parsedDataObj = typeof mistakeData === 'string' ? JSON.parse(mistakeData) : mistakeData;
+    const parsedDataObj = typeof rawMistakeData === 'string' ? JSON.parse(rawMistakeData) : rawMistakeData;
     let nextFamiliarityId = familiarityId !== undefined ? (familiarityId || null) : existing.familiarity_id;
     if (!nextFamiliarityId && parsedDataObj) {
       nextFamiliarityId = await resolveFamiliarityIdFromData(env.DB, userId, null, parsedDataObj) || existing.familiarity_id;
@@ -531,7 +534,7 @@ export const onRequestPut: PagesFunction<Env, any, UserContext> = async (context
       nextErrorReasonIds,
       nextTags,
       nextMistakeDate,
-      title.trim(),
+      nextTitle,
       dataStr,
       now,
       id

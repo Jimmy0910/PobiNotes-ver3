@@ -198,22 +198,31 @@ async function handleLocalFallback<T = any>(
       const index = mistakes.findIndex(m => m.id === targetId);
       if (index !== -1) {
         const existing = mistakes[index];
-        const subject = bodyData.subjectId !== undefined
-          ? categories.subjects.find(s => s.id === bodyData.subjectId)
+        const nextSubjectId = bodyData.subjectId !== undefined ? bodyData.subjectId : bodyData.subject_id;
+        const nextChapterId = bodyData.chapterId !== undefined ? bodyData.chapterId : bodyData.chapter_id;
+        const nextUnitId = bodyData.unitId !== undefined ? bodyData.unitId : bodyData.unit_id;
+        const nextFamiliarityId = bodyData.familiarityId !== undefined ? bodyData.familiarityId : bodyData.familiarity_id;
+
+        const subject = nextSubjectId !== undefined
+          ? categories.subjects.find(s => s.id === nextSubjectId)
           : undefined;
-        const chapter = bodyData.chapterId !== undefined
-          ? categories.chapters.find(c => c.id === bodyData.chapterId)
+        const chapter = nextChapterId !== undefined
+          ? categories.chapters.find(c => c.id === nextChapterId)
           : undefined;
-        const unit = bodyData.unitId !== undefined
-          ? categories.units.find(u => u.id === bodyData.unitId)
+        const unit = nextUnitId !== undefined
+          ? categories.units.find(u => u.id === nextUnitId)
           : undefined;
-        const familiarity = bodyData.familiarityId !== undefined
-          ? categories.familiarities.find(f => f.id === bodyData.familiarityId)
+        const familiarity = nextFamiliarityId !== undefined
+          ? categories.familiarities.find(f => f.id === nextFamiliarityId)
           : undefined;
 
         const updated: MistakeRecord = {
           ...existing,
           ...bodyData,
+          subject_id: nextSubjectId !== undefined ? nextSubjectId : existing.subject_id,
+          chapter_id: nextChapterId !== undefined ? nextChapterId : existing.chapter_id,
+          unit_id: nextUnitId !== undefined ? nextUnitId : existing.unit_id,
+          familiarity_id: nextFamiliarityId !== undefined ? nextFamiliarityId : existing.familiarity_id,
           subject_name: subject !== undefined ? subject?.name : existing.subject_name,
           chapter_name: chapter !== undefined ? chapter?.name : existing.chapter_name,
           unit_name: unit !== undefined ? unit?.name : existing.unit_name,

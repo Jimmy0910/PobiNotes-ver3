@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Sparkles,
   Loader2,
-  MousePointerClick
+  Compass
 } from 'lucide-react';
 
 interface PobiTutorialModalProps {
@@ -29,9 +29,8 @@ interface SpotlightStep {
   id: string;
   title: string;
   tip: string;
-  actionHint: string;
+  bullets?: string[];
   getTarget: () => HTMLElement | null;
-  advanceOnTargetClick?: boolean;
 }
 
 interface TargetRect {
@@ -43,61 +42,80 @@ interface TargetRect {
 
 const SPOTLIGHT_STEPS: SpotlightStep[] = [
   {
-    id: 'bookshelf-open',
-    title: '點擊翻開錯題本',
-    tip: '點任一本錯題本封面即可進入；也可先點下方按鈕，一鍵建立附圖解的示範錯題本。',
-    actionHint: '點擊發亮書封（或按「下一步」自動翻開）',
+    id: 'create-book-cover',
+    title: '1. 建立書封與錯題本',
+    tip: '點書架上的「放置新錯題本」，可為每個科目建立獨立錯題本，自由挑選皮革色彩與徽章圖示。',
+    bullets: [
+      '點書封右上角「⋮」可分享錯題包、重新命名或安全刪除。',
+      '想先看完整示範，也可點下方按鈕一鍵建立範例題本。'
+    ],
     getTarget: () =>
+      (document.querySelector('[data-testid="bookshelf-add-book-card"]') as HTMLElement | null) ||
       (document.querySelector('[data-pobi-demo-book="1"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid^="book-card-"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="bookshelf-add-book-card"]') as HTMLElement | null),
-    advanceOnTargetClick: true
+      (document.querySelector('[data-testid^="book-card-"]') as HTMLElement | null)
   },
   {
-    id: 'notebook-add',
-    title: '新增錯題',
-    tip: '點「新增錯題」拍照或貼上題目與解析圖，並必選「熟悉度」以便追蹤複習。',
-    actionHint: '認識此按鈕位置後，按「下一步」繼續',
-    getTarget: () => document.querySelector('[data-testid="notebook-add-mistake-btn"]') as HTMLElement | null,
-    advanceOnTargetClick: false
+    id: 'sidebar-overview',
+    title: '2. 左側面板功能介紹',
+    tip: '左側書脊導覽整合所有常用工作區，隨時一鍵切換：',
+    bullets: [
+      '我的書架：瀏覽各科錯題本與批次匯入考卷。',
+      '未分類區：暫存刪除分類後保留的題目，可批次歸類。',
+      '模板管理 / AI 提詞管理：自訂題目欄位與專屬 AI 指令。',
+      '使用導引 / POBI 教學：隨時查閱手冊或重播本導覽。'
+    ],
+    getTarget: () => document.querySelector('[data-testid="sidebar-nav-list"]') as HTMLElement | null
   },
   {
-    id: 'hub-review',
-    title: '切換「每日複習」',
-    tip: '點此進入閃卡複習室，可自選章節單元，並設定各科熟悉度的間隔複習天數。',
-    actionHint: '點擊「每日複習」分頁（或按「下一步」）',
-    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null,
-    advanceOnTargetClick: true
+    id: 'ai-batch-import',
+    title: '3. AI 批次匯入 4 步驟',
+    tip: '寫完模考免逐題手打，點「AI 考卷批次匯入」照 4 步驟快速入庫：',
+    bullets: [
+      '步驟 1 設計提詞：勾選本次考卷涵蓋的科目與章節。',
+      '步驟 2 上傳圖片 / AI 分析：打包圖片交給 AI 辨識並貼回結果。',
+      '步驟 3 調整配對：微調題目順序與一題多張解析圖。',
+      '步驟 4 極速審核入庫：標記熟悉度後一鍵寫入錯題本。'
+    ],
+    getTarget: () => document.querySelector('[data-testid="bookshelf-batch-import-btn"]') as HTMLElement | null
   },
   {
-    id: 'hub-workshop',
-    title: '切換「分析與工坊」',
-    tip: '查看弱點熱度圖並多選範圍，一鍵匯出 AI 提示資料包（ZIP）或 A4 防切題考卷。',
-    actionHint: '點擊「分析與工坊」分頁（或按「下一步」）',
-    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null,
-    advanceOnTargetClick: true
+    id: 'daily-review',
+    title: '4. 每日複習（閃卡與自訂週期）',
+    tip: '翻開任一科目後切換至「每日複習」，即可開始 POBI 閃卡重測：',
+    bullets: [
+      '自由勾選要複習的章節與小單元（預設全選）。',
+      '右側可針對每個科目自訂各熟悉度的間隔天數，或設為「不再複習」。'
+    ],
+    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null
   },
   {
-    id: 'nav-uncategorized',
-    title: '未分類區（暫存題庫）',
-    tip: '刪除科目、章節或單元時選擇保留的題目會暫存在這裡，隨時可批次歸類。',
-    actionHint: '點擊左側「未分類區」或按「下一步」',
-    getTarget: () => document.querySelector('[data-testid="nav-uncategorized"]') as HTMLElement | null,
-    advanceOnTargetClick: true
+    id: 'ai-prompt-pack',
+    title: '5. 外部 AI 提示資料包（ZIP）',
+    tip: '切換至「分析與工坊」，透過占比圖與弱點熱度表多選弱點範圍後：',
+    bullets: [
+      '選擇「外部 AI 提示資料包」，挑選自訂或內建 AI 提詞。',
+      '下載單一 ZIP 檔（內含提詞清單與所有題目解析圖片），直接整包上傳給 ChatGPT / Gemini / Claude 即可分析。'
+    ],
+    getTarget: () =>
+      (document.querySelector('[data-testid="workshop-tab-ai"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
   },
   {
-    id: 'nav-prompt',
-    title: 'AI 提詞管理',
-    tip: '在這裡管理與自訂 AI 解題提詞，匯出 AI 資料包時可直接套用。開始整理錯題吧！',
-    actionHint: '點擊「完成教學」結束導覽',
-    getTarget: () => document.querySelector('[data-testid="nav-prompt"]') as HTMLElement | null,
-    advanceOnTargetClick: false
+    id: 'export-exam',
+    title: '6. 匯出練習卷（A4 防跨頁切割）',
+    tip: '在同一弱點範圍切換「匯出考卷」，快速產出考前實戰試卷：',
+    bullets: [
+      '支援模擬練習卷、試卷附頁尾解析、完整解析卷三種排版。',
+      '採 A4 防跨頁切割排版，生成中可隨時取消，亦支援行動裝置系統列印。'
+    ],
+    getTarget: () =>
+      (document.querySelector('[data-testid="workshop-tab-pdf"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
   }
 ];
 
 export default function PobiTutorialModal({
   categories,
-  activeView,
   selectedSubjectId,
   onNavigateView,
   onOpenNotebook,
@@ -110,7 +128,7 @@ export default function PobiTutorialModal({
   const [seeding, setSeeding] = useState(false);
   const [seededDone, setSeededDone] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
-  const targetElRef = useRef<HTMLElement | null>(null);
+  const initializedRef = useRef(false);
 
   const pickPreferredSubjectId = useCallback((): string | null => {
     const demoSubj = categories.subjects.find(s => s.name === 'POBI 教學範例-數學');
@@ -123,22 +141,55 @@ export default function PobiTutorialModal({
 
   const currentStep = SPOTLIGHT_STEPS[stepIdx];
 
-  // Ensure the page is on the right view for the current step
-  useEffect(() => {
-    if (stepIdx === 0 && activeView !== 'bookshelf') {
-      onNavigateView('bookshelf');
-    } else if (stepIdx >= 1 && stepIdx <= 3 && activeView !== 'notebook') {
+  // Navigate to the right view ONLY when explicitly entering a step (never auto-jumping!)
+  const syncViewForStep = useCallback(
+    (nextIdx: number) => {
+      if (nextIdx <= 2) {
+        onNavigateView('bookshelf');
+        return;
+      }
       const subjId = pickPreferredSubjectId();
       if (subjId) {
         onOpenNotebook(subjId);
       }
-    }
-  }, [stepIdx, activeView, onNavigateView, onOpenNotebook, pickPreferredSubjectId]);
+      if (nextIdx === 3) {
+        window.setTimeout(() => {
+          const tab = document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null;
+          tab?.click();
+        }, 160);
+      } else if (nextIdx === 4) {
+        window.setTimeout(() => {
+          const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
+          tab?.click();
+          window.setTimeout(() => {
+            const aiBtn = document.querySelector('[data-testid="workshop-tab-ai"]') as HTMLElement | null;
+            aiBtn?.click();
+          }, 180);
+        }, 160);
+      } else if (nextIdx === 5) {
+        window.setTimeout(() => {
+          const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
+          tab?.click();
+          window.setTimeout(() => {
+            const pdfBtn = document.querySelector('[data-testid="workshop-tab-pdf"]') as HTMLElement | null;
+            pdfBtn?.click();
+          }, 180);
+        }, 160);
+      }
+    },
+    [onNavigateView, onOpenNotebook, pickPreferredSubjectId]
+  );
 
-  // Measure target element rect dynamically on scroll, resize, or DOM changes
+  // On initial mount only, navigate cleanly to bookshelf for Step 1
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      onNavigateView('bookshelf');
+    }
+  }, [onNavigateView]);
+
   const measureTarget = useCallback(() => {
     const el = currentStep.getTarget();
-    targetElRef.current = el;
     if (!el) {
       setTargetRect(null);
       return;
@@ -157,7 +208,6 @@ export default function PobiTutorialModal({
   }, [currentStep]);
 
   useEffect(() => {
-    // Scroll target into view smoothly on step change, then measure
     const timer = window.setTimeout(() => {
       const el = currentStep.getTarget();
       if (el) {
@@ -166,9 +216,9 @@ export default function PobiTutorialModal({
         } catch {}
       }
       measureTarget();
-    }, 120);
+    }, 220);
 
-    const interval = window.setInterval(measureTarget, 260);
+    const interval = window.setInterval(measureTarget, 280);
     window.addEventListener('resize', measureTarget);
     window.addEventListener('scroll', measureTarget, true);
 
@@ -180,23 +230,7 @@ export default function PobiTutorialModal({
     };
   }, [currentStep, measureTarget]);
 
-  // Interactive Click-to-Advance on the real spotlighted element
-  useEffect(() => {
-    if (!currentStep.advanceOnTargetClick) return;
-    const handleDocClick = (e: MouseEvent) => {
-      const targetEl = targetElRef.current;
-      if (!targetEl) return;
-      if (targetEl.contains(e.target as Node)) {
-        window.setTimeout(() => {
-          setStepIdx(prev => (prev < SPOTLIGHT_STEPS.length - 1 ? prev + 1 : prev));
-        }, 180);
-      }
-    };
-    document.addEventListener('click', handleDocClick, true);
-    return () => document.removeEventListener('click', handleDocClick, true);
-  }, [currentStep.advanceOnTargetClick]);
-
-  // Keyboard Escape to exit tour
+  // Escape key closes tour
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -310,48 +344,30 @@ export default function PobiTutorialModal({
     }
   };
 
+  // STRICT MANUAL PROGRESSION ONLY — NEVER AUTO-JUMPS!
   const handleNext = () => {
-    if (stepIdx === 0) {
-      const subjId = pickPreferredSubjectId();
-      if (subjId) {
-        onOpenNotebook(subjId);
-      }
-      setStepIdx(1);
-      return;
-    }
-    if (stepIdx === 2) {
-      const el = document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null;
-      if (el) el.click();
-      setStepIdx(3);
-      return;
-    }
-    if (stepIdx === 3) {
-      const el = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
-      if (el) el.click();
-      setStepIdx(4);
-      return;
-    }
     if (stepIdx < SPOTLIGHT_STEPS.length - 1) {
-      setStepIdx(stepIdx + 1);
+      const nextIdx = stepIdx + 1;
+      setStepIdx(nextIdx);
+      syncViewForStep(nextIdx);
     } else {
       onClose();
     }
   };
 
   const handlePrev = () => {
-    if (stepIdx === 1) {
-      onNavigateView('bookshelf');
-    }
     if (stepIdx > 0) {
-      setStepIdx(stepIdx - 1);
+      const prevIdx = stepIdx - 1;
+      setStepIdx(prevIdx);
+      syncViewForStep(prevIdx);
     }
   };
 
-  // Compute safe floating tooltip card coordinates near targetRect
+  // Compute safe floating tooltip coordinates beside spotlight target
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const cardW = Math.min(350, vw - 24);
-  const estCardH = stepIdx === 0 ? 275 : 215;
+  const cardW = Math.min(390, vw - 24);
+  const estCardH = stepIdx === 0 ? 310 : 285;
   const pad = 8;
 
   let cardTop = Math.max(16, (vh - estCardH) / 2);
@@ -362,10 +378,9 @@ export default function PobiTutorialModal({
     const spaceAbove = targetRect.top - pad;
     const spaceRight = vw - (targetRect.left + targetRect.width + pad);
 
-    if (targetRect.left < 240 && spaceRight >= cardW + 20) {
-      // Sidebar item -> place card cleanly to the right
-      cardLeft = targetRect.left + targetRect.width + 18;
-      cardTop = Math.min(Math.max(16, targetRect.top - 12), vh - estCardH - 16);
+    if (targetRect.left < 240 && spaceRight >= cardW + 24) {
+      cardLeft = targetRect.left + targetRect.width + 20;
+      cardTop = Math.min(Math.max(20, targetRect.top), vh - estCardH - 20);
     } else if (spaceBelow >= estCardH + 20) {
       cardTop = targetRect.top + targetRect.height + 16;
       cardLeft = Math.min(Math.max(12, targetRect.left + targetRect.width / 2 - cardW / 2), vw - cardW - 12);
@@ -376,8 +391,8 @@ export default function PobiTutorialModal({
       cardLeft = targetRect.left + targetRect.width + 16;
       cardTop = Math.min(Math.max(16, targetRect.top), vh - estCardH - 16);
     } else {
-      cardLeft = Math.max(12, targetRect.left - cardW - 16);
-      cardTop = Math.min(Math.max(16, targetRect.top), vh - estCardH - 16);
+      cardLeft = Math.max(12, (vw - cardW) / 2);
+      cardTop = Math.max(16, vh - estCardH - 20);
     }
   }
 
@@ -390,8 +405,19 @@ export default function PobiTutorialModal({
         }
       `}</style>
 
-      {/* Spotlight Cutout Frame — pointerEvents: none so the actual highlighted button remains 100% clickable! */}
-      {targetRect ? (
+      {/* Transparent click blocker backdrop so accidental background clicks NEVER jump or disturb the tour */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100035,
+          backgroundColor: targetRect ? 'transparent' : 'rgba(10, 18, 28, 0.56)'
+        }}
+      />
+
+      {/* Spotlight Cutout Ring */}
+      {targetRect && (
         <div
           data-testid="pobi-spotlight-ring"
           style={{
@@ -413,7 +439,7 @@ export default function PobiTutorialModal({
               position: 'absolute',
               top: '-26px',
               left: '0px',
-              padding: '2px 8px',
+              padding: '2px 9px',
               borderRadius: '999px',
               backgroundColor: '#D97706',
               color: '#FFFFFF',
@@ -426,26 +452,16 @@ export default function PobiTutorialModal({
               boxShadow: '0 4px 10px rgba(0, 0, 0, 0.28)'
             }}
           >
-            <MousePointerClick size={12} />
-            步驟 {stepIdx + 1}
+            <Compass size={12} />
+            步驟 {stepIdx + 1} / {SPOTLIGHT_STEPS.length}
           </span>
         </div>
-      ) : (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(10, 18, 28, 0.54)',
-            zIndex: 100040,
-            pointerEvents: 'none'
-          }}
-        />
       )}
 
-      {/* Floating Interactive POBI Coachmark Card */}
+      {/* Floating POBI Coachmark Card */}
       <div
         role="dialog"
-        aria-label="POBI 互動教學引導"
+        aria-label="POBI 步驟教學導覽"
         data-testid="pobi-tutorial-coachmark"
         className="glass animate-fade-in"
         style={{
@@ -456,13 +472,13 @@ export default function PobiTutorialModal({
           maxWidth: 'calc(100vw - 24px)',
           borderRadius: '14px',
           border: '2px solid #D97706',
-          boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
+          boxShadow: '0 22px 50px rgba(0, 0, 0, 0.38)',
           zIndex: 100050,
           overflow: 'hidden',
           transition: 'top 0.24s cubic-bezier(0.22, 1, 0.36, 1), left 0.24s cubic-bezier(0.22, 1, 0.36, 1)'
         }}
       >
-        {/* Header with POBI Bichon Avatar & Top-Right Close X */}
+        {/* Header with POBI Avatar & Top-Right X */}
         <div
           style={{
             padding: '11px 14px',
@@ -478,8 +494,8 @@ export default function PobiTutorialModal({
               src="/pobi-mascot.jpg"
               alt="比熊 POBI"
               style={{
-                width: '34px',
-                height: '34px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '50%',
                 objectFit: 'cover',
                 objectPosition: 'center 25%',
@@ -489,9 +505,9 @@ export default function PobiTutorialModal({
             />
             <div>
               <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#D97706' }}>
-                {isNewUser ? 'POBI 新手引導' : 'POBI 互動導覽'} · {stepIdx + 1} / {SPOTLIGHT_STEPS.length}
+                {isNewUser ? 'POBI 新手教學' : 'POBI 步驟導覽'} · {stepIdx + 1} / {SPOTLIGHT_STEPS.length}
               </div>
-              <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {currentStep.title}
               </div>
             </div>
@@ -520,28 +536,34 @@ export default function PobiTutorialModal({
           </button>
         </div>
 
-        {/* Concise Body */}
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+        {/* Concise Step Content */}
+        <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.58 }}>
             {currentStep.tip}
           </p>
 
-          <div
-            style={{
-              fontSize: '0.76rem',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
-          >
-            <MousePointerClick size={13} style={{ color: '#D97706', flexShrink: 0 }} />
-            <span>{currentStep.actionHint}</span>
-          </div>
+          {currentStep.bullets && currentStep.bullets.length > 0 && (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: '17px',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.62,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '3px'
+              }}
+            >
+              {currentStep.bullets.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
+          )}
 
           {/* Step 1 Optional Seed Demo Notebook Action */}
           {stepIdx === 0 && (
-            <div style={{ paddingTop: '2px' }}>
+            <div style={{ paddingTop: '4px' }}>
               {seededDone ? (
                 <div
                   style={{
@@ -554,7 +576,7 @@ export default function PobiTutorialModal({
                   }}
                 >
                   <CheckCircle2 size={15} />
-                  <span>已建立《POBI 教學範例-數學》，可直接點擊書封翻開！</span>
+                  <span>已建立《POBI 教學範例-數學》示範題本！</span>
                 </div>
               ) : (
                 <button
@@ -582,7 +604,7 @@ export default function PobiTutorialModal({
           )}
         </div>
 
-        {/* Footer Controls */}
+        {/* Manual Next / Prev Controls */}
         <div
           style={{
             padding: '10px 14px',
@@ -613,8 +635,9 @@ export default function PobiTutorialModal({
               <button
                 type="button"
                 onClick={handlePrev}
+                data-testid="pobi-tutorial-prev-btn"
                 className="btn btn-secondary"
-                style={{ padding: '5px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                style={{ padding: '6px 11px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >
                 <ArrowLeft size={13} /> 上一步
               </button>
@@ -625,8 +648,8 @@ export default function PobiTutorialModal({
               data-testid="pobi-tutorial-next-btn"
               className="btn btn-primary"
               style={{
-                padding: '6px 12px',
-                fontSize: '0.8rem',
+                padding: '6px 14px',
+                fontSize: '0.82rem',
                 fontWeight: 700,
                 display: 'inline-flex',
                 alignItems: 'center',

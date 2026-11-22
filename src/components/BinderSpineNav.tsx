@@ -10,7 +10,8 @@ import {
   CircleHelp,
   MessageSquare,
   LogOut,
-  Trash2
+  Trash2,
+  Play
 } from 'lucide-react';
 import {
   GoldCornerOrnaments,
@@ -32,6 +33,7 @@ interface BinderSpineNavProps {
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
   onOpenGuide: () => void;
+  onOpenPobiTutorial?: () => void;
   onOpenFeedback: () => void;
   onLogout: () => void;
   onOpenDeleteAccount: () => void;
@@ -45,56 +47,82 @@ export default function BinderSpineNav({
   user,
   uncategorizedCount = 0,
   onOpenGuide,
+  onOpenPobiTutorial,
   onOpenFeedback,
   onLogout,
   onOpenDeleteAccount
 }: BinderSpineNavProps) {
   const navItems: Array<{
-    id: AppViewType;
+    id: string;
     label: string;
     testId: string;
     icon: React.ReactNode;
     active: boolean;
     badge?: number;
+    onClick: () => void;
   }> = [
     {
-      id: 'bookshelf' as AppViewType,
+      id: 'bookshelf',
       label: '我的書架',
       testId: 'nav-bookshelf',
       icon: <BookOpen size={18} strokeWidth={1.8} />,
-      active: activeView === 'bookshelf' || activeView === 'notebook'
+      active: activeView === 'bookshelf' || activeView === 'notebook',
+      onClick: () => onNavigateView('bookshelf')
     },
     {
-      id: 'uncategorized' as AppViewType,
+      id: 'uncategorized',
       label: '未分類區',
       testId: 'nav-uncategorized',
       icon: <Inbox size={18} strokeWidth={1.8} />,
       active: activeView === 'uncategorized',
-      badge: uncategorizedCount > 0 ? uncategorizedCount : undefined
+      badge: uncategorizedCount > 0 ? uncategorizedCount : undefined,
+      onClick: () => onNavigateView('uncategorized')
     },
     {
-      id: 'templates' as AppViewType,
+      id: 'templates',
       label: '模板管理',
       testId: 'nav-templates',
       icon: <FileCode size={18} strokeWidth={1.8} />,
-      active: activeView === 'templates'
+      active: activeView === 'templates',
+      onClick: () => onNavigateView('templates')
     },
     {
-      id: 'prompt' as AppViewType,
+      id: 'prompt',
       label: 'AI 提詞管理',
       testId: 'nav-prompt',
       icon: <Sparkles size={18} strokeWidth={1.8} />,
-      active: activeView === 'prompt'
+      active: activeView === 'prompt',
+      onClick: () => onNavigateView('prompt')
+    },
+    {
+      id: 'guide',
+      label: '使用導引',
+      testId: 'nav-guide',
+      icon: <CircleHelp size={18} strokeWidth={1.8} />,
+      active: activeView === 'guide',
+      onClick: () => onOpenGuide()
     }
   ];
 
+  if (onOpenPobiTutorial) {
+    navItems.push({
+      id: 'pobi-tutorial',
+      label: 'POBI 教學',
+      testId: 'nav-pobi-tutorial',
+      icon: <Play size={18} strokeWidth={1.8} />,
+      active: false,
+      onClick: () => onOpenPobiTutorial()
+    });
+  }
+
   if (user.is_admin === 1) {
     navItems.push({
-      id: 'admin' as AppViewType,
+      id: 'admin',
       label: '控制台',
       testId: 'nav-admin',
       icon: <Shield size={18} strokeWidth={1.8} />,
-      active: activeView === 'admin'
+      active: activeView === 'admin',
+      onClick: () => onNavigateView('admin')
     });
   }
 
@@ -164,13 +192,13 @@ export default function BinderSpineNav({
         </div>
 
         {/* Navigation Items */}
-        <nav className="binder-nav-list" aria-label="主要功能">
+        <nav className="binder-nav-list" data-testid="sidebar-nav-list" aria-label="主要功能">
           {navItems.map(item => (
             <button
               key={item.id}
               type="button"
               data-testid={item.testId}
-              onClick={() => onNavigateView(item.id)}
+              onClick={item.onClick}
               className={`binder-nav-item ${item.active ? 'active' : ''}`}
               title={item.label}
               style={{

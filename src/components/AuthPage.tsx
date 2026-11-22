@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
-import { LogIn, UserPlus, Key, User, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { LogIn, UserPlus, Key, User, ShieldCheck } from 'lucide-react';
 import {
   GoldCornerOrnaments,
   GoldGeometricDivider,
@@ -29,13 +29,6 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
     setCurrentTheme(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
   }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    setCurrentTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('theme', nextTheme);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,28 +66,6 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
       {/* 3. Gold Geometric Page Corner Ornaments */}
       <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
 
-      {/* Top Bar with Theme Toggle */}
-      <div className="binder-auth-top-bar" style={{ position: 'relative', zIndex: 3 }}>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="binder-auth-theme-btn"
-          title={currentTheme === 'dark' ? '切換為復古牛皮紙淺色' : '切換為墨黑皮革暗紋深色'}
-        >
-          {currentTheme === 'dark' ? (
-            <>
-              <Sun size={15} />
-              <span>淺色紙張</span>
-            </>
-          ) : (
-            <>
-              <Moon size={15} />
-              <span>深色皮革</span>
-            </>
-          )}
-        </button>
-      </div>
-
       <div className="binder-auth-wrapper" style={{ position: 'relative', zIndex: 2 }}>
         <div className="binder-auth-card" style={{ position: 'relative', overflow: 'hidden' }}>
           {/* 3. Gold Geometric Corner Brackets on Dossier Card */}
@@ -107,13 +78,30 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login' }: Auth
             <div className="binder-auth-ring-hole" />
           </div>
 
-          {/* Dossier Header */}
-          <div className="binder-auth-header">
-            <div className="binder-auth-logo-box" style={{ width: '56px', height: '56px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Dossier Header - Centered Logo */}
+          <div
+            className="binder-auth-header"
+            style={{
+              paddingLeft: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center'
+            }}
+          >
+            <div
+              className="binder-auth-logo-box"
+              style={{
+                width: '60px',
+                height: '60px',
+                padding: '5px',
+                margin: '0 auto 12px auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
               <img src="/logo.png" alt="POBI STUDIO" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
-            </div>
-            <div className="binder-auth-badge font-binder-title">
-              ACADEMIC DOSSIER · VOL. 00
             </div>
             <h1 className="binder-auth-title">
               POBI STUDIO
