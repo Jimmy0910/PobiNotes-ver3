@@ -18,7 +18,7 @@ import {
 } from '../utils/promptTemplates';
 import { useUiFeedback } from './UiFeedbackProvider';
 import ExportPDF from './ExportPDF';
-import { GoldCornerOrnaments, GoldGeometricDivider } from './PobiDesignElements';
+import { GoldCornerOrnaments } from './PobiDesignElements';
 import {
   FolderTree,
   Activity,
@@ -41,7 +41,8 @@ import {
   HelpCircle,
   Search,
   RotateCcw,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 
 interface SubjectAnalyticsWorkshopProps {
@@ -124,6 +125,9 @@ export default function SubjectAnalyticsWorkshop({
 }: SubjectAnalyticsWorkshopProps) {
   const { showToast } = useUiFeedback();
 
+  // Wizard stage controller: show one stage at a time (1 -> 2 -> 3)
+  const [activeStage, setActiveStage] = useState<1 | 2 | 3>(1);
+
   // =========================================================
   // STEP 1: Analysis Mode Selection
   // =========================================================
@@ -157,6 +161,19 @@ export default function SubjectAnalyticsWorkshop({
   const [packingZip, setPackingZip] = useState(false);
   const [zipProgress, setZipProgress] = useState('');
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedZipPromptLine, setCopiedZipPromptLine] = useState(false);
+
+  // Allow POBI guided tour to jump directly to a specific workshop stage
+  useEffect(() => {
+    const onStageEvent = (e: Event) => {
+      const stage = (e as CustomEvent<{ stage?: 1 | 2 | 3 }>).detail?.stage;
+      if (stage === 1 || stage === 2 || stage === 3) {
+        setActiveStage(stage);
+      }
+    };
+    window.addEventListener('pobi-workshop-set-stage', onStageEvent);
+    return () => window.removeEventListener('pobi-workshop-set-stage', onStageEvent);
+  }, []);
 
   useEffect(() => {
     apiRequest('/api/prompt-templates')
@@ -168,6 +185,7 @@ export default function SubjectAnalyticsWorkshop({
 
   // Reset selections when switching subject
   useEffect(() => {
+    setActiveStage(1);
     setSelectedChapterIds([]);
     setSelectedUnitIds([]);
     setSelectedFamiliarityIds([]);
@@ -707,12 +725,89 @@ export default function SubjectAnalyticsWorkshop({
     }
   };
 
+  const activeModeLabel =
+    analysisMode === 'hierarchy'
+      ? '章節與單元'
+      : analysisMode === 'diagnosis'
+      ? '熟悉度與錯因'
+      : '自訂標籤';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} data-testid="subject-analytics-workshop">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="subject-analytics-workshop">
+      {/* Top 3-Stage Wizard Stepper Bar (Shows 1 Stage at a Time) */}
+      <div
+        className="glass no-print"
+        data-testid="workshop-stage-stepper"
+        style={{
+          padding: '10px 14px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gap: '8px',
+          alignItems: 'center'
+        }}
+      >
+        {[
+          {
+            stage: 1 as const,
+            title: '步驟 1 · 選擇分析方式',
+            sub: `目前：${activeModeLabel}`
+          },
+          {
+            stage: 2 as const,
+            title: '步驟 2 · 篩選與弱點圖表',
+            sub: chartSelectedKeys.length > 0 ? `圖表複選 ${chartFilteredMistakes.length} 題` : `範圍 ${step2Mistakes.length} 題`
+          },
+          {
+            stage: 3 as const,
+            title: '步驟 3 · 確認題目與匯出',
+            sub: `已選 ${finalExportMistakes.length} 題`
+          }
+        ].map(item => {
+          const isCurrent = activeStage === item.stage;
+          const isCompleted = activeStage > item.stage;
+          return (
+            <button
+              key={item.stage}
+              type="button"
+              onClick={() => setActiveStage(item.stage)}
+              data-testid={`workshop-stage-tab-${item.stage}`}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: isCurrent
+                  ? '2px solid var(--accent-secondary)'
+                  : isCompleted
+                  ? '1px solid var(--accent-primary)'
+                  : '1px solid var(--glass-border)',
+                backgroundColor: isCurrent ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px'
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                  {item.title}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                  {item.sub}
+                </div>
+              </div>
+              {isCompleted && <Check size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />}
+            </button>
+          );
+        })}
+      </div>
+
       {/* =================================================================
           STEP 1: 詢問分析依據模式（章節與單元 / 熟悉度與錯因 / 自訂標籤）
          ================================================================= */}
-      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {activeStage === 1 && (
+      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-step1-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="pobi-step-pill">步驟 1</span>
@@ -793,15 +888,26 @@ export default function SubjectAnalyticsWorkshop({
             );
           })}
         </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '6px', borderTop: '1px solid var(--glass-border)' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setActiveStage(2)}
+            data-testid="workshop-step1-next-btn"
+            style={{ padding: '9px 18px', fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span>下一步：篩選範圍與弱點圖表</span>
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </section>
-
-      {/* 3. Gold Geometric Section Divider */}
-      <GoldGeometricDivider className="no-print" style={{ margin: '2px 0' }} />
+      )}
 
       {/* =================================================================
           STEP 2: 勾選範圍（可多選）並查看統計圖表（可多選圖表項目）
          ================================================================= */}
-      <section className="glass pobi-engineering-grid no-print" style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '2px solid rgba(200, 154, 80, 0.55)' }}>
+      {activeStage === 2 && (
+      <section className="glass pobi-engineering-grid no-print" style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '2px solid rgba(200, 154, 80, 0.55)' }} data-testid="workshop-step2-section">
         <GoldCornerOrnaments size={40} inset={6} opacity={0.58} corners={['tl', 'tr', 'bl', 'br']} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1320,11 +1426,37 @@ export default function SubjectAnalyticsWorkshop({
             </div>
           )}
         </div>
+
+        {/* Step 2 Navigation Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setActiveStage(1)}
+            data-testid="workshop-step2-prev-btn"
+            style={{ padding: '8px 15px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ArrowLeft size={15} />
+            <span>上一步：更換分析方式</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setActiveStage(3)}
+            data-testid="workshop-step2-next-btn"
+            style={{ padding: '9px 18px', fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span>下一步：確認題目並匯出（{chartFilteredMistakes.length} 題）</span>
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </section>
+      )}
 
       {/* =================================================================
           STEP 3: 根據圖表勾選範圍，確認題目（含圖片縮圖）並決定匯出 AI 資料包或考卷
          ================================================================= */}
+      {activeStage === 3 && (
       <section className="glass" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-step3-section">
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1621,11 +1753,50 @@ export default function SubjectAnalyticsWorkshop({
               </div>
             </div>
 
-            <div style={{ padding: '10px 12px', borderRadius: '9px', backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)', color: 'var(--warning-text)', fontSize: '0.8rem', lineHeight: 1.55, display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-              <HelpCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <span>
-                下載後免解壓縮，直接將整個 <code>.zip</code> 上傳到 ChatGPT／Gemini／Claude 並請 AI 閱讀裡面的 <code>00_AI提詞與錯題清單.txt</code> 與 <code>images/</code> 圖片即可！
-              </span>
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '9px',
+                backgroundColor: 'var(--warning-bg)',
+                border: '1px solid var(--warning-border)',
+                color: 'var(--warning-text)',
+                fontSize: '0.82rem',
+                lineHeight: 1.6,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flex: '1 1 280px' }}>
+                <HelpCircle size={16} style={{ flexShrink: 0, marginTop: '3px' }} />
+                <span>
+                  下載後免解壓縮，將整個 <code>.zip</code> 直接上傳給外部 AI（ChatGPT／Gemini／Claude），並對外部 AI 說：
+                  <strong style={{ margin: '0 4px', textDecoration: 'underline' }}>「幫我分析zip，並根據裡面的指示分析」</strong>
+                  即可！
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                data-testid="copy-external-ai-zip-instruction-btn"
+                onClick={async () => {
+                  const line = '幫我分析zip，並根據裡面的指示分析';
+                  try {
+                    await navigator.clipboard.writeText(line);
+                    setCopiedZipPromptLine(true);
+                    showToast('已複製：「幫我分析zip，並根據裡面的指示分析」', 'success');
+                    window.setTimeout(() => setCopiedZipPromptLine(false), 2200);
+                  } catch {
+                    showToast('請手動輸入：幫我分析zip，並根據裡面的指示分析', 'info');
+                  }
+                }}
+                style={{ padding: '5px 11px', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}
+              >
+                {copiedZipPromptLine ? <Check size={13} /> : <Copy size={13} />}
+                <span>{copiedZipPromptLine ? '已複製指令' : '複製這句話'}</span>
+              </button>
             </div>
 
             <div>
@@ -1675,7 +1846,22 @@ export default function SubjectAnalyticsWorkshop({
             />
           </div>
         )}
+
+        {/* Step 3 Back Navigation */}
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setActiveStage(2)}
+            data-testid="workshop-step3-prev-btn"
+            style={{ padding: '8px 15px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ArrowLeft size={15} />
+            <span>上一步：返回調整篩選與弱點圖表</span>
+          </button>
+        </div>
       </section>
+      )}
     </div>
   );
 }

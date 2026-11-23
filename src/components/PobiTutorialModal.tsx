@@ -164,20 +164,30 @@ export default function PobiTutorialModal({
           const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
           tab?.click();
           window.setTimeout(() => {
-            const aiBtn = document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null;
-            aiBtn?.click();
-            aiBtn?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-          }, 220);
+            window.dispatchEvent(new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3 } }));
+            const stage3Tab = document.querySelector('[data-testid="workshop-stage-tab-3"]') as HTMLElement | null;
+            stage3Tab?.click();
+            window.setTimeout(() => {
+              const aiBtn = document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null;
+              aiBtn?.click();
+              aiBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+            }, 90);
+          }, 180);
         }, 160);
       } else if (nextIdx === 5) {
         window.setTimeout(() => {
           const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
           tab?.click();
           window.setTimeout(() => {
-            const pdfBtn = document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null;
-            pdfBtn?.click();
-            pdfBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-          }, 220);
+            window.dispatchEvent(new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3 } }));
+            const stage3Tab = document.querySelector('[data-testid="workshop-stage-tab-3"]') as HTMLElement | null;
+            stage3Tab?.click();
+            window.setTimeout(() => {
+              const pdfBtn = document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null;
+              pdfBtn?.click();
+              pdfBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+            }, 90);
+          }, 180);
         }, 160);
       }
     },
