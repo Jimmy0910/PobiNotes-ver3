@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiRequest } from './utils/api';
 import {
   type CategoriesBundle,
-  type MistakeRecord
+  type MistakeRecord,
+  isMistakeDueForReview
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
@@ -19,6 +20,7 @@ import AdminPanel from './components/AdminPanel';
 import UsageGuide from './components/UsageGuide';
 import BookshelfView from './components/BookshelfView';
 import NotebookOpenView from './components/NotebookOpenView';
+import DailyReviewHubView from './components/DailyReviewHubView';
 import BatchExamImportModal from './components/BatchExamImportModal';
 import BinderSpineNav from './components/BinderSpineNav';
 import './styles/notebookLayout.css';
@@ -98,6 +100,13 @@ export default function App() {
     ).length;
   }, [allMistakes, categories.subjects, categories.chapters]);
 
+  const totalDueReviewCount = useMemo(() => {
+    const validSubjectIds = new Set(categories.subjects.map(s => s.id));
+    return allMistakes.filter(
+      m => m.subject_id && validSubjectIds.has(m.subject_id) && isMistakeDueForReview(m)
+    ).length;
+  }, [allMistakes, categories.subjects]);
+
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return window.innerWidth < 768;
@@ -120,6 +129,7 @@ export default function App() {
 
   const currentViewTitle = useMemo(() => {
     if (activeView === 'bookshelf') return '我的數位書架';
+    if (activeView === 'daily-review') return '每日複習';
     if (activeView === 'uncategorized') return '未分類區';
     if (activeView === 'notebook') {
       const subj = categories.subjects.find(s => s.id === selectedSubjectId);
@@ -525,6 +535,7 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         user={user}
         uncategorizedCount={uncategorizedCount}
+        dueReviewCount={totalDueReviewCount}
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenGuide={() => {
@@ -688,7 +699,7 @@ export default function App() {
         <div className="main-layout binder-stage-container" style={{ display: 'flex', flex: 1, padding: 0 }}>
 
         {/* Bookshelf View (default fallback for any unmapped view) */}
-        {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'uncategorized', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
+        {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'daily-review', 'uncategorized', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
           <div style={{ flex: 1, width: '100%' }}>
             <BookshelfView
               categories={categories}
@@ -710,6 +721,21 @@ export default function App() {
               }}
               onRefreshAll={refreshAllData}
               onOpenBackupRestore={() => setShowBackupRestore(true)}
+            />
+          </div>
+        )}
+
+        {/* Daily Review Hub View (每日複習) */}
+        {activeView === 'daily-review' && (
+          <div style={{ flex: 1, width: '100%' }}>
+            <DailyReviewHubView
+              categories={categories}
+              mistakes={allMistakes}
+              initialSubjectId={selectedSubjectId}
+              onSelectSubject={id => setSelectedSubjectId(id)}
+              onGoToBookshelf={() => setActiveView('bookshelf')}
+              onRefreshAll={refreshAllData}
+              onUpdateMistake={handleUpdateSingleMistake}
             />
           </div>
         )}

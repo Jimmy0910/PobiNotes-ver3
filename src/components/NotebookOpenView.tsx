@@ -19,9 +19,7 @@ import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverM
 import SharePackModal from './SharePackModal';
 import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import CategoryManager from './CategoryManager';
-import SubjectDailyReviewPanel from './SubjectDailyReviewPanel';
 import SubjectAnalyticsWorkshop from './SubjectAnalyticsWorkshop';
-import DailyReviewModal from './DailyReviewModal';
 import { useUiFeedback } from './UiFeedbackProvider';
 import {
   GoldCornerOrnaments,
@@ -47,7 +45,6 @@ import {
   Trash2,
   PenTool,
   Search,
-  RotateCcw,
   BarChart3
 } from 'lucide-react';
 
@@ -78,13 +75,10 @@ export default function NotebookOpenView({
   onAddChapter,
   onAddUnit,
   onRefreshAll,
-  onUpdateMistake,
-  onScheduleChanged
+  onUpdateMistake
 }: NotebookOpenViewProps) {
-  // Subject Hub 3 main modes: 查看錯題 | 每日複習 | 分析與工坊
-  const [hubTab, setHubTab] = useState<'browse' | 'review' | 'workshop'>('browse');
-  const [activeReviewQueue, setActiveReviewQueue] = useState<MistakeRecord[] | null>(null);
-  const [scheduleTick, setScheduleTick] = useState(0);
+  // Subject Hub 2 main modes: 查看錯題 | 分析與工坊 (每日複習已移至左側面板)
+  const [hubTab, setHubTab] = useState<'browse' | 'workshop'>('browse');
 
   // Navigation & Filter states
   const { showToast, confirmDialog, promptDialog } = useUiFeedback();
@@ -331,7 +325,6 @@ export default function NotebookOpenView({
 
   // Subject Statistics Summary
   const stats = useMemo(() => {
-    void scheduleTick;
     const total = subjectMistakes.length;
     let masteredCount = 0;
     let dueCount = 0;
@@ -346,7 +339,7 @@ export default function NotebookOpenView({
     });
     const masteryPct = total > 0 ? Math.round((masteredCount / total) * 100) : 0;
     return { total, masteredCount, masteryPct, dueCount };
-  }, [subjectMistakes, scheduleTick]);
+  }, [subjectMistakes]);
 
   // Open Full Editor for New Mistake
   const handleOpenAddMistake = () => {
@@ -828,13 +821,13 @@ export default function NotebookOpenView({
           </div>
         </div>
 
-        {/* SUBJECT HUB 3-MODE SELECTOR: 查看錯題 | 每日複習 | 分析與工坊 */}
+        {/* SUBJECT HUB 2-MODE SELECTOR: 查看錯題 | 分析與工坊 */}
         <div
           className="no-print"
           data-testid="subject-hub-tabs"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: '10px',
             padding: '10px',
             backgroundColor: '#FFFFFF',
@@ -852,16 +845,9 @@ export default function NotebookOpenView({
               badge: `${stats.total} 題`
             },
             {
-              id: 'review' as const,
-              title: '每日複習',
-              sub: 'POBI 閃卡複習與週期設定',
-              icon: RotateCcw,
-              badge: stats.dueCount > 0 ? `待複習 ${stats.dueCount}` : '已排程'
-            },
-            {
               id: 'workshop' as const,
               title: '分析與工坊',
-              sub: '進階篩選、診斷、AI包與練習卷',
+              sub: '進階篩選、弱點圖表、AI包與練習卷',
               icon: BarChart3,
               badge: '診斷 / 匯出'
             }
@@ -934,22 +920,7 @@ export default function NotebookOpenView({
           })}
         </div>
 
-        {/* HUB MODE 2: 每日複習（POBI 閃卡複習與本科熟悉度排程） */}
-        {hubTab === 'review' && (
-          <SubjectDailyReviewPanel
-            subjectId={subjectId}
-            subjectName={activeSubject.name}
-            categories={categories}
-            subjectMistakes={subjectMistakes}
-            onStartReview={picked => setActiveReviewQueue(picked)}
-            onScheduleChanged={() => {
-              setScheduleTick(t => t + 1);
-              onScheduleChanged?.();
-            }}
-          />
-        )}
-
-        {/* HUB MODE 3: 分析與工坊（進階篩選 -> 1.學習診斷 / 2.錯題清單與工坊） */}
+        {/* HUB MODE 2: 分析與工坊（進階篩選 -> 弱點圖表 / 錯題清單與工坊） */}
         {hubTab === 'workshop' && (
           <SubjectAnalyticsWorkshop
             subjectId={subjectId}
@@ -1826,23 +1797,6 @@ export default function NotebookOpenView({
         </>
         )}
       </div>
-
-      {/* SUBJECT DAILY FLASHCARD REVIEW MODAL */}
-      {activeReviewQueue && activeReviewQueue.length > 0 && (
-        <DailyReviewModal
-          dueMistakes={activeReviewQueue}
-          categories={categories}
-          onClose={() => setActiveReviewQueue(null)}
-          onReviewUpdated={updated => {
-            onUpdateMistake?.(updated);
-            setScheduleTick(t => t + 1);
-          }}
-          onRefreshAll={async () => {
-            await onRefreshAll?.();
-            setScheduleTick(t => t + 1);
-          }}
-        />
-      )}
 
       {/* DELETE CHAPTER / UNIT SCOPE MODAL */}
       {deleteScopeTarget && (

@@ -168,10 +168,13 @@ export default function SubjectAnalyticsWorkshop({
   // Allow POBI guided tour to jump directly to a specific workshop stage
   useEffect(() => {
     const onStageEvent = (e: Event) => {
-      const detail = (e as CustomEvent<{ stage?: 1 | 2 | 3; step3Tab?: 'list' | 'export' }>).detail;
+      const detail = (e as CustomEvent<{ stage?: 1 | 2 | 3; step2Tab?: 'distribution' | 'heatmap'; step3Tab?: 'list' | 'export' }>).detail;
       const stage = detail?.stage;
       if (stage === 1 || stage === 2 || stage === 3) {
         setActiveStage(stage);
+        if (stage === 2 && detail?.step2Tab) {
+          setStep2ChartTab(detail.step2Tab);
+        }
         if (stage === 3) {
           setStep3PanelTab(detail?.step3Tab || 'export');
         }
@@ -1161,6 +1164,7 @@ export default function SubjectAnalyticsWorkshop({
 
         {/* Step 2 Chart Mode Selector Cards (Matches Step 1 Editorial Card Layout) */}
         <div
+          data-testid="workshop-step2-chart-cards"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',

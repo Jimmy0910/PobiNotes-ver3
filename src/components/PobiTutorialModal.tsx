@@ -60,9 +60,9 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
     tip: '左側書脊導覽整合所有常用工作區，隨時一鍵切換：',
     bullets: [
       '我的書架：瀏覽各科錯題本與批次匯入考卷。',
+      '每日複習：直接切換各科進行 POBI 閃卡複習與排程。',
       '未分類區：暫存刪除分類後保留的題目，可批次歸類。',
-      '模板管理 / AI 提詞管理：自訂題目欄位與專屬 AI 指令。',
-      '使用導引 / POBI 教學：隨時查閱手冊或重播本導覽。'
+      '模板管理 / AI 提詞管理：自訂題目欄位與專屬 AI 指令。'
     ],
     getTarget: () => document.querySelector('[data-testid="sidebar-nav-list"]') as HTMLElement | null
   },
@@ -81,29 +81,43 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
   {
     id: 'daily-review',
     title: '4. 每日複習（閃卡與自訂週期）',
-    tip: '翻開任一科目後切換至「每日複習」，即可開始 POBI 閃卡重測：',
+    tip: '從左側面板直接點選「每日複習」，即可快速切換科目並開始 POBI 閃卡重測：',
     bullets: [
-      '自由勾選要複習的章節與小單元（預設全選）。',
-      '右側可針對每個科目自訂各熟悉度的間隔天數，或設為「不再複習」。'
+      '頂部可一鍵切換科目並查看各科今日待複習題數。',
+      '自由勾選要複習的章節與小單元，並可自訂各熟悉度的間隔天數或設為「不再複習」。'
     ],
-    getTarget: () => document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null
+    getTarget: () =>
+      (document.querySelector('[data-testid="daily-review-hub-header"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="nav-daily-review"]') as HTMLElement | null)
+  },
+  {
+    id: 'weakness-charts',
+    title: '5. 弱點圖表（分類占比與熱度圖）',
+    tip: '在「分析與工坊」的步驟 2，提供兩種互動圖表幫你精準定位弱點：',
+    bullets: [
+      '1. 分類占比圖表：以長條圖或圓餅圖檢視各章節、單元、熟悉度、錯因或標籤題數分布。',
+      '2. 視覺化弱點熱度圖：以 5 階暖色矩陣交叉找出失分集中熱區，一眼看穿最常卡關的組合。',
+      '互動多選：直接點擊圖表項目或熱度方格可複選多個弱點，直接帶入步驟 3 匯出 AI 提詞包或練習卷。'
+    ],
+    getTarget: () =>
+      (document.querySelector('[data-testid="workshop-step2-chart-cards"]') as HTMLElement | null) ||
+      (document.querySelector('[data-testid="workshop-step2-tab-heatmap"]') as HTMLElement | null)
   },
   {
     id: 'ai-prompt-pack',
-    title: '5. 外部 AI 提示資料包（ZIP）',
-    tip: '在「分析與工坊」勾選好弱點範圍後，點此「匯出外部 AI 提示資料包」：',
+    title: '6. 外部 AI 提示資料包（ZIP）',
+    tip: '在「分析與工坊」步驟 3 確認好弱點題目後，點此「匯出外部 AI 提示資料包」：',
     bullets: [
       '挑選內建或自訂提詞範本，一鍵打包成單一 ZIP 檔。',
       'ZIP 內含提詞清單與所有題目／解析圖片，直接整包上傳給 ChatGPT / Gemini / Claude 即可分析。'
     ],
     getTarget: () =>
       (document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="workshop-ai-zip-panel"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
+      (document.querySelector('[data-testid="workshop-ai-zip-panel"]') as HTMLElement | null)
   },
   {
     id: 'export-exam',
-    title: '6. 匯出練習卷（A4 防跨頁切割）',
+    title: '7. 匯出練習卷（A4 防跨頁切割）',
     tip: '在同一弱點範圍點此「匯出考卷」按鈕，即可快速印出專屬考前複習卷：',
     bullets: [
       '可選模擬練習卷、試卷附頁尾解析或完整解析卷。',
@@ -111,8 +125,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
     ],
     getTarget: () =>
       (document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="export-generate-pdf-btn"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null)
+      (document.querySelector('[data-testid="export-generate-pdf-btn"]') as HTMLElement | null)
   }
 ];
 
@@ -131,6 +144,24 @@ export default function PobiTutorialModal({
   const [seededDone, setSeededDone] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const initializedRef = useRef(false);
+  const stepRunIdRef = useRef(0);
+  const timersRef = useRef<number[]>([]);
+
+  const clearScheduledTimers = useCallback(() => {
+    for (const id of timersRef.current) {
+      window.clearTimeout(id);
+    }
+    timersRef.current = [];
+  }, []);
+
+  const scheduleTimer = useCallback((fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timersRef.current = timersRef.current.filter(t => t !== id);
+      fn();
+    }, ms);
+    timersRef.current.push(id);
+    return id;
+  }, []);
 
   const pickPreferredSubjectId = useCallback((): string | null => {
     const demoSubj = categories.subjects.find(s => s.name === 'POBI 教學範例-數學');
@@ -143,55 +174,132 @@ export default function PobiTutorialModal({
 
   const currentStep = SPOTLIGHT_STEPS[stepIdx];
 
+  const measureTarget = useCallback(() => {
+    const el = currentStep.getTarget();
+    if (!el) {
+      setTargetRect(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) {
+      setTargetRect(null);
+      return;
+    }
+    const nextRect: TargetRect = {
+      top: r.top,
+      left: r.left,
+      width: r.width,
+      height: r.height
+    };
+    setTargetRect(prev => {
+      if (
+        prev &&
+        Math.abs(prev.top - nextRect.top) < 0.5 &&
+        Math.abs(prev.left - nextRect.left) < 0.5 &&
+        Math.abs(prev.width - nextRect.width) < 0.5 &&
+        Math.abs(prev.height - nextRect.height) < 0.5
+      ) {
+        return prev;
+      }
+      return nextRect;
+    });
+  }, [currentStep]);
+
+  // Helper: wait until an element appears in DOM (respecting step cancellation)
+  const waitForElement = useCallback(
+    (selector: string, runId: number, onFound: (el: HTMLElement) => void, attemptsLeft = 30) => {
+      if (stepRunIdRef.current !== runId) return;
+      const el = document.querySelector(selector) as HTMLElement | null;
+      if (el) {
+        onFound(el);
+        return;
+      }
+      if (attemptsLeft <= 0) return;
+      scheduleTimer(() => waitForElement(selector, runId, onFound, attemptsLeft - 1), 50);
+    },
+    [scheduleTimer]
+  );
+
   // Navigate to the right view ONLY when explicitly entering a step (never auto-jumping!)
   const syncViewForStep = useCallback(
     (nextIdx: number) => {
+      clearScheduledTimers();
+      const runId = ++stepRunIdRef.current;
+      setTargetRect(null);
+
       if (nextIdx <= 2) {
         onNavigateView('bookshelf');
         return;
       }
+
+      if (nextIdx === 3) {
+        onNavigateView('daily-review');
+        return;
+      }
+
+      // Steps 5, 6, 7 live inside SubjectAnalyticsWorkshop
       const subjId = pickPreferredSubjectId();
       if (subjId) {
         onOpenNotebook(subjId);
       }
-      if (nextIdx === 3) {
-        window.setTimeout(() => {
-          const tab = document.querySelector('[data-testid="subject-hub-tab-review"]') as HTMLElement | null;
-          tab?.click();
-        }, 160);
-      } else if (nextIdx === 4) {
-        window.setTimeout(() => {
-          const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
-          tab?.click();
-          window.setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3 } }));
-            const stage3Tab = document.querySelector('[data-testid="workshop-stage-tab-3"]') as HTMLElement | null;
-            stage3Tab?.click();
-            window.setTimeout(() => {
-              const aiBtn = document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null;
-              aiBtn?.click();
-              aiBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-            }, 90);
-          }, 180);
-        }, 160);
-      } else if (nextIdx === 5) {
-        window.setTimeout(() => {
-          const tab = document.querySelector('[data-testid="subject-hub-tab-workshop"]') as HTMLElement | null;
-          tab?.click();
-          window.setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3 } }));
-            const stage3Tab = document.querySelector('[data-testid="workshop-stage-tab-3"]') as HTMLElement | null;
-            stage3Tab?.click();
-            window.setTimeout(() => {
-              const pdfBtn = document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null;
-              pdfBtn?.click();
-              pdfBtn?.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-            }, 90);
-          }, 180);
-        }, 160);
-      }
+
+      waitForElement('[data-testid="subject-hub-tab-workshop"]', runId, workshopTab => {
+        workshopTab.click();
+
+        if (nextIdx === 4) {
+          // Step 5: 弱點圖表 (Stage 2)
+          waitForElement('[data-testid="workshop-stage-tab-2"]', runId, stage2Tab => {
+            window.dispatchEvent(
+              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 2, step2Tab: 'heatmap' } })
+            );
+            stage2Tab.click();
+            waitForElement('[data-testid="workshop-step2-chart-cards"]', runId, cardsEl => {
+              try {
+                cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+              } catch {}
+              scheduleTimer(() => {
+                if (stepRunIdRef.current === runId) measureTarget();
+              }, 80);
+            });
+          });
+        } else if (nextIdx === 5) {
+          // Step 6: 外部 AI 提示資料包 (Stage 3 -> Export -> AI ZIP)
+          waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
+            window.dispatchEvent(
+              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
+            );
+            stage3Tab.click();
+            waitForElement('[data-testid="workshop-submode-ai-zip"]', runId, aiBtn => {
+              aiBtn.click();
+              try {
+                aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+              } catch {}
+              scheduleTimer(() => {
+                if (stepRunIdRef.current === runId) measureTarget();
+              }, 100);
+            });
+          });
+        } else if (nextIdx === 6) {
+          // Step 7: 匯出練習卷 (Stage 3 -> Export -> Exam Paper)
+          waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
+            window.dispatchEvent(
+              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
+            );
+            stage3Tab.click();
+            waitForElement('[data-testid="workshop-submode-exam-paper"]', runId, pdfBtn => {
+              pdfBtn.click();
+              try {
+                pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+              } catch {}
+              scheduleTimer(() => {
+                if (stepRunIdRef.current === runId) measureTarget();
+              }, 100);
+            });
+          });
+        }
+      });
     },
-    [onNavigateView, onOpenNotebook, pickPreferredSubjectId]
+    [clearScheduledTimers, measureTarget, onNavigateView, onOpenNotebook, pickPreferredSubjectId, scheduleTimer, waitForElement]
   );
 
   // On initial mount only, navigate cleanly to bookshelf for Step 1
@@ -200,7 +308,10 @@ export default function PobiTutorialModal({
       initializedRef.current = true;
       onNavigateView('bookshelf');
     }
-  }, [onNavigateView]);
+    return () => {
+      clearScheduledTimers();
+    };
+  }, [onNavigateView, clearScheduledTimers]);
 
   // Lock background page scroll & touch drag while tutorial is open so spotlight never drifts
   useEffect(() => {
@@ -236,44 +347,50 @@ export default function PobiTutorialModal({
     };
   }, []);
 
-  const measureTarget = useCallback(() => {
-    const el = currentStep.getTarget();
-    if (!el) {
-      setTargetRect(null);
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) {
-      setTargetRect(null);
-      return;
-    }
-    setTargetRect({
-      top: r.top,
-      left: r.left,
-      width: r.width,
-      height: r.height
-    });
-  }, [currentStep]);
-
+  // Continuously track target position & layout shifts so spotlight never drifts
   useEffect(() => {
-    // Scroll target into view cleanly once when entering a step, then lock its spotlight position
-    const scrollTimer = window.setTimeout(() => {
+    let scrolledOnce = false;
+    let observedEl: HTMLElement | null = null;
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => measureTarget()) : null;
+
+    const syncAndObserve = () => {
       const el = currentStep.getTarget();
       if (el) {
-        try {
-          el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-        } catch {}
+        if (!scrolledOnce) {
+          scrolledOnce = true;
+          try {
+            el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+          } catch {}
+        }
+        if (resizeObserver && observedEl !== el) {
+          resizeObserver.disconnect();
+          observedEl = el;
+          resizeObserver.observe(el);
+          if (el.parentElement) resizeObserver.observe(el.parentElement);
+        }
+        measureTarget();
       }
-      measureTarget();
-    }, 240);
+    };
 
-    const settleTimer = window.setTimeout(measureTarget, 460);
+    // Poll briefly while async views/subpanels mount and settle, then rely on resize/scroll/ResizeObserver
+    syncAndObserve();
+    let ticks = 0;
+    const settleInterval = window.setInterval(() => {
+      syncAndObserve();
+      ticks++;
+      if (ticks >= 15) {
+        window.clearInterval(settleInterval);
+      }
+    }, 100);
+
     window.addEventListener('resize', measureTarget);
+    window.addEventListener('scroll', measureTarget, true);
 
     return () => {
-      window.clearTimeout(scrollTimer);
-      window.clearTimeout(settleTimer);
+      window.clearInterval(settleInterval);
+      resizeObserver?.disconnect();
       window.removeEventListener('resize', measureTarget);
+      window.removeEventListener('scroll', measureTarget, true);
     };
   }, [currentStep, measureTarget]);
 

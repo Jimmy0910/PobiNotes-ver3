@@ -271,7 +271,7 @@ export default function BookshelfView({
                   data-pobi-demo-book={subject.name === 'POBI 教學範例-數學' ? '1' : undefined}
                   className="book-item-wrapper"
                   onClick={() => handleBookClick(subject.id)}
-                  title={`點擊翻開《${subject.name}》錯題本主頁（查看錯題 / 每日複習 / 分析與工坊）`}
+                  title={`點擊翻開《${subject.name}》錯題本主頁（查看錯題 / 分析與工坊）`}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -416,7 +416,7 @@ export default function BookshelfView({
             <div className="eyebrow">POBI STUDY INDEX</div>
             <h2>學習總覽</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              點擊上方任一本錯題本，即可進入該科「查看錯題 / 每日複習 / 分析與工坊」
+              點擊上方任一本錯題本，即可進入該科「查看錯題 / 分析與工坊」，或從左側面板進入「每日複習」
             </p>
           </div>
           <div className="dashboard-snapshot-stat">

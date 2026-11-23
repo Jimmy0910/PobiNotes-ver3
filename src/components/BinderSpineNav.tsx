@@ -1,6 +1,7 @@
 import type { AppViewType } from './Dashboard';
 import {
   BookOpen,
+  RotateCcw,
   Inbox,
   FileCode,
   Sparkles,
@@ -30,6 +31,7 @@ interface BinderSpineNavProps {
     is_admin: number;
   };
   uncategorizedCount?: number;
+  dueReviewCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
   onOpenGuide: () => void;
@@ -46,6 +48,7 @@ export default function BinderSpineNav({
   onToggleCollapse,
   user,
   uncategorizedCount = 0,
+  dueReviewCount = 0,
   onOpenGuide,
   onOpenPobiTutorial,
   onOpenFeedback,
@@ -68,6 +71,15 @@ export default function BinderSpineNav({
       icon: <BookOpen size={18} strokeWidth={1.8} />,
       active: activeView === 'bookshelf' || activeView === 'notebook',
       onClick: () => onNavigateView('bookshelf')
+    },
+    {
+      id: 'daily-review',
+      label: '每日複習',
+      testId: 'nav-daily-review',
+      icon: <RotateCcw size={18} strokeWidth={1.8} />,
+      active: activeView === 'daily-review',
+      badge: dueReviewCount > 0 ? dueReviewCount : undefined,
+      onClick: () => onNavigateView('daily-review')
     },
     {
       id: 'uncategorized',
