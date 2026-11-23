@@ -6,6 +6,8 @@ import { Users, MessageSquare, Trash2, Star, Loader2, RefreshCw, UserPlus } from
 interface AdminUser {
   id: string;
   username: string;
+  email?: string | null;
+  auth_provider?: string | null;
   is_admin: number;
   created_at: string | number;
 }
@@ -22,6 +24,7 @@ interface FeedbackItem {
 export default function AdminPanel() {
   const { showToast, confirmDialog } = useUiFeedback();
   const [activeTab, setActiveTab] = useState<'users' | 'feedback'>('users');
+  const [providerFilter, setProviderFilter] = useState<'all' | 'google' | 'local'>('all');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -276,20 +279,73 @@ export default function AdminPanel() {
               )}
             </form>
 
-            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Provider Filter Bar */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {(() => {
+                const googleCount = users.filter(u => u.auth_provider === 'google').length;
+                const localCount = users.length - googleCount;
+                const items: Array<{ key: 'all' | 'google' | 'local'; label: string }> = [
+                  { key: 'all', label: `全部用戶 (${users.length})` },
+                  { key: 'google', label: `Google 登入 (${googleCount})` },
+                  { key: 'local', label: `一般帳密 (${localCount})` }
+                ];
+                return items.map(item => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`btn ${providerFilter === item.key ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '5px 12px', fontSize: '0.82rem' }}
+                    onClick={() => setProviderFilter(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ));
+              })()}
+            </div>
+
+            <div className="glass-card" style={{ padding: 0, overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <th style={thStyle}>使用者名稱</th>
+                  <th style={thStyle}>登入方式 / Gmail</th>
                   <th style={thStyle}>角色</th>
                   <th style={thStyle}>建立時間</th>
                   <th style={{ ...thStyle, textAlign: 'center' }}>操作</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
+                {users
+                  .filter(u => {
+                    if (providerFilter === 'google') return u.auth_provider === 'google';
+                    if (providerFilter === 'local') return u.auth_provider !== 'google';
+                    return true;
+                  })
+                  .map(u => {
+                    const isGoogle = u.auth_provider === 'google';
+                    return (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={tdStyle}>{u.username}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          background: isGoogle ? 'rgba(66, 133, 244, 0.16)' : 'rgba(255,255,255,0.05)',
+                          color: isGoogle ? '#4285F4' : 'var(--text-secondary)',
+                          border: `1px solid ${isGoogle ? 'rgba(66, 133, 244, 0.4)' : 'var(--glass-border)'}`
+                        }}>
+                          {isGoogle ? 'Google' : '帳密'}
+                        </span>
+                        {u.email && (
+                          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                            {u.email}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td style={tdStyle}>
                       <span style={{
                         padding: '2px 10px',
@@ -329,11 +385,16 @@ export default function AdminPanel() {
                       </div>
                     </td>
                   </tr>
-                ))}
-                {users.length === 0 && (
+                    );
+                  })}
+                {users.filter(u => {
+                  if (providerFilter === 'google') return u.auth_provider === 'google';
+                  if (providerFilter === 'local') return u.auth_provider !== 'google';
+                  return true;
+                }).length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>
-                      尚無用戶資料
+                    <td colSpan={5} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-muted)' }}>
+                      尚無符合條件的用戶資料
                     </td>
                   </tr>
                 )}

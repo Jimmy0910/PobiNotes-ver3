@@ -23,7 +23,7 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
     // Lightweight check without running heavy mistake healing
     await ensureSchemaAndUserDefaults(env.DB);
 
-    const users = await env.DB.prepare('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC')
+    const users = await env.DB.prepare('SELECT id, username, email, auth_provider, is_admin, created_at FROM users ORDER BY created_at DESC')
       .all();
 
     return new Response(JSON.stringify(users.results || []), {
