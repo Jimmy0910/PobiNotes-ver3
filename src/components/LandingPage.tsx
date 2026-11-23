@@ -717,13 +717,15 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             </button>
             <button
               type="button"
+              className="pobi-promo-ctrl-btn"
               onClick={() => onGoToAuth('register')}
+              data-testid="landing-bottom-register-btn"
               style={{
                 padding: '10px 20px',
                 borderRadius: '8px',
                 border: '1.5px solid #E4C284',
-                backgroundColor: 'rgba(251, 248, 241, 0.12)',
-                color: '#FBF8F1',
+                backgroundColor: 'rgba(251, 248, 241, 0.14)',
+                color: '#FFFFFF',
                 fontSize: '0.9rem',
                 fontWeight: 700,
                 cursor: 'pointer',
