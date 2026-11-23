@@ -174,16 +174,24 @@ export default function PobiTutorialModal({
 
   const currentStep = SPOTLIGHT_STEPS[stepIdx];
 
-  const measureTarget = useCallback(() => {
+  const measureTarget = useCallback((allowAutoScroll = false) => {
     const el = currentStep.getTarget();
     if (!el) {
       setTargetRect(null);
       return;
     }
-    const r = el.getBoundingClientRect();
+    let r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) {
       setTargetRect(null);
       return;
+    }
+    // If target is outside visible viewport, programmatically scroll it into view
+    const vhNow = window.innerHeight || 800;
+    if (allowAutoScroll && (r.top < 16 || r.bottom > vhNow - 16)) {
+      try {
+        el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+        r = el.getBoundingClientRect();
+      } catch {}
     }
     const nextRect: TargetRect = {
       top: r.top,
@@ -249,53 +257,62 @@ export default function PobiTutorialModal({
         if (nextIdx === 4) {
           // Step 5: 弱點圖表 (Stage 2)
           waitForElement('[data-testid="workshop-stage-tab-2"]', runId, stage2Tab => {
-            window.dispatchEvent(
-              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 2, step2Tab: 'heatmap' } })
-            );
-            stage2Tab.click();
-            waitForElement('[data-testid="workshop-step2-chart-cards"]', runId, cardsEl => {
-              try {
-                cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-              } catch {}
-              scheduleTimer(() => {
-                if (stepRunIdRef.current === runId) measureTarget();
-              }, 80);
-            });
-          });
+            scheduleTimer(() => {
+              if (stepRunIdRef.current !== runId) return;
+              window.dispatchEvent(
+                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 2, step2Tab: 'heatmap' } })
+              );
+              stage2Tab.click();
+              waitForElement('[data-testid="workshop-step2-chart-cards"]', runId, cardsEl => {
+                try {
+                  cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+                } catch {}
+                scheduleTimer(() => {
+                  if (stepRunIdRef.current === runId) measureTarget(true);
+                }, 100);
+              }, 40);
+            }, 60);
+          }, 40);
         } else if (nextIdx === 5) {
           // Step 6: 外部 AI 提示資料包 (Stage 3 -> Export -> AI ZIP)
           waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
-            window.dispatchEvent(
-              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
-            );
-            stage3Tab.click();
-            waitForElement('[data-testid="workshop-submode-ai-zip"]', runId, aiBtn => {
-              aiBtn.click();
-              try {
-                aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-              } catch {}
-              scheduleTimer(() => {
-                if (stepRunIdRef.current === runId) measureTarget();
-              }, 100);
-            });
-          });
+            scheduleTimer(() => {
+              if (stepRunIdRef.current !== runId) return;
+              window.dispatchEvent(
+                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
+              );
+              stage3Tab.click();
+              waitForElement('[data-testid="workshop-submode-ai-zip"]', runId, aiBtn => {
+                aiBtn.click();
+                try {
+                  aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+                } catch {}
+                scheduleTimer(() => {
+                  if (stepRunIdRef.current === runId) measureTarget(true);
+                }, 100);
+              }, 40);
+            }, 60);
+          }, 40);
         } else if (nextIdx === 6) {
           // Step 7: 匯出練習卷 (Stage 3 -> Export -> Exam Paper)
           waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
-            window.dispatchEvent(
-              new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
-            );
-            stage3Tab.click();
-            waitForElement('[data-testid="workshop-submode-exam-paper"]', runId, pdfBtn => {
-              pdfBtn.click();
-              try {
-                pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-              } catch {}
-              scheduleTimer(() => {
-                if (stepRunIdRef.current === runId) measureTarget();
-              }, 100);
-            });
-          });
+            scheduleTimer(() => {
+              if (stepRunIdRef.current !== runId) return;
+              window.dispatchEvent(
+                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
+              );
+              stage3Tab.click();
+              waitForElement('[data-testid="workshop-submode-exam-paper"]', runId, pdfBtn => {
+                pdfBtn.click();
+                try {
+                  pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+                } catch {}
+                scheduleTimer(() => {
+                  if (stepRunIdRef.current === runId) measureTarget(true);
+                }, 100);
+              }, 40);
+            }, 60);
+          }, 40);
         }
       });
     },
@@ -313,13 +330,9 @@ export default function PobiTutorialModal({
     };
   }, [onNavigateView, clearScheduledTimers]);
 
-  // Lock background page scroll & touch drag while tutorial is open so spotlight never drifts
+  // Lock user wheel/touch/keyboard scroll while keeping programmatic scrollIntoView working
   useEffect(() => {
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    const prevBodyOverflow = document.body.style.overflow;
     const prevBodyTouch = document.body.style.touchAction;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
 
     const preventScroll = (e: Event) => {
@@ -338,8 +351,6 @@ export default function PobiTutorialModal({
     window.addEventListener('keydown', preventScrollKeys, { passive: false });
 
     return () => {
-      document.documentElement.style.overflow = prevHtmlOverflow;
-      document.body.style.overflow = prevBodyOverflow;
       document.body.style.touchAction = prevBodyTouch;
       window.removeEventListener('wheel', preventScroll);
       window.removeEventListener('touchmove', preventScroll);
@@ -347,11 +358,12 @@ export default function PobiTutorialModal({
     };
   }, []);
 
-  // Continuously track target position & layout shifts so spotlight never drifts
+  // Continuously track target position & layout shifts so spotlight never drifts or disappears off-screen
   useEffect(() => {
     let scrolledOnce = false;
     let observedEl: HTMLElement | null = null;
-    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => measureTarget()) : null;
+    const handleMeasure = () => measureTarget(false);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(handleMeasure) : null;
 
     const syncAndObserve = () => {
       const el = currentStep.getTarget();
@@ -368,7 +380,7 @@ export default function PobiTutorialModal({
           resizeObserver.observe(el);
           if (el.parentElement) resizeObserver.observe(el.parentElement);
         }
-        measureTarget();
+        measureTarget(true);
       }
     };
 
@@ -378,19 +390,19 @@ export default function PobiTutorialModal({
     const settleInterval = window.setInterval(() => {
       syncAndObserve();
       ticks++;
-      if (ticks >= 15) {
+      if (ticks >= 25) {
         window.clearInterval(settleInterval);
       }
     }, 100);
 
-    window.addEventListener('resize', measureTarget);
-    window.addEventListener('scroll', measureTarget, true);
+    window.addEventListener('resize', handleMeasure);
+    window.addEventListener('scroll', handleMeasure, true);
 
     return () => {
       window.clearInterval(settleInterval);
       resizeObserver?.disconnect();
-      window.removeEventListener('resize', measureTarget);
-      window.removeEventListener('scroll', measureTarget, true);
+      window.removeEventListener('resize', handleMeasure);
+      window.removeEventListener('scroll', handleMeasure, true);
     };
   }, [currentStep, measureTarget]);
 
