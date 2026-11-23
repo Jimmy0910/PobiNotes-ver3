@@ -733,7 +733,16 @@ export default function SubjectAnalyticsWorkshop({
       : '自訂標籤';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="subject-analytics-workshop">
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        flex: 1,
+        minHeight: 'calc(100dvh - 260px)'
+      }}
+      data-testid="subject-analytics-workshop"
+    >
       {/* Top 3-Stage Wizard Stepper Bar (Shows 1 Stage at a Time) */}
       <div
         className="glass no-print"
@@ -807,97 +816,190 @@ export default function SubjectAnalyticsWorkshop({
           STEP 1: 詢問分析依據模式（章節與單元 / 熟悉度與錯因 / 自訂標籤）
          ================================================================= */}
       {activeStage === 1 && (
-      <section className="glass no-print" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-step1-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className="pobi-step-pill">步驟 1</span>
-            <h3 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              您想以哪種方式分析《{subjectName}》的錯題？
-            </h3>
-          </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            本科共 {subjectMistakes.length} 題
-          </span>
-        </div>
+      <section
+        className="glass pobi-engineering-grid no-print"
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          flex: 1,
+          minHeight: 'min(540px, 64dvh)',
+          padding: '28px 28px 24px 28px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '24px',
+          borderTop: '2px solid rgba(200, 154, 80, 0.55)'
+        }}
+        data-testid="workshop-step1-section"
+      >
+        <GoldCornerOrnaments size={44} inset={6} opacity={0.58} corners={['tl', 'tr', 'bl', 'br']} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-          {[
-            {
-              id: 'hierarchy' as AnalysisMode,
-              title: '1. 章節與單元模式',
-              desc: '依章節與細部小單元勾選範圍，檢視各單元弱點分布',
-              icon: FolderTree
-            },
-            {
-              id: 'diagnosis' as AnalysisMode,
-              title: '2. 熟悉度與錯因模式',
-              desc: '依熟悉度（順／卡／不會／誤解）與失分錯因精準篩選',
-              icon: Activity
-            },
-            {
-              id: 'tags' as AnalysisMode,
-              title: '3. 自訂標籤模式',
-              desc: '依您自訂的考點或考卷標籤（如 #段考、#必考）彙整',
-              icon: Tag
-            }
-          ].map(card => {
-            const Icon = card.icon;
-            const active = analysisMode === card.id;
-            return (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() => handleChangeAnalysisMode(card.id)}
-                data-testid={`workshop-mode-${card.id}`}
-                className={`pobi-mode-card ${active ? 'is-selected' : ''}`}
-                style={{
-                  padding: '13px 15px',
-                  borderRadius: '11px',
-                  border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
-                  backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-primary)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '11px'
-                }}
-              >
-                <div
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="pobi-step-pill">步驟 1</span>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  您想以哪種方式分析《{subjectName}》的錯題？
+                </h3>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                挑選一個分析切入角度後進入下一步，即可細部勾選範圍、檢視弱點熱度圖並匯出外部 AI 資料包或 A4 練習卷。
+              </p>
+            </div>
+            <span
+              className="pobi-tag-chip"
+              style={{ fontSize: '0.84rem', fontWeight: 700, padding: '5px 12px', fontVariantNumeric: 'tabular-nums' }}
+            >
+              本科共 {subjectMistakes.length} 題
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '18px',
+              flex: 1,
+              alignItems: 'stretch'
+            }}
+          >
+            {[
+              {
+                id: 'hierarchy' as AnalysisMode,
+                title: '1. 章節與單元模式',
+                desc: '依章節與細部小單元勾選範圍，快速檢視各章節的失分集中度與單元弱點分布。',
+                meta: `目前收錄 ${visibleChapters.length} 個章節 · ${visibleUnits.length} 個小單元`,
+                icon: FolderTree
+              },
+              {
+                id: 'diagnosis' as AnalysisMode,
+                title: '2. 熟悉度與錯因模式',
+                desc: '依熟悉度（順／卡／不會／誤解）與失分錯因交叉篩選，優先鎖定高失分風險題型。',
+                meta: `涵蓋 4 階熟悉度 · ${visibleErrorReasons.length} 種錯因標籤`,
+                icon: Activity
+              },
+              {
+                id: 'tags' as AnalysisMode,
+                title: '3. 自訂標籤模式',
+                desc: '依您自行標記的考點、模考或考卷標籤（如 #段考、#必考）快速彙整與匯出。',
+                meta: `本科已建立 ${allAvailableTags.length} 個自訂標籤`,
+                icon: Tag
+              }
+            ].map(card => {
+              const Icon = card.icon;
+              const active = analysisMode === card.id;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => handleChangeAnalysisMode(card.id)}
+                  data-testid={`workshop-mode-${card.id}`}
+                  className={`pobi-mode-card ${active ? 'is-selected' : ''}`}
                   style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '9px',
-                    backgroundColor: active ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
-                    color: active ? '#FFFFFF' : 'var(--accent-primary)',
+                    minHeight: '220px',
+                    padding: '24px 22px',
+                    borderRadius: '14px',
+                    border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                    backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    transition: 'border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease',
+                    boxShadow: active ? '0 8px 22px rgba(217, 119, 6, 0.16)' : '0 2px 8px rgba(0, 0, 0, 0.05)'
                   }}
                 >
-                  <Icon size={17} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>{card.title}</div>
-                  <div style={{ fontSize: '0.77rem', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.45 }}>
-                    {card.desc}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div
+                        style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '12px',
+                          backgroundColor: active ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
+                          color: active ? '#FFFFFF' : 'var(--accent-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        <Icon size={22} />
+                      </div>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          border: active ? '1px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                          backgroundColor: active ? 'var(--accent-secondary)' : 'var(--bg-secondary)',
+                          color: active ? '#FFFFFF' : 'var(--text-secondary)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {active && <Check size={12} />}
+                        <span>{active ? '已選取' : '點此選取'}</span>
+                      </span>
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1.06rem', color: 'var(--text-primary)' }}>
+                        {card.title}
+                      </div>
+                      <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.65 }}>
+                        {card.desc}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+
+                  <div
+                    style={{
+                      paddingTop: '12px',
+                      borderTop: '1px dashed var(--glass-border)',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      fontVariantNumeric: 'tabular-nums'
+                    }}
+                  >
+                    {card.meta}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '6px', borderTop: '1px solid var(--glass-border)' }}>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--glass-border)'
+          }}
+        >
+          <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            目前已選擇：<strong style={{ color: 'var(--text-primary)' }}>{activeModeLabel}模式</strong>（可於下一步進行多選篩選與弱點熱度圖分析）
+          </span>
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => setActiveStage(2)}
             data-testid="workshop-step1-next-btn"
-            style={{ padding: '9px 18px', fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '11px 22px', fontSize: '0.92rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
             <span>下一步：篩選範圍與弱點圖表</span>
-            <ArrowRight size={15} />
+            <ArrowRight size={16} />
           </button>
         </div>
       </section>
