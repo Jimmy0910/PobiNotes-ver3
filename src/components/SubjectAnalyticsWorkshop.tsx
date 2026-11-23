@@ -127,6 +127,8 @@ export default function SubjectAnalyticsWorkshop({
 
   // Wizard stage controller: show one stage at a time (1 -> 2 -> 3)
   const [activeStage, setActiveStage] = useState<1 | 2 | 3>(1);
+  const [step2ChartTab, setStep2ChartTab] = useState<'distribution' | 'heatmap'>('distribution');
+  const [step3PanelTab, setStep3PanelTab] = useState<'list' | 'export'>('list');
 
   // =========================================================
   // STEP 1: Analysis Mode Selection
@@ -166,9 +168,13 @@ export default function SubjectAnalyticsWorkshop({
   // Allow POBI guided tour to jump directly to a specific workshop stage
   useEffect(() => {
     const onStageEvent = (e: Event) => {
-      const stage = (e as CustomEvent<{ stage?: 1 | 2 | 3 }>).detail?.stage;
+      const detail = (e as CustomEvent<{ stage?: 1 | 2 | 3; step3Tab?: 'list' | 'export' }>).detail;
+      const stage = detail?.stage;
       if (stage === 1 || stage === 2 || stage === 3) {
         setActiveStage(stage);
+        if (stage === 3) {
+          setStep3PanelTab(detail?.step3Tab || 'export');
+        }
       }
     };
     window.addEventListener('pobi-workshop-set-stage', onStageEvent);
@@ -186,6 +192,8 @@ export default function SubjectAnalyticsWorkshop({
   // Reset selections when switching subject
   useEffect(() => {
     setActiveStage(1);
+    setStep2ChartTab('distribution');
+    setStep3PanelTab('list');
     setSelectedChapterIds([]);
     setSelectedUnitIds([]);
     setSelectedFamiliarityIds([]);
@@ -1151,7 +1159,120 @@ export default function SubjectAnalyticsWorkshop({
           )}
         </div>
 
+        {/* Step 2 Chart Mode Selector Cards (Matches Step 1 Editorial Card Layout) */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '16px'
+          }}
+        >
+          {[
+            {
+              id: 'distribution' as const,
+              title: '1. 分類占比圖表',
+              desc: '以長條圖或圓餅圖檢視各章節、單元、熟悉度、錯因或標籤題數占比，點擊項目可直接多選。',
+              meta: `目前分類維度共 ${distributionData.length} 項 · 範圍 ${step2Mistakes.length} 題`,
+              icon: BarChart3
+            },
+            {
+              id: 'heatmap' as const,
+              title: '2. 視覺化弱點熱度圖',
+              desc: '以 5 階暖色熱度矩陣交叉定位失分集中熱區，直接點選色塊複選最需補強的弱點。',
+              meta:
+                heatmapData.topHotspots.length > 0
+                  ? `已偵測 ${heatmapData.topHotspots.length} 個優先補強熱區`
+                  : `範圍 ${step2Mistakes.length} 題交叉弱點矩陣`,
+              icon: Flame
+            }
+          ].map(card => {
+            const Icon = card.icon;
+            const active = step2ChartTab === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setStep2ChartTab(card.id)}
+                data-testid={`workshop-step2-tab-${card.id}`}
+                className={`pobi-mode-card ${active ? 'is-selected' : ''}`}
+                style={{
+                  minHeight: '148px',
+                  padding: '20px 20px 16px 20px',
+                  borderRadius: '14px',
+                  border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                  backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  transition: 'border-color 0.16s ease, box-shadow 0.16s ease',
+                  boxShadow: active ? '0 8px 20px rgba(217, 119, 6, 0.14)' : '0 2px 6px rgba(0, 0, 0, 0.04)'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        backgroundColor: active ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
+                        color: active ? '#FFFFFF' : 'var(--accent-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Icon size={20} />
+                    </div>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        border: active ? '1px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                        backgroundColor: active ? 'var(--accent-secondary)' : 'var(--bg-secondary)',
+                        color: active ? '#FFFFFF' : 'var(--text-secondary)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {active && <Check size={12} />}
+                      <span>{active ? '檢視中' : '點此檢視'}</span>
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--text-primary)' }}>{card.title}</div>
+                    <div style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginTop: '5px', lineHeight: 1.55 }}>
+                      {card.desc}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    paddingTop: '10px',
+                    borderTop: '1px dashed var(--glass-border)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {card.meta}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Chart A: Distribution Chart (Multi-selectable Bars / Donut) */}
+        {step2ChartTab === 'distribution' && (
         <div style={{ padding: '16px 18px', borderRadius: '12px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '7px' }}>
@@ -1278,8 +1399,10 @@ export default function SubjectAnalyticsWorkshop({
             </div>
           )}
         </div>
+        )}
 
         {/* Chart B: Visually Friendly Weakness Heatmap (Requirement 5) */}
+        {step2ChartTab === 'heatmap' && (
         <div
           data-testid="workshop-visual-heatmap"
           style={{
@@ -1528,6 +1651,7 @@ export default function SubjectAnalyticsWorkshop({
             </div>
           )}
         </div>
+        )}
 
         {/* Step 2 Navigation Footer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
@@ -1559,37 +1683,174 @@ export default function SubjectAnalyticsWorkshop({
           STEP 3: 根據圖表勾選範圍，確認題目（含圖片縮圖）並決定匯出 AI 資料包或考卷
          ================================================================= */}
       {activeStage === 3 && (
-      <section className="glass" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="workshop-step3-section">
+      <section
+        className="glass pobi-engineering-grid"
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          flex: 1,
+          minHeight: 'min(540px, 64dvh)',
+          padding: '24px 24px 20px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
+          borderTop: '2px solid rgba(200, 154, 80, 0.55)'
+        }}
+        data-testid="workshop-step3-section"
+      >
+        <GoldCornerOrnaments size={44} inset={6} opacity={0.58} corners={['tl', 'tr', 'bl', 'br']} />
+
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="pobi-step-pill">步驟 3</span>
-            <h3 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              確認題目清單（已選 {finalExportMistakes.length} / {chartFilteredMistakes.length} 題），並匯出資料包或考卷
+            <h3 style={{ margin: 0, fontSize: '1.14rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              確認題目清單與匯出作業
             </h3>
           </div>
-
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-              onClick={() => setManualUncheckedIds([])}
-            >
-              全選 ({chartFilteredMistakes.length})
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-              onClick={() => setManualUncheckedIds(chartFilteredMistakes.map(m => m.id))}
-            >
-              取消全選
-            </button>
-          </div>
+          <span
+            className="pobi-tag-chip"
+            style={{ fontSize: '0.84rem', fontWeight: 700, padding: '5px 12px', fontVariantNumeric: 'tabular-nums' }}
+          >
+            已選 {finalExportMistakes.length} / {chartFilteredMistakes.length} 題 · {selectedMediaSummary.totalImages} 張圖
+          </span>
         </div>
 
-        {/* Selectable Mistake Cards WITH Visible Question & Answer Image Thumbnails */}
-        <div className="no-print">
+        {/* Step 3 Sub-Mode Selector Cards (Matches Step 1 Editorial Card Layout) */}
+        <div
+          className="no-print"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '16px'
+          }}
+        >
+          {[
+            {
+              id: 'list' as const,
+              title: '1. 確認題目清單',
+              desc: '逐題檢視篩選出的錯題與題目／解析圖片縮圖，自由勾選或排除不需要匯出的題目。',
+              meta: `已勾選 ${finalExportMistakes.length} / ${chartFilteredMistakes.length} 題 · 共 ${selectedMediaSummary.totalImages} 張附圖`,
+              icon: CheckSquare
+            },
+            {
+              id: 'export' as const,
+              title: '2. 匯出資料包或考卷',
+              desc: '將已確認的題目一鍵打包為外部 AI 提示資料包（.zip），或排版輸出防跨頁 A4 練習卷。',
+              meta: `準備匯出 ${finalExportMistakes.length} 題 · 支援 AI 分析包與 PDF 列印`,
+              icon: Package
+            }
+          ].map(card => {
+            const Icon = card.icon;
+            const active = step3PanelTab === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setStep3PanelTab(card.id)}
+                data-testid={`workshop-step3-tab-${card.id}`}
+                className={`pobi-mode-card ${active ? 'is-selected' : ''}`}
+                style={{
+                  minHeight: '148px',
+                  padding: '20px 20px 16px 20px',
+                  borderRadius: '14px',
+                  border: active ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                  backgroundColor: active ? 'var(--warning-bg)' : 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  transition: 'border-color 0.16s ease, box-shadow 0.16s ease',
+                  boxShadow: active ? '0 8px 20px rgba(217, 119, 6, 0.14)' : '0 2px 6px rgba(0, 0, 0, 0.04)'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        backgroundColor: active ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
+                        color: active ? '#FFFFFF' : 'var(--accent-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Icon size={20} />
+                    </div>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        border: active ? '1px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                        backgroundColor: active ? 'var(--accent-secondary)' : 'var(--bg-secondary)',
+                        color: active ? '#FFFFFF' : 'var(--text-secondary)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {active && <Check size={12} />}
+                      <span>{active ? '檢視中' : '點此切換'}</span>
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--text-primary)' }}>{card.title}</div>
+                    <div style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginTop: '5px', lineHeight: 1.55 }}>
+                      {card.desc}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    paddingTop: '10px',
+                    borderTop: '1px dashed var(--glass-border)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {card.meta}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Step 3 Sub-View A: Selectable Mistake Cards WITH Visible Question & Answer Image Thumbnails */}
+        {step3PanelTab === 'list' && (
+        <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              點擊卡片即可勾選或取消匯出（已選 {finalExportMistakes.length} / {chartFilteredMistakes.length} 題）
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                onClick={() => setManualUncheckedIds([])}
+              >
+                全選 ({chartFilteredMistakes.length})
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                onClick={() => setManualUncheckedIds(chartFilteredMistakes.map(m => m.id))}
+              >
+                取消全選
+              </button>
+            </div>
+          </div>
           {chartFilteredMistakes.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.86rem', border: '1px dashed var(--glass-border)', borderRadius: '10px' }}>
               目前範圍沒有符合的錯題，請於步驟 1 或步驟 2 調整篩選條件。
@@ -1747,16 +2008,17 @@ export default function SubjectAnalyticsWorkshop({
             </div>
           )}
         </div>
+        )}
 
-        {/* Step 3 Export Choice Buttons */}
+        {/* Step 3 Sub-View B: Export Choice Buttons + Panels */}
+        {step3PanelTab === 'export' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
         <div
           className="no-print"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '12px',
-            paddingTop: '12px',
-            borderTop: '1px solid var(--glass-border)'
+            gap: '12px'
           }}
         >
           <button
@@ -1948,19 +2210,56 @@ export default function SubjectAnalyticsWorkshop({
             />
           </div>
         )}
+        </div>
+        )}
 
-        {/* Step 3 Back Navigation */}
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setActiveStage(2)}
-            data-testid="workshop-step3-prev-btn"
-            style={{ padding: '8px 15px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <ArrowLeft size={15} />
-            <span>上一步：返回調整篩選與弱點圖表</span>
-          </button>
+        {/* Step 3 Navigation Footer */}
+        <div
+          className="no-print"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--glass-border)'
+          }}
+        >
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setActiveStage(2)}
+              data-testid="workshop-step3-prev-btn"
+              style={{ padding: '8px 15px', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <ArrowLeft size={15} />
+              <span>上一步：返回篩選與圖表</span>
+            </button>
+            {step3PanelTab === 'export' && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep3PanelTab('list')}
+                style={{ padding: '8px 14px', fontSize: '0.84rem', fontWeight: 700 }}
+              >
+                返回確認題目清單
+              </button>
+            )}
+          </div>
+          {step3PanelTab === 'list' && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setStep3PanelTab('export')}
+              data-testid="workshop-step3-goto-export-btn"
+              style={{ padding: '9px 18px', fontSize: '0.88rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <span>前往匯出資料包或考卷（{finalExportMistakes.length} 題）</span>
+              <ArrowRight size={15} />
+            </button>
+          )}
         </div>
       </section>
       )}
