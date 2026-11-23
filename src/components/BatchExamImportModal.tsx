@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { CategoriesBundle, MistakeRecord } from '../types';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
@@ -1075,19 +1076,23 @@ ${scopeInstruction}
 
   if (!isOpen) return null;
 
-  return (
+  const modalNode = (
     <div
-      className="modal-backdrop animate-fade-in"
+      className="modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
+        width: '100%',
+        height: '100dvh',
         backgroundColor: 'rgba(15, 23, 42, 0.72)',
         backdropFilter: 'blur(3px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
-        padding: '12px'
+        zIndex: 99985,
+        padding: '12px',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain'
       }}
     >
       <div
@@ -2723,14 +2728,9 @@ ${scopeInstruction}
                 {/* Meta Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: '#1C1917' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {currentItem.title}
                     </h3>
-                    {currentItem.key_concept && (
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#44403C' }}>
-                        解析說明：{currentItem.key_concept}
-                      </p>
-                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span
@@ -2758,6 +2758,40 @@ ${scopeInstruction}
                       {currentItem.chapter_name}
                     </span>
                   </div>
+                </div>
+
+                {/* Editable Explanation Note right in Stage 4 Review */}
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: 'var(--text-secondary)',
+                      marginBottom: '5px'
+                    }}
+                  >
+                    解析說明與個人筆記（選填，可隨時修改）
+                  </label>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={currentItem.key_concept || ''}
+                    onChange={e => {
+                      const nextVal = e.target.value;
+                      setReviewItems(prev =>
+                        prev.map((it, i) => (i === currentReviewIndex ? { ...it, key_concept: nextVal } : it))
+                      );
+                    }}
+                    placeholder="可在此輸入或修改解析文字與破題備忘..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '0.86rem',
+                      resize: 'vertical',
+                      lineHeight: 1.55
+                    }}
+                  />
                 </div>
 
                 {/* Dual Column Image Previews */}
@@ -3107,4 +3141,6 @@ ${scopeInstruction}
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }

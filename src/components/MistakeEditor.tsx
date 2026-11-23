@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
 import { compressImage } from '../utils/compress';
@@ -120,9 +121,19 @@ export default function MistakeEditor({
   // Template dynamic fields data
   const [questionData, setQuestionData] = useState<{ [fieldId: string]: any }>({});
   const [answerData, setAnswerData] = useState<{ [fieldId: string]: any }>({});
+  const isUserEditedRef = useRef(false);
 
   const [uploadingFields, setUploadingFields] = useState<{ [fieldId: string]: boolean }>({});
   const [loading, setLoading] = useState(false);
+
+  // Lock background page scroll while modal is open so tablet/iPad stays centered without jumping to top
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const normalizeOptions = (options: any[] | undefined): FieldOption[] => {
     if (!options || !Array.isArray(options)) return [];
@@ -193,12 +204,179 @@ export default function MistakeEditor({
     }
   }, [mistake, initialSubjectId, chapterId, initialUnitId, categories.chapters, categories.familiarities]);
 
-  // Fetch templates
+  const buildHydratedTemplateAndData = (
+    targetMistake: MistakeRecord,
+    templateList: Template[]
+  ): {
+    template: Template;
+    qData: Record<string, any>;
+    aData: Record<string, any>;
+  } => {
+    const matchedTpl = templateList.find((t: Template) => t && t.id === targetMistake.template_id);
+    const fallbackFromMistake: Template | null =
+      targetMistake.template_fields &&
+      ((targetMistake.template_fields.questionFields?.length || 0) > 0 ||
+        (targetMistake.template_fields.answerFields?.length || 0) > 0)
+        ? {
+            id: targetMistake.template_id || 'batch_default',
+            name: '標準錯題模板',
+            fields: {
+              questionFields: (targetMistake.template_fields.questionFields || [])
+                .filter((f: any) => !isLegacyMasteryField(f))
+                .map(normalizeField),
+              answerFields: (targetMistake.template_fields.answerFields || [])
+                .filter((f: any) => !isLegacyMasteryField(f))
+                .map(normalizeField)
+            }
+          }
+        : null;
+    const hardcodedFallback: Template = {
+      id: targetMistake.template_id || 'batch_default',
+      name: '標準錯題模板',
+      fields: {
+        questionFields: [
+          normalizeField({ id: 'q_desc', type: 'textarea', label: '題目描述' }),
+          normalizeField({ id: 'q_img', type: 'image', label: '題目相片' })
+        ],
+        answerFields: [
+          normalizeField({ id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' }),
+          normalizeField({ id: 'a_img', type: 'image', label: '解析相片' })
+        ]
+      }
+    };
+    const baseTpl =
+      matchedTpl ||
+      (targetMistake.template_id ? templateList[0] : fallbackFromMistake || templateList[0]) ||
+      hardcodedFallback;
+
+    const qFields = [...(baseTpl.fields.questionFields || [])];
+    const aFields = [...(baseTpl.fields.answerFields || [])];
+    const qData: Record<string, any> = { ...(targetMistake.data?.questionData || {}) };
+    const cleanAnsData: Record<string, any> = { ...(targetMistake.data?.answerData || {}) };
+    delete cleanAnsData.a_mastery;
+    for (const [k, v] of Object.entries(cleanAnsData)) {
+      if (typeof v === 'string' && ['順', '卡', '不會', '誤解', '會'].includes(v.trim())) {
+        delete cleanAnsData[k];
+      } else if (
+        Array.isArray(v) &&
+        v.length > 0 &&
+        v.every(it => typeof it === 'string' && ['順', '卡', '不會', '誤解', '會'].includes(it.trim()))
+      ) {
+        delete cleanAnsData[k];
+      }
+    }
+
+    // 1. Ensure question image field exists & hydrate from batch/canonical keys (q_image / q_img)
+    const qImgs = collectOrderedImageKeys(qData);
+    let qImgField = qFields.find(f => f.type === 'image');
+    if (!qImgField) {
+      qImgField = normalizeField({ id: 'q_img', type: 'image', label: '題目相片' });
+      qFields.push(qImgField);
+    }
+    if (!qData[qImgField.id] && qImgs[0]) {
+      qData[qImgField.id] = qImgs[0];
+    }
+
+    // 2. Ensure question text field exists & hydrate if empty
+    const fallbackQText = [qData.q_desc, qData.desc, qData.q_text, qData.text].find(
+      v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v)
+    );
+    let qTextField = qFields.find(f => f.type === 'textarea') || qFields.find(f => f.type === 'text');
+    if (!qTextField) {
+      qTextField = normalizeField({ id: 'q_desc', type: 'textarea', label: '題目描述' });
+      qFields.unshift(qTextField);
+    }
+    if (!qData[qTextField.id] && fallbackQText) {
+      qData[qTextField.id] = fallbackQText;
+    }
+
+    // 3. Ensure answer text field exists & hydrate from canonical OR any legacy non-image text key
+    const knownATextCandidates = [
+      cleanAnsData.a_desc,
+      cleanAnsData.key_concept,
+      cleanAnsData.desc,
+      cleanAnsData.a_text,
+      cleanAnsData.text,
+      cleanAnsData.a_ans,
+      cleanAnsData.explanation
+    ];
+    let fallbackAText = knownATextCandidates.find(
+      v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v)
+    );
+    if (!fallbackAText) {
+      for (const [k, v] of Object.entries(cleanAnsData)) {
+        const kl = k.toLowerCase();
+        if (
+          typeof v === 'string' &&
+          v.trim() &&
+          !isLikelyImageKey(v) &&
+          kl !== 'a_timer' &&
+          !kl.includes('img') &&
+          !kl.includes('image') &&
+          !kl.includes('photo')
+        ) {
+          fallbackAText = v;
+          break;
+        }
+      }
+    }
+    let aTextField =
+      aFields.find(f => f.type === 'textarea') ||
+      aFields.find(f => f.type === 'text' && !isTimerField(f));
+    if (!aTextField) {
+      aTextField = normalizeField({ id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' });
+      aFields.unshift(aTextField);
+    }
+    if (!cleanAnsData[aTextField.id] && fallbackAText) {
+      cleanAnsData[aTextField.id] = fallbackAText;
+    }
+
+    // 4. Ensure answer image field exists & hydrate from batch/canonical keys (a_image / a_img / a_images)
+    let aImgField = aFields.find(f => f.type === 'image');
+    const aImgs = collectOrderedImageKeys(cleanAnsData, aImgField?.id);
+    if (!aImgField) {
+      aImgField = normalizeField({ id: 'a_img', type: 'image', label: '解析相片' });
+      aFields.push(aImgField);
+    }
+    if (!cleanAnsData[aImgField.id] && aImgs[0]) {
+      cleanAnsData[aImgField.id] = aImgs[0];
+    }
+    if (aImgs.length > 0) {
+      cleanAnsData.a_images = aImgs;
+    }
+
+    return {
+      template: {
+        ...baseTpl,
+        fields: {
+          questionFields: qFields,
+          answerFields: aFields
+        }
+      },
+      qData,
+      aData: cleanAnsData
+    };
+  };
+
+  // Fetch templates & hydrate immediately so explanation/image fields are ALWAYS ready and editable
   useEffect(() => {
+    isUserEditedRef.current = false;
+
+    // Immediate synchronous hydration so editor fields NEVER disappear while templates load or on error
+    if (mistake) {
+      setSelectedTemplateId(mistake.template_id || '');
+      const immediate = buildHydratedTemplateAndData(mistake, []);
+      setSelectedTemplate(immediate.template);
+      setQuestionData(immediate.qData);
+      setAnswerData(immediate.aData);
+    }
+
+    let cancelled = false;
     const fetchTemplates = async () => {
       try {
         const res = await apiRequest('/api/templates');
-        const normalized = (res || []).filter(Boolean).map((t: any) => ({
+        if (cancelled) return;
+        const normalized = (Array.isArray(res) ? res : []).filter(Boolean).map((t: any) => ({
           ...t,
           fields: {
             questionFields: (t.fields?.questionFields || [])
@@ -212,105 +390,12 @@ export default function MistakeEditor({
         setTemplates(normalized);
 
         if (mistake) {
-          setSelectedTemplateId(mistake.template_id || '');
-          const matchedTpl = normalized.find((t: Template) => t && t.id === mistake.template_id);
-          const fallbackFromMistake: Template | null =
-            mistake.template_fields &&
-            ((mistake.template_fields.questionFields?.length || 0) > 0 ||
-              (mistake.template_fields.answerFields?.length || 0) > 0)
-              ? {
-                  id: mistake.template_id || 'batch_default',
-                  name: '標準錯題模板',
-                  fields: {
-                    questionFields: (mistake.template_fields.questionFields || [])
-                      .filter((f: any) => !isLegacyMasteryField(f))
-                      .map(normalizeField),
-                    answerFields: (mistake.template_fields.answerFields || [])
-                      .filter((f: any) => !isLegacyMasteryField(f))
-                      .map(normalizeField)
-                  }
-                }
-              : null;
-          const baseTpl = matchedTpl || (mistake.template_id ? normalized[0] : fallbackFromMistake || normalized[0]);
-
-          if (baseTpl) {
-            const qFields = [...(baseTpl.fields.questionFields || [])];
-            const aFields = [...(baseTpl.fields.answerFields || [])];
-            const qData: Record<string, any> = { ...(mistake.data?.questionData || {}) };
-            const cleanAnsData: Record<string, any> = { ...(mistake.data?.answerData || {}) };
-            delete cleanAnsData.a_mastery;
-            for (const [k, v] of Object.entries(cleanAnsData)) {
-              if (typeof v === 'string' && ['順', '卡', '不會', '誤解', '會'].includes(v.trim())) {
-                delete cleanAnsData[k];
-              } else if (Array.isArray(v) && v.length > 0 && v.every(it => typeof it === 'string' && ['順', '卡', '不會', '誤解', '會'].includes(it.trim()))) {
-                delete cleanAnsData[k];
-              }
-            }
-
-            // 1. Ensure question image field exists & hydrate from batch/canonical keys (q_image / q_img)
-            const qImgs = collectOrderedImageKeys(qData);
-            let qImgField = qFields.find(f => f.type === 'image');
-            if (!qImgField) {
-              qImgField = normalizeField({ id: 'q_img', type: 'image', label: '題目相片' });
-              qFields.push(qImgField);
-            }
-            if (!qData[qImgField.id] && qImgs[0]) {
-              qData[qImgField.id] = qImgs[0];
-            }
-
-            // 2. Hydrate question text field if empty
-            const fallbackQText = [qData.q_desc, qData.desc, qData.q_text, qData.text].find(
-              v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v)
-            );
-            const qTextField = qFields.find(f => f.type === 'textarea') || qFields.find(f => f.type === 'text');
-            if (qTextField && !qData[qTextField.id] && fallbackQText) {
-              qData[qTextField.id] = fallbackQText;
-            }
-
-            // 3. Ensure answer text field exists & hydrate from batch/manual keys (a_desc / key_concept)
-            const fallbackAText = [
-              cleanAnsData.a_desc,
-              cleanAnsData.key_concept,
-              cleanAnsData.desc,
-              cleanAnsData.a_text,
-              cleanAnsData.a_ans,
-              cleanAnsData.explanation
-            ].find(v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v));
-            let aTextField =
-              aFields.find(f => f.type === 'textarea') ||
-              aFields.find(f => f.type === 'text' && !isTimerField(f));
-            if (!aTextField) {
-              aTextField = normalizeField({ id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' });
-              aFields.unshift(aTextField);
-            }
-            if (!cleanAnsData[aTextField.id] && fallbackAText) {
-              cleanAnsData[aTextField.id] = fallbackAText;
-            }
-
-            // 4. Ensure answer image field exists & hydrate from batch/canonical keys (a_image / a_img / a_images)
-            let aImgField = aFields.find(f => f.type === 'image');
-            const aImgs = collectOrderedImageKeys(cleanAnsData, aImgField?.id);
-            if (!aImgField) {
-              aImgField = normalizeField({ id: 'a_img', type: 'image', label: '解析相片' });
-              aFields.push(aImgField);
-            }
-            if (!cleanAnsData[aImgField.id] && aImgs[0]) {
-              cleanAnsData[aImgField.id] = aImgs[0];
-            }
-            if (aImgs.length > 0) {
-              cleanAnsData.a_images = aImgs;
-            }
-
-            setSelectedTemplate({
-              ...baseTpl,
-              fields: {
-                questionFields: qFields,
-                answerFields: aFields
-              }
-            });
-            setQuestionData(qData);
-            setAnswerData(cleanAnsData);
-          }
+          // Do not overwrite user's in-progress typing if they already started editing before fetch returned
+          if (isUserEditedRef.current) return;
+          const hydrated = buildHydratedTemplateAndData(mistake, normalized);
+          setSelectedTemplate(hydrated.template);
+          setQuestionData(hydrated.qData);
+          setAnswerData(hydrated.aData);
         } else if (normalized.length > 0) {
           const baseNewTpl = normalized[0];
           const aFields = [...(baseNewTpl.fields.answerFields || [])];
@@ -327,12 +412,31 @@ export default function MistakeEditor({
           });
           setQuestionData({});
           setAnswerData({});
+        } else {
+          // Fallback template when creating new mistake if no templates exist
+          setSelectedTemplate({
+            id: 'default_template',
+            name: '標準錯題模板',
+            fields: {
+              questionFields: [
+                normalizeField({ id: 'q_desc', type: 'textarea', label: '題目描述' }),
+                normalizeField({ id: 'q_img', type: 'image', label: '題目相片' })
+              ],
+              answerFields: [
+                normalizeField({ id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' }),
+                normalizeField({ id: 'a_img', type: 'image', label: '解析相片' })
+              ]
+            }
+          });
         }
       } catch (e) {
         console.error(e);
       }
     };
     fetchTemplates();
+    return () => {
+      cancelled = true;
+    };
   }, [mistake]);
 
   // Cascading chapters & units for dropdowns
@@ -584,8 +688,16 @@ export default function MistakeEditor({
         selectedTemplate.fields.answerFields?.find(f => f.type === 'text' && !isTimerField(f));
       if (aTextField) {
         const aTextVal = typeof nextAnswerData[aTextField.id] === 'string' ? nextAnswerData[aTextField.id] : '';
+        nextAnswerData[aTextField.id] = aTextVal;
         nextAnswerData.a_desc = aTextVal;
         nextAnswerData.key_concept = aTextVal;
+        // Clear stale legacy text aliases that are NOT explicit template fields so edits/deletions always stick
+        const explicitFieldIds = new Set((selectedTemplate.fields.answerFields || []).map(f => f.id));
+        for (const legacyKey of ['desc', 'a_text', 'text', 'explanation', 'a_ans']) {
+          if (!explicitFieldIds.has(legacyKey)) {
+            delete nextAnswerData[legacyKey];
+          }
+        }
       }
 
       const aImgField = selectedTemplate.fields.answerFields?.find(f => f.type === 'image');
@@ -642,29 +754,39 @@ export default function MistakeEditor({
     }
   };
 
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }} className="animate-fade-in no-print">
-      <div className="glass notebook-page washi-tape-strip" style={{
+  const modalContent = (
+    <div
+      data-testid="mistake-editor-backdrop"
+      style={{
+        position: 'fixed',
+        inset: 0,
         width: '100%',
-        maxWidth: '920px',
-        maxHeight: '92vh',
+        height: '100dvh',
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99990,
+        padding: '16px',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain'
+      }}
+      className="no-print"
+    >
+      <div
+        className="glass notebook-page washi-tape-strip"
+        data-testid="mistake-editor-modal"
+        style={{
+          width: '100%',
+          maxWidth: '920px',
+          maxHeight: 'min(90dvh, 860px)',
+          margin: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         {/* Editor Header */}
         <div style={{
           padding: '18px 28px',
@@ -703,7 +825,7 @@ export default function MistakeEditor({
           </div>
 
           {/* Row 1: Title, Date, Template */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">錯題標題 / 簡述 *</label>
               <input
@@ -1085,9 +1207,9 @@ export default function MistakeEditor({
 
           {/* Template Fields Columns */}
           {selectedTemplate ? (
-            <div className="grid grid-cols-2" style={{ gap: '20px', borderTop: '1px solid var(--glass-border)', paddingTop: '18px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', borderTop: '1px solid var(--glass-border)', paddingTop: '18px' }}>
               {/* Question Fields Column */}
-              <div className="scrapbook-card" style={{ padding: '18px', background: 'var(--bg-secondary)', border: '1.5px dashed var(--glass-border)' }}>
+              <div style={{ padding: '18px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1.5px dashed var(--glass-border)' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-primary)', borderBottom: '1.5px dashed var(--glass-border)', paddingBottom: '6px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>1. 題目卡片剪貼</span>
                 </h4>
@@ -1110,10 +1232,19 @@ export default function MistakeEditor({
                     <DynamicFieldInput
                       field={field}
                       value={questionData[field.id]}
-                      onChange={val => setQuestionData(prev => ({ ...prev, [field.id]: val }))}
-                      onImageUpload={e => handleImageUpload(e, field.id, 'question')}
+                      onChange={val => {
+                        isUserEditedRef.current = true;
+                        setQuestionData(prev => ({ ...prev, [field.id]: val }));
+                      }}
+                      onImageUpload={e => {
+                        isUserEditedRef.current = true;
+                        handleImageUpload(e, field.id, 'question');
+                      }}
                       uploading={uploadingFields[field.id]}
-                      onOptionToggle={opt => handleOptionToggle(field.id, opt, 'question')}
+                      onOptionToggle={opt => {
+                        isUserEditedRef.current = true;
+                        handleOptionToggle(field.id, opt, 'question');
+                      }}
                       onImageClick={onImageClick}
                     />
                   </div>
@@ -1121,7 +1252,7 @@ export default function MistakeEditor({
               </div>
 
               {/* Answer Fields Column */}
-              <div className="scrapbook-card" style={{ padding: '18px', background: 'var(--bg-secondary)', border: '1.5px dashed var(--accent-secondary)' }}>
+              <div style={{ padding: '18px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1.5px dashed var(--accent-secondary)' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-secondary)', borderBottom: '1.5px dashed var(--glass-border)', paddingBottom: '6px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>2. 答案與解析便利貼</span>
                 </h4>
@@ -1144,10 +1275,19 @@ export default function MistakeEditor({
                     <DynamicFieldInput
                       field={field}
                       value={answerData[field.id]}
-                      onChange={val => setAnswerData(prev => ({ ...prev, [field.id]: val }))}
-                      onImageUpload={e => handleImageUpload(e, field.id, 'answer')}
+                      onChange={val => {
+                        isUserEditedRef.current = true;
+                        setAnswerData(prev => ({ ...prev, [field.id]: val }));
+                      }}
+                      onImageUpload={e => {
+                        isUserEditedRef.current = true;
+                        handleImageUpload(e, field.id, 'answer');
+                      }}
                       uploading={uploadingFields[field.id]}
-                      onOptionToggle={opt => handleOptionToggle(field.id, opt, 'answer')}
+                      onOptionToggle={opt => {
+                        isUserEditedRef.current = true;
+                        handleOptionToggle(field.id, opt, 'answer');
+                      }}
                       onImageClick={onImageClick}
                     />
                   </div>
@@ -1246,6 +1386,8 @@ export default function MistakeEditor({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 interface DynamicFieldInputProps {
@@ -1365,7 +1507,7 @@ function DynamicFieldInput({
       );
     }
     case 'textarea': {
-      const textareaUnderlineStyle = field.styleType === 'underline' ? {
+      const textareaStyle = field.styleType === 'underline' ? {
         border: 'none',
         borderBottom: '1px solid var(--text-primary)',
         borderRadius: 0,
@@ -1373,16 +1515,24 @@ function DynamicFieldInput({
         paddingLeft: '4px',
         paddingRight: '4px',
         width: '100%',
-        resize: 'vertical' as const
-      } : {};
+        minHeight: '72px',
+        resize: 'vertical' as const,
+        lineHeight: 1.6
+      } : {
+        width: '100%',
+        minHeight: '110px',
+        resize: 'vertical' as const,
+        lineHeight: 1.6
+      };
 
       return (
         <textarea
           className="input"
-          rows={field.styleType === 'underline' ? 2 : 4}
-          style={textareaUnderlineStyle}
-          value={value || ''}
+          rows={field.styleType === 'underline' ? 2 : 5}
+          style={textareaStyle}
+          value={value ?? ''}
           onChange={e => onChange(e.target.value)}
+          data-testid={`editor-field-${field.id}`}
           placeholder={field.styleType === 'underline' ? '' : `請輸入${field.label}`}
         />
       );

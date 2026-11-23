@@ -108,13 +108,17 @@ export function extractMistakeMediaAndText(m: MistakeRecord): {
 
   // 3. Answer Text
   const aTextParts: string[] = [];
-  const primaryAText = aData.a_desc || aData.desc || aData.a_text || aData.text || aData.key_concept || aData.a_ans || '';
+  const hasExplicitADesc = Object.prototype.hasOwnProperty.call(aData, 'a_desc');
+  const primaryAText = hasExplicitADesc
+    ? (aData.a_desc ?? '')
+    : (aData.desc || aData.a_text || aData.text || aData.key_concept || aData.a_ans || '');
   if (typeof primaryAText === 'string' && primaryAText.trim() && !isLikelyImageValue(primaryAText)) {
     aTextParts.push(primaryAText.trim());
   }
   if (m.template_fields?.answerFields) {
     for (const f of m.template_fields.answerFields) {
-      if (f.type === 'text' || f.type === 'textarea') {
+      const isTimer = f.id === 'a_timer' || String(f.label || '').includes('計時');
+      if (!isTimer && (f.type === 'text' || f.type === 'textarea')) {
         const val = aData[f.id];
         if (typeof val === 'string' && val.trim() && !isLikelyImageValue(val) && !aTextParts.includes(val.trim())) {
           aTextParts.push(val.trim());
@@ -122,15 +126,17 @@ export function extractMistakeMediaAndText(m: MistakeRecord): {
       }
     }
   }
-  if (aTextParts.length === 0) {
+  if (aTextParts.length === 0 && !hasExplicitADesc) {
     for (const [k, v] of Object.entries(aData)) {
+      const kl = k.toLowerCase();
       if (
         typeof v === 'string' &&
         v.trim() &&
         !isLikelyImageValue(v) &&
-        !k.toLowerCase().includes('img') &&
-        !k.toLowerCase().includes('image') &&
-        !k.toLowerCase().includes('photo')
+        kl !== 'a_timer' &&
+        !kl.includes('img') &&
+        !kl.includes('image') &&
+        !kl.includes('photo')
       ) {
         aTextParts.push(v.trim());
       }
