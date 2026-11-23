@@ -4,8 +4,13 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     is_admin INTEGER DEFAULT 0,
+    google_id TEXT,
+    email TEXT,
+    auth_provider TEXT DEFAULT 'local',
     created_at INTEGER NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
 -- User Settings Table
 CREATE TABLE IF NOT EXISTS user_settings (

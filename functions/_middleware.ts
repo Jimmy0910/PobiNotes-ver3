@@ -11,7 +11,10 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
   const url = new URL(request.url);
   
   const isApiRequest = url.pathname.startsWith('/api/');
-  const isAuthRequest = url.pathname.startsWith('/api/auth/login') || url.pathname.startsWith('/api/auth/register');
+  const isAuthRequest =
+    url.pathname.startsWith('/api/auth/login') ||
+    url.pathname.startsWith('/api/auth/register') ||
+    url.pathname.startsWith('/api/auth/google');
   const isPublicReadRequest =
     request.method === 'GET' &&
     (url.pathname === '/api/share' || url.pathname.startsWith('/api/images/'));

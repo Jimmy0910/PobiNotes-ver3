@@ -59,6 +59,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showAuthView, setShowAuthView] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
+  const [authInitialError, setAuthInitialError] = useState<string>('');
   const [showPobiTutorial, setShowPobiTutorial] = useState(false);
   const [isNewUserTutorial, setIsNewUserTutorial] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
@@ -148,8 +149,30 @@ export default function App() {
     }
   }, []);
 
-  // Check login status on mount
+  // Check login status on mount (and handle OAuth redirect errors if any)
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const authErr = params.get('auth_error');
+      if (authErr) {
+        const errorMap: Record<string, string> = {
+          google_cancelled: '已取消 Google 登入。',
+          google_not_configured: '伺服器尚未完成 Google 登入設定，請稍後再試。',
+          invalid_state: '登入驗證狀態逾時或無效，請重新點擊 Google 登入。',
+          token_exchange_failed: '無法完成 Google 驗證，請重新嘗試。',
+          profile_fetch_failed: '無法取得 Google 帳號資料，請重新嘗試。',
+          google_auth_failed: 'Google 登入發生錯誤，請稍後再試。'
+        };
+        setAuthInitialError(errorMap[authErr] || 'Google 登入失敗，請稍後再試。');
+        setAuthInitialMode('login');
+        setShowAuthView(true);
+        params.delete('auth_error');
+        const nextQuery = params.toString();
+        const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', nextUrl);
+      }
+    } catch {}
+
     const checkSession = async () => {
       try {
         const res = await apiRequest('/api/auth/me');
@@ -467,7 +490,11 @@ export default function App() {
             返回首頁
           </button>
         </div>
-        <AuthPage onLoginSuccess={handleLoginSuccess} initialMode={authInitialMode} />
+        <AuthPage
+          onLoginSuccess={handleLoginSuccess}
+          initialMode={authInitialMode}
+          initialError={authInitialError}
+        />
       </>
     );
   }

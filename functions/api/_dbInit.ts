@@ -272,6 +272,9 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
           username TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
           is_admin INTEGER DEFAULT 0,
+          google_id TEXT,
+          email TEXT,
+          auth_provider TEXT DEFAULT 'local',
           created_at INTEGER NOT NULL
         )
       `),
@@ -385,7 +388,22 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
       `)
     ]);
 
-    // 2. Check and add columns on subjects & chapters if migrating from old DB
+    // 2. Check and add columns on users, subjects & chapters if migrating from old DB
+    const userCols = await db.prepare(`PRAGMA table_info(users)`).all();
+    const userColNames = new Set((userCols.results || []).map((c: any) => c.name));
+    if (!userColNames.has('google_id')) {
+      try { await db.prepare(`ALTER TABLE users ADD COLUMN google_id TEXT`).run(); } catch {}
+    }
+    if (!userColNames.has('email')) {
+      try { await db.prepare(`ALTER TABLE users ADD COLUMN email TEXT`).run(); } catch {}
+    }
+    if (!userColNames.has('auth_provider')) {
+      try { await db.prepare(`ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'`).run(); } catch {}
+    }
+    try {
+      await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL`).run();
+    } catch {}
+
     const subjectCols = await db.prepare(`PRAGMA table_info(subjects)`).all();
     const subjectColNames = new Set((subjectCols.results || []).map((c: any) => c.name));
     if (!subjectColNames.has('color')) {

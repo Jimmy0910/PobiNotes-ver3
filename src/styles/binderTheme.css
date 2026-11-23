@@ -1074,6 +1074,75 @@ html:not([data-theme="dark"]) .binder-auth-submit-btn:hover {
   box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5) !important;
 }
 
+/* Google OAuth 分隔線與按鈕 */
+.binder-auth-divider {
+  width: calc(100% - 12px);
+  margin: 14px 0 14px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--binder-text-muted);
+}
+
+.binder-auth-divider::before,
+.binder-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--binder-border);
+  opacity: 0.75;
+}
+
+.binder-auth-google-btn {
+  width: calc(100% - 12px);
+  margin-left: 12px;
+  height: 44px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.binder-auth-google-btn:focus-visible {
+  outline: 2px solid var(--binder-accent);
+  outline-offset: 2px;
+}
+
+.binder-auth-google-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+html:not([data-theme="dark"]) .binder-auth-google-btn {
+  background-color: #ffffff;
+  border: 1px solid #d4c7b4;
+  color: #2b2118;
+  box-shadow: 0 1px 2px rgba(60, 40, 20, 0.06);
+}
+
+html:not([data-theme="dark"]) .binder-auth-google-btn:hover:not(:disabled) {
+  background-color: #faf6f0;
+  border-color: #bda68a;
+}
+
+[data-theme="dark"] .binder-auth-google-btn {
+  background-color: #24211e;
+  border: 1px solid #443c34;
+  color: #f5efe6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="dark"] .binder-auth-google-btn:hover:not(:disabled) {
+  background-color: #2f2a25;
+  border-color: #6b5e50;
+}
+
 /* 訪客體驗按鈕 (淺色模式使用淺色，深色模式暗調) */
 .binder-auth-demo-btn {
   width: calc(100% - 12px);

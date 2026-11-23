@@ -26,6 +26,10 @@ dist-ssr
 # Local Agent & Wrangler files
 .agents/
 .wrangler/
+.dev.vars
+.env
+.env.*
+!.dev.vars.example
 scratch/
 wrangler_output.txt
 PROJECT.md

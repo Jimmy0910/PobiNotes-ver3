@@ -23,12 +23,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const trimmedUsername = username.trim();
 
     // Query user
-    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin FROM users WHERE LOWER(username) = LOWER(?)')
+    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin, auth_provider FROM users WHERE LOWER(username) = LOWER(?)')
       .bind(trimmedUsername)
       .first() as any;
 
     if (!user) {
       return new Response(JSON.stringify({ error: 'Invalid username or password.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (user.auth_provider === 'google' && user.password_hash === 'google-oauth-only') {
+      return new Response(JSON.stringify({ error: '此帳號為 Google 登入建立，請使用「使用 Google 帳號繼續」登入。' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
