@@ -16,6 +16,7 @@ import {
   Moon,
   Volume2,
   VolumeX,
+  Maximize2,
   Clock,
   Layers,
   Target
@@ -37,8 +38,28 @@ interface LandingPageProps {
 export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProps) {
   const { showToast } = useUiFeedback();
   const [copiedSiteUrl, setCopiedSiteUrl] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isVideoEnded, setIsVideoEnded] = useState(false);
   const promoVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const handleEnterVideoFullscreen = () => {
+    const videoEl = promoVideoRef.current as (HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    }) | null;
+    if (!videoEl) return;
+    if (typeof videoEl.requestFullscreen === 'function') {
+      videoEl.requestFullscreen().catch(() => {
+        if (typeof videoEl.webkitEnterFullscreen === 'function') {
+          videoEl.webkitEnterFullscreen();
+        }
+      });
+    } else if (typeof videoEl.webkitEnterFullscreen === 'function') {
+      videoEl.webkitEnterFullscreen();
+    } else if (typeof videoEl.webkitRequestFullscreen === 'function') {
+      videoEl.webkitRequestFullscreen();
+    }
+  };
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
@@ -418,40 +439,60 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextMuted = !isVideoMuted;
-                  setIsVideoMuted(nextMuted);
-                  if (promoVideoRef.current) {
-                    promoVideoRef.current.muted = nextMuted;
-                    if (!nextMuted && promoVideoRef.current.paused) {
-                      promoVideoRef.current.play().catch(() => {});
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMuted = !isVideoMuted;
+                    setIsVideoMuted(nextMuted);
+                    if (promoVideoRef.current) {
+                      promoVideoRef.current.muted = nextMuted;
                     }
-                  }
-                }}
-                data-testid="landing-promo-mute-btn"
-                style={{
-                  padding: '5px 11px',
-                  borderRadius: '999px',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  border: '1px solid rgba(228, 194, 132, 0.65)',
-                  backgroundColor: isVideoMuted ? 'rgba(217, 119, 6, 0.92)' : 'rgba(11, 64, 43, 0.78)',
-                  color: '#FFFFFF',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  flexShrink: 0
-                }}
-              >
-                {isVideoMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-                <span>{isVideoMuted ? '開啟配樂' : '靜音播放'}</span>
-              </button>
+                  }}
+                  data-testid="landing-promo-mute-btn"
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    border: '1px solid rgba(228, 194, 132, 0.65)',
+                    backgroundColor: isVideoMuted ? 'rgba(217, 119, 6, 0.92)' : 'rgba(11, 64, 43, 0.78)',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {isVideoMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                  <span>{isVideoMuted ? '開啟配樂' : '靜音'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnterVideoFullscreen}
+                  data-testid="landing-promo-fullscreen-btn"
+                  title="全螢幕觀看推廣影片"
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    border: '1px solid rgba(228, 194, 132, 0.65)',
+                    backgroundColor: 'rgba(11, 64, 43, 0.78)',
+                    color: '#F3E5C8',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Maximize2 size={13} />
+                  <span>全螢幕</span>
+                </button>
+              </div>
             </div>
 
-            {/* Embedded 16:9 Commercial Promo Video */}
+            {/* Embedded 16:9 Commercial Promo Video (Paused initially, auto-pauses at end, replays from 0s) */}
             <div
               style={{
                 position: 'relative',
@@ -469,17 +510,31 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                 ref={promoVideoRef}
                 src="/pobi-promo.mp4"
                 poster="/pobi-promo-poster.jpg"
-                autoPlay
-                loop
                 muted={isVideoMuted}
                 playsInline
                 controls
                 preload="metadata"
                 data-testid="landing-promo-video"
+                onPlay={e => {
+                  const v = e.currentTarget;
+                  if (isVideoEnded || v.ended || (v.duration > 0 && v.currentTime >= v.duration - 0.15)) {
+                    v.currentTime = 0;
+                    setIsVideoEnded(false);
+                  }
+                }}
+                onEnded={e => {
+                  const v = e.currentTarget;
+                  v.pause();
+                  v.currentTime = 0;
+                  setIsVideoEnded(true);
+                }}
+                onVolumeChange={e => {
+                  setIsVideoMuted(e.currentTarget.muted);
+                }}
                 style={{
                   width: '100%',
                   height: '100%',
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                   display: 'block',
                   backgroundColor: '#0B402B'
                 }}

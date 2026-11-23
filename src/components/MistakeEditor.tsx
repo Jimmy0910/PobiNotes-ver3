@@ -14,6 +14,56 @@ function resolveImageUrl(key?: string): string {
   return `/api/images/${key}`;
 }
 
+function isLikelyImageKey(val: unknown): boolean {
+  if (typeof val !== 'string' || !val.trim()) return false;
+  const s = val.trim();
+  return (
+    s.startsWith('data:image/') ||
+    s.startsWith('blob:') ||
+    s.startsWith('http://') ||
+    s.startsWith('https://') ||
+    s.startsWith('/api/images/') ||
+    s.startsWith('/demo/') ||
+    /\.(png|jpe?g|webp|gif|svg|bmp|heic)$/i.test(s) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s)
+  );
+}
+
+function isTimerField(f: Field): boolean {
+  return f.id === 'a_timer' || String(f.label || '').includes('計時');
+}
+
+function collectOrderedImageKeys(sectionData: Record<string, any>, preferredFieldId?: string): string[] {
+  const raw: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v === 'string' && v.trim()) {
+      raw.push(v.trim());
+    } else if (Array.isArray(v)) {
+      v.forEach(item => {
+        if (typeof item === 'string' && item.trim()) raw.push(item.trim());
+      });
+    }
+  };
+  if (preferredFieldId) push(sectionData[preferredFieldId]);
+  push(sectionData.a_image);
+  push(sectionData.a_img);
+  push(sectionData.a_images);
+  push(sectionData.q_image);
+  push(sectionData.q_img);
+  push(sectionData.q_images);
+  push(sectionData.image);
+  push(sectionData.image_url);
+  for (const [k, v] of Object.entries(sectionData)) {
+    const kl = k.toLowerCase();
+    if (kl.includes('img') || kl.includes('image') || kl.includes('photo') || isLikelyImageKey(v)) {
+      push(v);
+    } else if (Array.isArray(v) && v.some(isLikelyImageKey)) {
+      push(v);
+    }
+  }
+  return Array.from(new Set(raw));
+}
+
 interface Template {
   id: string;
   name: string;
@@ -163,11 +213,31 @@ export default function MistakeEditor({
 
         if (mistake) {
           setSelectedTemplateId(mistake.template_id || '');
-          const tpl = normalized.find((t: Template) => t && t.id === mistake.template_id) || normalized[0];
-          if (tpl) {
-            setSelectedTemplate(tpl);
-            setQuestionData(mistake.data?.questionData || {});
-            const cleanAnsData = { ...(mistake.data?.answerData || {}) };
+          const matchedTpl = normalized.find((t: Template) => t && t.id === mistake.template_id);
+          const fallbackFromMistake: Template | null =
+            mistake.template_fields &&
+            ((mistake.template_fields.questionFields?.length || 0) > 0 ||
+              (mistake.template_fields.answerFields?.length || 0) > 0)
+              ? {
+                  id: mistake.template_id || 'batch_default',
+                  name: '標準錯題模板',
+                  fields: {
+                    questionFields: (mistake.template_fields.questionFields || [])
+                      .filter((f: any) => !isLegacyMasteryField(f))
+                      .map(normalizeField),
+                    answerFields: (mistake.template_fields.answerFields || [])
+                      .filter((f: any) => !isLegacyMasteryField(f))
+                      .map(normalizeField)
+                  }
+                }
+              : null;
+          const baseTpl = matchedTpl || (mistake.template_id ? normalized[0] : fallbackFromMistake || normalized[0]);
+
+          if (baseTpl) {
+            const qFields = [...(baseTpl.fields.questionFields || [])];
+            const aFields = [...(baseTpl.fields.answerFields || [])];
+            const qData: Record<string, any> = { ...(mistake.data?.questionData || {}) };
+            const cleanAnsData: Record<string, any> = { ...(mistake.data?.answerData || {}) };
             delete cleanAnsData.a_mastery;
             for (const [k, v] of Object.entries(cleanAnsData)) {
               if (typeof v === 'string' && ['順', '卡', '不會', '誤解', '會'].includes(v.trim())) {
@@ -176,11 +246,85 @@ export default function MistakeEditor({
                 delete cleanAnsData[k];
               }
             }
+
+            // 1. Ensure question image field exists & hydrate from batch/canonical keys (q_image / q_img)
+            const qImgs = collectOrderedImageKeys(qData);
+            let qImgField = qFields.find(f => f.type === 'image');
+            if (!qImgField) {
+              qImgField = normalizeField({ id: 'q_img', type: 'image', label: '題目相片' });
+              qFields.push(qImgField);
+            }
+            if (!qData[qImgField.id] && qImgs[0]) {
+              qData[qImgField.id] = qImgs[0];
+            }
+
+            // 2. Hydrate question text field if empty
+            const fallbackQText = [qData.q_desc, qData.desc, qData.q_text, qData.text].find(
+              v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v)
+            );
+            const qTextField = qFields.find(f => f.type === 'textarea') || qFields.find(f => f.type === 'text');
+            if (qTextField && !qData[qTextField.id] && fallbackQText) {
+              qData[qTextField.id] = fallbackQText;
+            }
+
+            // 3. Ensure answer text field exists & hydrate from batch/manual keys (a_desc / key_concept)
+            const fallbackAText = [
+              cleanAnsData.a_desc,
+              cleanAnsData.key_concept,
+              cleanAnsData.desc,
+              cleanAnsData.a_text,
+              cleanAnsData.a_ans,
+              cleanAnsData.explanation
+            ].find(v => typeof v === 'string' && v.trim() && !isLikelyImageKey(v));
+            let aTextField =
+              aFields.find(f => f.type === 'textarea') ||
+              aFields.find(f => f.type === 'text' && !isTimerField(f));
+            if (!aTextField) {
+              aTextField = normalizeField({ id: 'a_desc', type: 'textarea', label: '正確答案與詳細解析' });
+              aFields.unshift(aTextField);
+            }
+            if (!cleanAnsData[aTextField.id] && fallbackAText) {
+              cleanAnsData[aTextField.id] = fallbackAText;
+            }
+
+            // 4. Ensure answer image field exists & hydrate from batch/canonical keys (a_image / a_img / a_images)
+            let aImgField = aFields.find(f => f.type === 'image');
+            const aImgs = collectOrderedImageKeys(cleanAnsData, aImgField?.id);
+            if (!aImgField) {
+              aImgField = normalizeField({ id: 'a_img', type: 'image', label: '解析相片' });
+              aFields.push(aImgField);
+            }
+            if (!cleanAnsData[aImgField.id] && aImgs[0]) {
+              cleanAnsData[aImgField.id] = aImgs[0];
+            }
+            if (aImgs.length > 0) {
+              cleanAnsData.a_images = aImgs;
+            }
+
+            setSelectedTemplate({
+              ...baseTpl,
+              fields: {
+                questionFields: qFields,
+                answerFields: aFields
+              }
+            });
+            setQuestionData(qData);
             setAnswerData(cleanAnsData);
           }
         } else if (normalized.length > 0) {
-          setSelectedTemplateId(normalized[0].id || '');
-          setSelectedTemplate(normalized[0]);
+          const baseNewTpl = normalized[0];
+          const aFields = [...(baseNewTpl.fields.answerFields || [])];
+          if (!aFields.some(f => f.type === 'image')) {
+            aFields.push(normalizeField({ id: 'a_img', type: 'image', label: '解析相片' }));
+          }
+          setSelectedTemplateId(baseNewTpl.id || '');
+          setSelectedTemplate({
+            ...baseNewTpl,
+            fields: {
+              questionFields: [...(baseNewTpl.fields.questionFields || [])],
+              answerFields: aFields
+            }
+          });
           setQuestionData({});
           setAnswerData({});
         }
@@ -417,6 +561,49 @@ export default function MistakeEditor({
     }
 
     setLoading(true);
+    const nextQuestionData: Record<string, any> = { ...questionData };
+    const nextAnswerData: Record<string, any> = { ...answerData };
+
+    if (selectedTemplate) {
+      const qImgField = selectedTemplate.fields.questionFields?.find(f => f.type === 'image');
+      if (qImgField) {
+        const qImgVal = typeof nextQuestionData[qImgField.id] === 'string' ? nextQuestionData[qImgField.id] : '';
+        nextQuestionData.q_img = qImgVal;
+        nextQuestionData.q_image = qImgVal;
+      }
+
+      const qTextField =
+        selectedTemplate.fields.questionFields?.find(f => f.type === 'textarea') ||
+        selectedTemplate.fields.questionFields?.find(f => f.type === 'text');
+      if (qTextField) {
+        nextQuestionData.q_desc = typeof nextQuestionData[qTextField.id] === 'string' ? nextQuestionData[qTextField.id] : '';
+      }
+
+      const aTextField =
+        selectedTemplate.fields.answerFields?.find(f => f.type === 'textarea') ||
+        selectedTemplate.fields.answerFields?.find(f => f.type === 'text' && !isTimerField(f));
+      if (aTextField) {
+        const aTextVal = typeof nextAnswerData[aTextField.id] === 'string' ? nextAnswerData[aTextField.id] : '';
+        nextAnswerData.a_desc = aTextVal;
+        nextAnswerData.key_concept = aTextVal;
+      }
+
+      const aImgField = selectedTemplate.fields.answerFields?.find(f => f.type === 'image');
+      if (aImgField) {
+        const primaryAImg = typeof nextAnswerData[aImgField.id] === 'string' ? nextAnswerData[aImgField.id].trim() : '';
+        const prevExtra = Array.isArray(nextAnswerData.a_images)
+          ? nextAnswerData.a_images
+              .slice(1)
+              .filter((k: unknown): k is string => typeof k === 'string' && k.trim() !== '' && k.trim() !== primaryAImg)
+          : [];
+        const mergedAImages = [primaryAImg, ...prevExtra].filter(Boolean);
+        nextAnswerData[aImgField.id] = mergedAImages[0] || '';
+        nextAnswerData.a_img = mergedAImages[0] || '';
+        nextAnswerData.a_image = mergedAImages[0] || '';
+        nextAnswerData.a_images = mergedAImages;
+      }
+    }
+
     const payload = {
       title: title.trim(),
       subjectId: subjectId || null,
@@ -426,10 +613,10 @@ export default function MistakeEditor({
       errorReasonIds,
       tags,
       mistakeDate,
-      templateId: selectedTemplateId,
+      templateId: selectedTemplateId || null,
       data: {
-        questionData,
-        answerData,
+        questionData: nextQuestionData,
+        answerData: nextAnswerData,
         ...(mistake?.data?.reviewMeta ? { reviewMeta: mistake.data.reviewMeta } : {})
       }
     };
@@ -965,6 +1152,71 @@ export default function MistakeEditor({
                     />
                   </div>
                 ))}
+
+                {/* Multi-Image Answer Gallery (supports batch-imported extra answer photos) */}
+                {Array.isArray(answerData.a_images) && answerData.a_images.length > 1 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>
+                      其他解析附圖（共 {answerData.a_images.length - 1} 張）
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                      {answerData.a_images.slice(1).map((imgKey: string, extraIdx: number) => (
+                        <div
+                          key={`${imgKey}-${extraIdx}`}
+                          style={{
+                            position: 'relative',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--glass-border)',
+                            overflow: 'hidden',
+                            background: 'rgba(0,0,0,0.12)',
+                            width: '140px',
+                            aspectRatio: '16/10',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <img
+                            src={resolveImageUrl(imgKey)}
+                            alt={`解析附圖 ${extraIdx + 2}`}
+                            onClick={() => onImageClick?.(resolveImageUrl(imgKey))}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: onImageClick ? 'zoom-in' : 'default' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAnswerData(prev => {
+                                const list = Array.isArray(prev.a_images) ? [...prev.a_images] : [];
+                                list.splice(extraIdx + 1, 1);
+                                return { ...prev, a_images: list };
+                              });
+                            }}
+                            title="移除此張解析附圖"
+                            style={{
+                              position: 'absolute',
+                              top: '5px',
+                              right: '5px',
+                              background: 'rgba(239, 68, 68, 0.85)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '22px',
+                              height: '22px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold',
+                              fontSize: '0.78rem'
+                            }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : null}

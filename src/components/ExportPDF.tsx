@@ -653,13 +653,16 @@ export default function ExportPDF({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Action Buttons + Inline Progress & Download on the Same Row */}
+        <div
+          data-testid="export-action-row"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
+        >
           <button
             type="button"
             onClick={() => setShowConfigPanel(prev => !prev)}
             className="notebook-tool-btn"
-            style={{ padding: '7px 12px', fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '7px 12px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <Sliders size={15} />
             <span>{showConfigPanel ? '收合排版設定' : '開啟排版設定'}</span>
@@ -686,15 +689,74 @@ export default function ExportPDF({
           </button>
 
           {isGenerating && (
+            <>
+              <div
+                data-testid="export-pdf-progress-inline"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--accent-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                <Loader2 size={14} className="animate-spin" style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                <span>{pdfProgressText || '正在進行 A4 排版中...'}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleCancelGeneratePdf}
+                data-testid="export-pdf-cancel-btn"
+                style={{ padding: '7px 12px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <X size={15} />
+                <span>取消生成</span>
+              </button>
+            </>
+          )}
+
+          {cachedPdfUrl && !isGenerating && (
             <button
               type="button"
-              className="btn btn-danger"
-              onClick={handleCancelGeneratePdf}
-              data-testid="export-pdf-cancel-btn"
-              style={{ padding: '8px 14px', fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              onClick={handleDownloadPdf}
+              data-testid="export-download-pdf-btn"
+              title={pdfFileName ? `下載：${pdfFileName}` : '下載 A4 PDF'}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1.5px solid #16a34a',
+                backgroundColor: '#15803d',
+                color: '#FFFFFF',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontVariantNumeric: 'tabular-nums'
+              }}
             >
-              <X size={15} />
-              <span>取消生成</span>
+              <CheckCircle2 size={15} />
+              <span>立即下載 PDF</span>
+              <span
+                style={{
+                  padding: '1px 6px',
+                  borderRadius: '999px',
+                  backgroundColor: countdownSeconds <= 15 ? 'rgba(220, 38, 38, 0.9)' : 'rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  fontSize: '0.74rem',
+                  fontWeight: 700
+                }}
+              >
+                {countdownSeconds}s
+              </span>
             </button>
           )}
 
@@ -883,37 +945,7 @@ export default function ExportPDF({
         </div>
       )}
 
-      {/* Progress & Error Feedback */}
-      {isGenerating && (
-        <div
-          className="glass no-print animate-fade-in"
-          style={{
-            padding: '12px 18px',
-            borderLeft: '4px solid var(--accent-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
-            <span style={{ fontSize: '0.86rem', fontWeight: 600 }}>{pdfProgressText || '正在進行 A4 排版中...'}</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleCancelGeneratePdf}
-            data-testid="export-pdf-progress-cancel-btn"
-            className="btn btn-danger"
-            style={{ padding: '5px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-          >
-            <X size={14} />
-            <span>取消</span>
-          </button>
-        </div>
-      )}
-
+      {/* Error & Expired Feedback */}
       {pdfError && (
         <div className="glass no-print animate-fade-in" style={{ padding: '12px 18px', borderLeft: '4px solid #ef4444', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <AlertTriangle size={18} style={{ color: '#ef4444' }} />
@@ -925,51 +957,6 @@ export default function ExportPDF({
         <div className="glass no-print animate-fade-in" style={{ padding: '12px 18px', borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Clock size={18} style={{ color: '#f59e0b' }} />
           <span style={{ fontSize: '0.86rem', color: '#b45309' }}>暫存 PDF 已逾 1 分鐘並自動清理，如需下載請再次點擊「匯出 A4 PDF（不切題）」。</span>
-        </div>
-      )}
-
-      {/* PDF Ready Banner */}
-      {cachedPdfUrl && !isGenerating && (
-        <div className="glass no-print animate-fade-in" style={{
-          padding: '14px 18px',
-          borderLeft: '4px solid var(--success)',
-          background: 'rgba(25, 122, 39, 0.08)',
-          borderRadius: '10px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle2 size={20} style={{ color: 'var(--success)' }} />
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
-                A4 試卷 PDF 建立完成（已防跨頁切割）
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                檔名：<code style={{ background: 'rgba(0,0,0,0.06)', padding: '2px 6px', borderRadius: '4px' }}>{pdfFileName}</code>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              background: countdownSeconds <= 15 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(25, 122, 39, 0.15)',
-              color: countdownSeconds <= 15 ? 'var(--danger)' : 'var(--success)',
-              fontWeight: 700,
-              fontSize: '0.82rem'
-            }}>
-              <Clock size={14} /> 剩餘 {countdownSeconds} 秒
-            </div>
-            <button className="notebook-primary-btn" onClick={handleDownloadPdf} style={{ padding: '7px 16px', fontSize: '0.85rem' }}>
-              立即下載 A4 PDF
-            </button>
-          </div>
         </div>
       )}
 

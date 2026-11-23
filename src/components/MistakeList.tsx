@@ -1233,23 +1233,39 @@ export default function MistakeList({
 
                 {/* 1. Render Question fields */}
                 <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '10px', display: 'block' }}>
-                  {m.template_fields.questionFields?.map(field => {
-                    let val = m.data.questionData?.[field.id];
-                    if ((val === undefined || val === '') && field.type === 'image') {
-                      val = m.data.questionData?.q_image || m.data.questionData?.q_img || m.data.questionData?.image;
-                    }
-                    if ((val === undefined || val === '') && field.type === 'text') {
-                      val = m.data.questionData?.q_desc || m.data.questionData?.desc;
-                    }
+                  {(() => {
+                    const qFields = m.template_fields.questionFields || [];
+                    const hasQImgField = qFields.some(f => f.type === 'image');
+                    const fallbackQImg = m.data.questionData?.q_image || m.data.questionData?.q_img || m.data.questionData?.image;
                     return (
-                      <DynamicValueRenderer
-                        key={field.id}
-                        field={field}
-                        value={val}
-                        onImageClick={onImageClick}
-                      />
+                      <>
+                        {qFields.map(field => {
+                          let val = m.data.questionData?.[field.id];
+                          if ((val === undefined || val === '') && field.type === 'image') {
+                            val = fallbackQImg;
+                          }
+                          if ((val === undefined || val === '') && (field.type === 'text' || field.type === 'textarea')) {
+                            val = m.data.questionData?.q_desc || m.data.questionData?.desc || m.data.questionData?.q_text;
+                          }
+                          return (
+                            <DynamicValueRenderer
+                              key={field.id}
+                              field={field}
+                              value={val}
+                              onImageClick={onImageClick}
+                            />
+                          );
+                        })}
+                        {!hasQImgField && fallbackQImg && (
+                          <DynamicValueRenderer
+                            field={{ id: 'q_img_fallback', type: 'image', label: '題目圖片' }}
+                            value={fallbackQImg}
+                            onImageClick={onImageClick}
+                          />
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
 
                 {/* 2. Collapsible Answer & Solution block (主動回想拉開解析) */}
@@ -1271,51 +1287,72 @@ export default function MistakeList({
 
                     {isExpanded && (
                       <div className="binder-answer-dossier collapsible-content" style={{ display: 'block', marginTop: '6px' }}>
-                        {m.template_fields.answerFields.map(field => {
-                          let val = m.data.answerData?.[field.id];
-                          if ((val === undefined || val === '') && field.type === 'image') {
-                            val = m.data.answerData?.a_image || m.data.answerData?.a_img || m.data.answerData?.image;
-                          }
-                          if ((val === undefined || val === '') && field.type === 'text') {
-                            val = m.data.answerData?.a_desc || m.data.answerData?.desc || m.data.answerData?.key_concept;
-                          }
+                        {(() => {
+                          const aFields = m.template_fields.answerFields || [];
+                          const hasAImgField = aFields.some(f => f.type === 'image');
+                          const primaryAImg =
+                            m.data.answerData?.a_image ||
+                            m.data.answerData?.a_img ||
+                            (Array.isArray(m.data.answerData?.a_images) ? m.data.answerData.a_images[0] : '') ||
+                            m.data.answerData?.image;
+                          const allAImages: string[] = Array.isArray(m.data.answerData?.a_images) && m.data.answerData.a_images.length > 0
+                            ? m.data.answerData.a_images.filter((x: unknown): x is string => typeof x === 'string' && x.trim() !== '')
+                            : primaryAImg
+                            ? [primaryAImg]
+                            : [];
+                          const extraAImages = hasAImgField ? allAImages.slice(1) : allAImages;
+
                           return (
-                            <DynamicValueRenderer
-                              key={field.id}
-                              field={field}
-                              value={val}
-                              onImageClick={onImageClick}
-                            />
-                          );
-                        })}
-                        {/* 支援單題多張解析圖片 (a_images) */}
-                        {Array.isArray(m.data.answerData?.a_images) && m.data.answerData.a_images.length > 1 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
-                            {m.data.answerData.a_images.slice(1).map((extraImg: string, idx: number) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  width: '100%',
-                                  maxWidth: '320px',
-                                  borderRadius: 'var(--radius-md)',
-                                  overflow: 'hidden',
-                                  border: '1px solid var(--glass-border)',
-                                  background: 'var(--pobi-surface)'
-                                }}
-                              >
-                                <div style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '1px solid var(--glass-border)' }}>
-                                  解析圖片 #{idx + 2}
+                            <>
+                              {aFields.map(field => {
+                                let val = m.data.answerData?.[field.id];
+                                const isTimer = field.id === 'a_timer' || String(field.label || '').includes('計時');
+                                if ((val === undefined || val === '') && field.type === 'image') {
+                                  val = primaryAImg;
+                                }
+                                if ((val === undefined || val === '') && (field.type === 'text' || field.type === 'textarea') && !isTimer) {
+                                  val = m.data.answerData?.a_desc || m.data.answerData?.desc || m.data.answerData?.key_concept || m.data.answerData?.a_text;
+                                }
+                                return (
+                                  <DynamicValueRenderer
+                                    key={field.id}
+                                    field={field}
+                                    value={val}
+                                    onImageClick={onImageClick}
+                                  />
+                                );
+                              })}
+                              {/* 支援單題單張或多張解析圖片 (a_images)，即使模板未設圖片欄也能正常顯示 */}
+                              {extraAImages.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
+                                  {extraAImages.map((extraImg: string, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      style={{
+                                        width: '100%',
+                                        maxWidth: '320px',
+                                        borderRadius: 'var(--radius-md)',
+                                        overflow: 'hidden',
+                                        border: '1px solid var(--glass-border)',
+                                        background: 'var(--pobi-surface)'
+                                      }}
+                                    >
+                                      <div style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '1px solid var(--glass-border)' }}>
+                                        解析圖片 #{hasAImgField ? idx + 2 : idx + 1}
+                                      </div>
+                                      <img
+                                        src={resolveImageUrl(extraImg)}
+                                        alt={`解析圖片 ${hasAImgField ? idx + 2 : idx + 1}`}
+                                        onClick={() => onImageClick?.(resolveImageUrl(extraImg))}
+                                        style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: onImageClick ? 'zoom-in' : 'default' }}
+                                      />
+                                    </div>
+                                  ))}
                                 </div>
-                                <img
-                                  src={resolveImageUrl(extraImg)}
-                                  alt={`解析圖片 ${idx + 2}`}
-                                  onClick={() => onImageClick?.(resolveImageUrl(extraImg))}
-                                  style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: onImageClick ? 'zoom-in' : 'default' }}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

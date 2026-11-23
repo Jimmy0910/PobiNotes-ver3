@@ -125,8 +125,7 @@ const SAMPLE_AI_JSON = `[
     "subject_name": "數學",
     "chapter_name": "多項式函數",
     "question_image_index": 1,
-    "answer_image_indices": [1],
-    "key_concept": "牛頓插值法與多項式餘式條件：設 g(x)=f(x)-(x^2+1)，利用因式定理求餘式。"
+    "answer_image_indices": [1]
   },
   {
     "index": 2,
@@ -134,8 +133,7 @@ const SAMPLE_AI_JSON = `[
     "subject_name": "物理",
     "chapter_name": "運動&力",
     "question_image_index": 2,
-    "answer_image_indices": [2],
-    "key_concept": "簡諧運動週期 T=2π√(m/k) 具等時性與振幅無關；力學能 E=1/2 kR^2 與振幅平方成正比。"
+    "answer_image_indices": [2]
   },
   {
     "index": 3,
@@ -143,8 +141,7 @@ const SAMPLE_AI_JSON = `[
     "subject_name": "化學",
     "chapter_name": "酸鹼反應與滴定",
     "question_image_index": 3,
-    "answer_image_indices": [3],
-    "key_concept": "容量分析與實驗儀器潤洗誤差：未潤洗導致滴定液被稀釋，消耗體積偏大，計算濃度偏高。"
+    "answer_image_indices": [3]
   }
 ]`;
 
@@ -484,8 +481,8 @@ ${selectedScopeStructureText}
    - 請嚴格根據每道題目的考點，優先從上方使用者勾選的【科目】與【章節】範圍內挑選出最契合的 "subject_name" 與 "chapter_name"。
    - 若某題考點不在已勾選章節中，請在已勾選的科目底下給予簡明規範的章節名稱。`;
 
-    return `你是一位專業的升學考試解題分析家。我將上傳一整份考卷或多道錯題的「題目照片」與「解析照片」。
-請協助我逐題進行「題目與解析配對」（支援一題對應多張解析圖片）以及「依我選定的科目與章節範圍精準分類」。
+    return `你是一位專業的升學考卷分類與圖檔配對助理。我將上傳一整份考卷或多道錯題的「題目照片」與「解析照片」。
+請僅協助我逐題完成「題目與解析圖片配對」（支援一題對應多張解析圖片）、「提取簡短題旨標題」以及「依我選定的科目與章節範圍精準分類」。
 
 ${scopeInstruction}
 
@@ -493,9 +490,9 @@ ${scopeInstruction}
    - 使用者上傳的題目照片依序編號為 1, 2, 3...，請填入 "question_image_index"（整數，例如第 1 張題目圖填 1）。
    - 使用者上傳的解析照片依序編號為 1, 2, 3...，請填入 "answer_image_indices"（整數陣列格式，例如對應第 1 張解析圖填 [1]；若該題詳解跨第 1、2 張解析圖，請填 [1, 2]）。
 
-3. 題目核心題旨與解析重點說明：
-   - "title"：提取 10 至 20 字以內的簡明核心題旨（例如：「力學能守恆與彈簧張力分析」）。
-   - "key_concept"：請根據解析照片或題目內容，整理出正確答案、核心考點與破題關鍵步驟說明（將直接顯示於錯題本的解析文字區）。
+3. 嚴格禁止輸出解析文字：
+   - "title"：僅提取 10 至 20 字以內的簡明核心題旨（例如：「力學能守恆與彈簧張力分析」）。
+   - 請「不要」自行撰寫或輸出任何解析文字、正確答案、解題步驟或考點摘要（請勿包含 key_concept、explanation、solution 等解析欄位）。只需要完成科目與章節分類即可。
 
 4. 輸出格式限制：
    - 嚴格只回傳 JSON 陣列代碼區塊，不要輸出任何額外寒暄或開場白。
@@ -508,8 +505,7 @@ ${scopeInstruction}
     "subject_name": "${exampleSubj}",
     "chapter_name": "${exampleChap}",
     "question_image_index": 1,
-    "answer_image_indices": [1],
-    "key_concept": "正確答案與核心破題觀念說明"
+    "answer_image_indices": [1]
   }
 ]`;
   }, [selectedSubjects, selectedChaptersBySubject, selectedScopeStructureText]);
@@ -1671,7 +1667,7 @@ ${scopeInstruction}
                 <button
                   type="button"
                   onClick={async () => {
-                    const promptLine = '請解壓縮這個 ZIP 檔案，依照裡面的「外部AI提詞說明.txt」規則，讀取「題目圖片/」與「解析圖片/」資料夾中的所有圖片，分析並輸出完整 JSON 陣列。';
+                    const promptLine = '請解壓縮這個 ZIP 檔案，依照裡面的「外部AI提詞說明.txt」規則，讀取「題目圖片/」與「解析圖片/」資料夾中的所有圖片，僅完成圖片配對與科目章節分類並輸出完整 JSON 陣列（請勿自行撰寫解析文字）。';
                     try {
                       await navigator.clipboard.writeText(promptLine);
                       showToast('已複製給 AI 的對話指令，上傳 ZIP 後直接貼上送出即可！', 'success');
@@ -2419,15 +2415,15 @@ ${scopeInstruction}
                               type="text"
                               value={q.key_concept || ''}
                               onChange={e => handleUpdateParsedQuestion(idx, { key_concept: e.target.value })}
-                              placeholder="解析說明文字 / 核心考點（將存入錯題解析說明，檢視題目時直接呈現）..."
+                              placeholder="選填：手動輸入個人解析或補充備忘（AI 僅分類分章節，不自動產出解析）..."
                               style={{
                                 width: '100%',
                                 padding: '6px 10px',
                                 borderRadius: '6px',
                                 border: '1px solid var(--glass-border)',
                                 fontSize: '0.82rem',
-                                color: '#1C1917',
-                                backgroundColor: '#FFFFFF'
+                                color: 'var(--text-primary)',
+                                backgroundColor: 'var(--bg-secondary)'
                               }}
                             />
                           </div>
