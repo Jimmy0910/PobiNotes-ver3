@@ -442,6 +442,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 <button
                   type="button"
+                  className="pobi-promo-ctrl-btn"
                   onClick={() => {
                     const nextMuted = !isVideoMuted;
                     setIsVideoMuted(nextMuted);
@@ -469,6 +470,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                 </button>
                 <button
                   type="button"
+                  className="pobi-promo-ctrl-btn"
                   onClick={handleEnterVideoFullscreen}
                   data-testid="landing-promo-fullscreen-btn"
                   title="全螢幕觀看推廣影片"
@@ -479,7 +481,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
                     fontWeight: 700,
                     border: '1px solid rgba(228, 194, 132, 0.65)',
                     backgroundColor: 'rgba(11, 64, 43, 0.78)',
-                    color: '#F3E5C8',
+                    color: '#FFFFFF',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',

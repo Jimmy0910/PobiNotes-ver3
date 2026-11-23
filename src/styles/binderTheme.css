@@ -2967,6 +2967,20 @@ html[data-theme="dark"] .pobi-studio-hero-card {
   color: #FFFFFF !important;
 }
 
+/* Keep promo video audio & fullscreen controls pure white in BOTH light and dark mode on the dark green hero card */
+html:not([data-theme="dark"]) .pobi-studio-hero-card .pobi-promo-ctrl-btn,
+html:not([data-theme="dark"]) .pobi-studio-hero-card .pobi-promo-ctrl-btn span,
+.pobi-studio-hero-card .pobi-promo-ctrl-btn,
+.pobi-studio-hero-card .pobi-promo-ctrl-btn span {
+  color: #FFFFFF !important;
+}
+
+html:not([data-theme="dark"]) .pobi-studio-hero-card .pobi-promo-ctrl-btn svg,
+.pobi-studio-hero-card .pobi-promo-ctrl-btn svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
 .pobi-tabular {
   font-variant-numeric: tabular-nums;
 }
