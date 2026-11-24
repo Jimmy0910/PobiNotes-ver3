@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
 import type { CategoriesBundle } from '../types';
 import type { AppViewType } from './Dashboard';
+import type { NotebookOpenOptions } from './NotebookOpenView';
 import {
   X,
   ArrowRight,
@@ -19,7 +20,7 @@ interface PobiTutorialModalProps {
   activeView: AppViewType;
   selectedSubjectId: string | null;
   onNavigateView: (view: AppViewType) => void;
-  onOpenNotebook: (subjectId: string) => void;
+  onOpenNotebook: (subjectId: string, options?: NotebookOpenOptions) => void;
   isNewUser?: boolean;
   onClose: () => void;
   onRefreshAll: () => Promise<void>;
@@ -231,7 +232,7 @@ export default function PobiTutorialModal({
     [scheduleTimer]
   );
 
-  // Navigate to the right view ONLY when explicitly entering a step (never auto-jumping!)
+  // Navigate DIRECTLY to the exact target screen/stage in a single React state update (zero intermediate flashes!)
   const syncViewForStep = useCallback(
     (nextIdx: number) => {
       clearScheduledTimers();
@@ -249,78 +250,50 @@ export default function PobiTutorialModal({
         return;
       }
 
-      // Steps 5, 6, 7 live inside SubjectAnalyticsWorkshop
+      // Steps 5, 6, 7 open NotebookOpenView DIRECTLY on the exact workshop stage & submode (no 查看錯題 / Stage 1 flash!)
       const subjId = pickPreferredSubjectId();
-      if (subjId) {
-        onOpenNotebook(subjId);
+      if (!subjId) return;
+
+      const nonce = Date.now() + runId;
+      if (nextIdx === 4) {
+        // Step 5: 弱點圖表 (Stage 2 - Heatmap)
+        onOpenNotebook(subjId, {
+          hubTab: 'workshop',
+          workshopPreset: { stage: 2, step2Tab: 'heatmap', nonce }
+        });
+        waitForElement('[data-testid="workshop-step2-chart-cards"]', runId, cardsEl => {
+          try {
+            cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+          } catch {}
+          measureTarget(true, nextIdx);
+        }, 40);
+      } else if (nextIdx === 5) {
+        // Step 6: 外部 AI 提示資料包 (Stage 3 -> Export -> AI ZIP)
+        onOpenNotebook(subjId, {
+          hubTab: 'workshop',
+          workshopPreset: { stage: 3, step3Tab: 'export', exportChoice: 'ai_zip', nonce }
+        });
+        waitForElement('[data-testid="workshop-submode-ai-zip"]', runId, aiBtn => {
+          try {
+            aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+          } catch {}
+          measureTarget(true, nextIdx);
+        }, 40);
+      } else if (nextIdx === 6) {
+        // Step 7: 匯出練習卷 (Stage 3 -> Export -> Exam Paper)
+        onOpenNotebook(subjId, {
+          hubTab: 'workshop',
+          workshopPreset: { stage: 3, step3Tab: 'export', exportChoice: 'exam_paper', nonce }
+        });
+        waitForElement('[data-testid="workshop-submode-exam-paper"]', runId, pdfBtn => {
+          try {
+            pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+          } catch {}
+          measureTarget(true, nextIdx);
+        }, 40);
       }
-
-      waitForElement('[data-testid="subject-hub-tab-workshop"]', runId, workshopTab => {
-        workshopTab.click();
-
-        if (nextIdx === 4) {
-          // Step 5: 弱點圖表 (Stage 2)
-          waitForElement('[data-testid="workshop-stage-tab-2"]', runId, stage2Tab => {
-            scheduleTimer(() => {
-              if (stepRunIdRef.current !== runId) return;
-              window.dispatchEvent(
-                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 2, step2Tab: 'heatmap' } })
-              );
-              stage2Tab.click();
-              waitForElement('[data-testid="workshop-step2-chart-cards"]', runId, cardsEl => {
-                try {
-                  cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-                } catch {}
-                scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
-                }, 100);
-              }, 40);
-            }, 60);
-          }, 40);
-        } else if (nextIdx === 5) {
-          // Step 6: 外部 AI 提示資料包 (Stage 3 -> Export -> AI ZIP)
-          waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
-            scheduleTimer(() => {
-              if (stepRunIdRef.current !== runId) return;
-              window.dispatchEvent(
-                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
-              );
-              stage3Tab.click();
-              waitForElement('[data-testid="workshop-submode-ai-zip"]', runId, aiBtn => {
-                aiBtn.click();
-                try {
-                  aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-                } catch {}
-                scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
-                }, 100);
-              }, 40);
-            }, 60);
-          }, 40);
-        } else if (nextIdx === 6) {
-          // Step 7: 匯出練習卷 (Stage 3 -> Export -> Exam Paper)
-          waitForElement('[data-testid="workshop-stage-tab-3"]', runId, stage3Tab => {
-            scheduleTimer(() => {
-              if (stepRunIdRef.current !== runId) return;
-              window.dispatchEvent(
-                new CustomEvent('pobi-workshop-set-stage', { detail: { stage: 3, step3Tab: 'export' } })
-              );
-              stage3Tab.click();
-              waitForElement('[data-testid="workshop-submode-exam-paper"]', runId, pdfBtn => {
-                pdfBtn.click();
-                try {
-                  pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-                } catch {}
-                scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
-                }, 100);
-              }, 40);
-            }, 60);
-          }, 40);
-        }
-      }, 40);
     },
-    [clearScheduledTimers, measureTarget, onNavigateView, onOpenNotebook, pickPreferredSubjectId, scheduleTimer, waitForElement]
+    [clearScheduledTimers, measureTarget, onNavigateView, onOpenNotebook, pickPreferredSubjectId, waitForElement]
   );
 
   // On initial mount only, navigate cleanly to bookshelf for Step 1
@@ -366,8 +339,8 @@ export default function PobiTutorialModal({
     };
   }, []);
 
-  // Continuously track target position & layout shifts so spotlight never drifts or disappears off-screen
-  useEffect(() => {
+  // Scroll & measure synchronously before paint on step change so there is zero pit-stop or jump
+  useLayoutEffect(() => {
     let scrolledOnce = false;
     let observedEl: HTMLElement | null = null;
     const handleMeasure = () => measureTarget(false);
@@ -392,16 +365,15 @@ export default function PobiTutorialModal({
       }
     };
 
-    // Poll briefly while async views/subpanels mount and settle, then rely on resize/scroll/ResizeObserver
     syncAndObserve();
     let ticks = 0;
     const settleInterval = window.setInterval(() => {
       syncAndObserve();
       ticks++;
-      if (ticks >= 25) {
+      if (ticks >= 20) {
         window.clearInterval(settleInterval);
       }
-    }, 100);
+    }, 80);
 
     window.addEventListener('resize', handleMeasure);
     window.addEventListener('scroll', handleMeasure, true);

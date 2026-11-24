@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type CategoriesBundle,
@@ -19,7 +19,7 @@ import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverM
 import SharePackModal from './SharePackModal';
 import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
 import CategoryManager from './CategoryManager';
-import SubjectAnalyticsWorkshop from './SubjectAnalyticsWorkshop';
+import SubjectAnalyticsWorkshop, { type WorkshopPreset } from './SubjectAnalyticsWorkshop';
 import { useUiFeedback } from './UiFeedbackProvider';
 import {
   GoldCornerOrnaments,
@@ -48,10 +48,16 @@ import {
   BarChart3
 } from 'lucide-react';
 
+export interface NotebookOpenOptions {
+  hubTab?: 'browse' | 'workshop';
+  workshopPreset?: WorkshopPreset | null;
+}
+
 interface NotebookOpenViewProps {
   subjectId: string;
   categories: CategoriesBundle;
   mistakes: MistakeRecord[];
+  initialPreset?: NotebookOpenOptions | null;
   onBackToBookshelf: () => void;
   onSelectChapterUnit?: (chapterId: string | null, unitId: string | null) => void;
   onOpenNewMistakeForSubject?: (subjectId: string, chapterId?: string | null, unitId?: string | null) => void;
@@ -71,6 +77,7 @@ export default function NotebookOpenView({
   subjectId,
   categories,
   mistakes,
+  initialPreset,
   onBackToBookshelf,
   onAddChapter,
   onAddUnit,
@@ -78,7 +85,13 @@ export default function NotebookOpenView({
   onUpdateMistake
 }: NotebookOpenViewProps) {
   // Subject Hub 2 main modes: 查看錯題 | 分析與工坊 (每日複習已移至左側面板)
-  const [hubTab, setHubTab] = useState<'browse' | 'workshop'>('browse');
+  const [hubTab, setHubTab] = useState<'browse' | 'workshop'>(() => initialPreset?.hubTab ?? 'browse');
+
+  useEffect(() => {
+    if (initialPreset?.hubTab) {
+      setHubTab(initialPreset.hubTab);
+    }
+  }, [initialPreset]);
 
   // Navigation & Filter states
   const { showToast, confirmDialog, promptDialog } = useUiFeedback();
@@ -927,6 +940,7 @@ export default function NotebookOpenView({
             subjectName={activeSubject.name}
             categories={categories}
             subjectMistakes={subjectMistakes}
+            initialWorkshopPreset={initialPreset?.workshopPreset || null}
             onEditMistake={handleOpenEditMistake}
             onDeleteMistake={handleDeleteMistake}
             onImageClick={src => setLightboxImageUrl(src)}

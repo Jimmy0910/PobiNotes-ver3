@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
 import { apiRequest } from '../utils/api';
 import {
@@ -45,11 +45,20 @@ import {
   ArrowLeft
 } from 'lucide-react';
 
+export interface WorkshopPreset {
+  stage: 1 | 2 | 3;
+  step2Tab?: 'distribution' | 'heatmap';
+  step3Tab?: 'list' | 'export';
+  exportChoice?: 'ai_zip' | 'exam_paper';
+  nonce?: number;
+}
+
 interface SubjectAnalyticsWorkshopProps {
   subjectId: string;
   subjectName: string;
   categories: CategoriesBundle;
   subjectMistakes: MistakeRecord[];
+  initialWorkshopPreset?: WorkshopPreset | null;
   onEditMistake?: (m: MistakeRecord) => void;
   onDeleteMistake?: (m: MistakeRecord) => void;
   onImageClick?: (src: string) => void;
@@ -119,6 +128,7 @@ export default function SubjectAnalyticsWorkshop({
   subjectName,
   categories,
   subjectMistakes,
+  initialWorkshopPreset,
   onEditMistake,
   onDeleteMistake,
   onImageClick
@@ -126,9 +136,13 @@ export default function SubjectAnalyticsWorkshop({
   const { showToast } = useUiFeedback();
 
   // Wizard stage controller: show one stage at a time (1 -> 2 -> 3)
-  const [activeStage, setActiveStage] = useState<1 | 2 | 3>(1);
-  const [step2ChartTab, setStep2ChartTab] = useState<'distribution' | 'heatmap'>('distribution');
-  const [step3PanelTab, setStep3PanelTab] = useState<'list' | 'export'>('list');
+  const [activeStage, setActiveStage] = useState<1 | 2 | 3>(() => initialWorkshopPreset?.stage ?? 1);
+  const [step2ChartTab, setStep2ChartTab] = useState<'distribution' | 'heatmap'>(
+    () => initialWorkshopPreset?.step2Tab ?? 'distribution'
+  );
+  const [step3PanelTab, setStep3PanelTab] = useState<'list' | 'export'>(
+    () => initialWorkshopPreset?.step3Tab ?? 'list'
+  );
 
   // =========================================================
   // STEP 1: Analysis Mode Selection
@@ -154,7 +168,9 @@ export default function SubjectAnalyticsWorkshop({
   const [chartSelectedKeys, setChartSelectedKeys] = useState<string[]>([]);
 
   // STEP 3: Export choice (AI Prompt ZIP vs Exam Paper) + manual fine-tune checkboxes
-  const [exportChoice, setExportChoice] = useState<'ai_zip' | 'exam_paper'>('ai_zip');
+  const [exportChoice, setExportChoice] = useState<'ai_zip' | 'exam_paper'>(
+    () => initialWorkshopPreset?.exportChoice ?? 'ai_zip'
+  );
   const [manualUncheckedIds, setManualUncheckedIds] = useState<string[]>([]);
 
   // AI Prompt Template state
@@ -192,11 +208,31 @@ export default function SubjectAnalyticsWorkshop({
       .catch(() => {});
   }, []);
 
-  // Reset selections when switching subject
+  // Apply preset directly when tutorial switches stages (zero intermediate flash)
   useEffect(() => {
-    setActiveStage(1);
-    setStep2ChartTab('distribution');
-    setStep3PanelTab('list');
+    if (!initialWorkshopPreset) return;
+    setActiveStage(initialWorkshopPreset.stage);
+    if (initialWorkshopPreset.step2Tab) {
+      setStep2ChartTab(initialWorkshopPreset.step2Tab);
+    }
+    if (initialWorkshopPreset.step3Tab) {
+      setStep3PanelTab(initialWorkshopPreset.step3Tab);
+    }
+    if (initialWorkshopPreset.exportChoice) {
+      setExportChoice(initialWorkshopPreset.exportChoice);
+    }
+  }, [initialWorkshopPreset]);
+
+  // Reset selections ONLY when switching to a different subject (not on initial mount with preset)
+  const prevSubjectIdRef = useRef(subjectId);
+  useEffect(() => {
+    if (prevSubjectIdRef.current === subjectId) return;
+    prevSubjectIdRef.current = subjectId;
+    if (!initialWorkshopPreset) {
+      setActiveStage(1);
+      setStep2ChartTab('distribution');
+      setStep3PanelTab('list');
+    }
     setSelectedChapterIds([]);
     setSelectedUnitIds([]);
     setSelectedFamiliarityIds([]);
@@ -205,7 +241,7 @@ export default function SubjectAnalyticsWorkshop({
     setKeyword('');
     setChartSelectedKeys([]);
     setManualUncheckedIds([]);
-  }, [subjectId]);
+  }, [subjectId, initialWorkshopPreset]);
 
   // Sync default chart dimension & heatmap pair when switching Step 1 mode
   const handleChangeAnalysisMode = (mode: AnalysisMode) => {
