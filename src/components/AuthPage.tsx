@@ -103,26 +103,31 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login', initia
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '7px',
-            padding: '7px 14px',
+            justifyContent: 'center',
+            gap: '9px',
+            minHeight: '46px',
+            minWidth: '230px',
+            padding: '10px 22px',
             borderRadius: '999px',
-            fontSize: '0.82rem',
-            fontWeight: 600,
+            fontSize: '0.94rem',
+            fontWeight: 700,
             cursor: 'pointer',
             backgroundColor: currentTheme === 'dark' ? '#24201c' : '#faf6ee',
             border: `1px solid ${currentTheme === 'dark' ? '#463d34' : '#d8ccb8'}`,
             color: currentTheme === 'dark' ? '#e8dfd1' : '#3d342b',
-            boxShadow: '0 2px 8px rgba(45, 35, 20, 0.08)',
+            boxShadow: '0 4px 12px rgba(45, 35, 20, 0.1)',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           {showDinoGame ? (
             <>
-              <ChevronUp size={15} />
+              <ChevronUp size={18} />
               <span>收合小恐龍遊戲</span>
             </>
           ) : (
             <>
-              <Gamepad2 size={15} />
+              <Gamepad2 size={18} />
               <span>休息一下 · 玩離線小恐龍</span>
             </>
           )}

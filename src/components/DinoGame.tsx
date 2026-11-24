@@ -750,15 +750,20 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
               style={{
                 background: 'none',
                 border: `1px solid ${theme === 'dark' ? '#3d362f' : '#dfd4c1'}`,
-                borderRadius: '6px',
-                padding: '4px 6px',
+                borderRadius: '8px',
+                minWidth: '36px',
+                minHeight: '36px',
+                padding: '6px 9px',
                 cursor: 'pointer',
                 color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {gameState === 'paused' ? <Play size={14} /> : <Pause size={14} />}
+              {gameState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
             </button>
           )}
 
@@ -769,15 +774,20 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
             style={{
               background: 'none',
               border: `1px solid ${theme === 'dark' ? '#3d362f' : '#dfd4c1'}`,
-              borderRadius: '6px',
-              padding: '4px 6px',
+              borderRadius: '8px',
+              minWidth: '36px',
+              minHeight: '36px',
+              padding: '6px 9px',
               cursor: 'pointer',
               color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
-            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
       </div>
@@ -791,9 +801,21 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
           border: `1px solid ${theme === 'dark' ? '#3a332c' : '#e4dac8'}`,
           cursor: 'pointer',
           userSelect: 'none',
+          WebkitUserSelect: 'none',
           touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
         }}
-        onClick={triggerJump}
+        onPointerDown={(e) => {
+          if (e.button === 0 || e.pointerType === 'touch') {
+            triggerJump();
+          }
+        }}
+        onPointerUp={() => {
+          simRef.current.jumpHeld = false;
+        }}
+        onPointerCancel={() => {
+          simRef.current.jumpHeld = false;
+        }}
       >
         <canvas
           ref={canvasRef}
@@ -894,6 +916,9 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
             </div>
             <button
               type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 triggerJump();
@@ -901,80 +926,119 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
+                justifyContent: 'center',
+                gap: '8px',
+                minHeight: '44px',
+                padding: '10px 22px',
+                borderRadius: '10px',
                 border: `1px solid ${theme === 'dark' ? '#574c40' : '#cbbba0'}`,
                 backgroundColor: theme === 'dark' ? '#2f2923' : '#f2eadc',
                 color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
-                fontSize: '0.8rem',
-                fontWeight: 600,
+                fontSize: '0.92rem',
+                fontWeight: 700,
                 cursor: 'pointer',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <RotateCcw size={14} />
+              <RotateCcw size={16} />
               <span>再玩一次</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Touch / Mouse Quick Controls */}
+      {/* Mobile-Optimized Large Touch Controls */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '10px',
+          marginTop: '12px',
+        }}
+      >
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            if (simRef.current.status === 'playing') {
+              simRef.current.isDucking = true;
+              if (simRef.current.isJumping && simRef.current.dinoVy < 5) {
+                simRef.current.dinoVy = 6.5;
+              }
+            }
+          }}
+          onPointerUp={() => {
+            simRef.current.isDucking = false;
+          }}
+          onPointerLeave={() => {
+            simRef.current.isDucking = false;
+          }}
+          onPointerCancel={() => {
+            simRef.current.isDucking = false;
+          }}
+          style={{
+            minHeight: '48px',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: `1px solid ${theme === 'dark' ? '#4a4137' : '#d5c7b0'}`,
+            backgroundColor: theme === 'dark' ? '#2b2520' : '#f6efe3',
+            color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
+            fontSize: '0.94rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          長按蹲下
+        </button>
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            triggerJump();
+          }}
+          onPointerUp={() => {
+            simRef.current.jumpHeld = false;
+          }}
+          onPointerLeave={() => {
+            simRef.current.jumpHeld = false;
+          }}
+          onPointerCancel={() => {
+            simRef.current.jumpHeld = false;
+          }}
+          style={{
+            minHeight: '48px',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: `1px solid ${theme === 'dark' ? '#63533d' : '#c9b38c'}`,
+            backgroundColor: theme === 'dark' ? '#3a3026' : '#efe3cd',
+            color: theme === 'dark' ? '#f3eadb' : '#33291f',
+            fontSize: '0.94rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          跳躍
+        </button>
+      </div>
+
+      <div
+        style={{
           marginTop: '8px',
-          gap: '8px',
-          fontSize: '0.75rem',
+          textAlign: 'center',
+          fontSize: '0.73rem',
           color: theme === 'dark' ? '#a69888' : '#7a6c5d',
         }}
       >
-        <span>提示：輸入帳號密碼時不會觸發跳躍，可安心登入</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            type="button"
-            onPointerDown={() => {
-              if (simRef.current.status === 'playing') {
-                simRef.current.isDucking = true;
-              }
-            }}
-            onPointerUp={() => {
-              simRef.current.isDucking = false;
-            }}
-            onPointerLeave={() => {
-              simRef.current.isDucking = false;
-            }}
-            style={{
-              padding: '3px 10px',
-              borderRadius: '6px',
-              border: `1px solid ${theme === 'dark' ? '#3d362f' : '#dfd4c1'}`,
-              backgroundColor: 'transparent',
-              color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
-              fontSize: '0.74rem',
-              cursor: 'pointer',
-            }}
-          >
-            長按蹲下
-          </button>
-          <button
-            type="button"
-            onClick={triggerJump}
-            style={{
-              padding: '3px 10px',
-              borderRadius: '6px',
-              border: `1px solid ${theme === 'dark' ? '#3d362f' : '#dfd4c1'}`,
-              backgroundColor: theme === 'dark' ? '#2f2923' : '#f2eadc',
-              color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
-              fontSize: '0.74rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            跳躍
-          </button>
-        </div>
+        輸入帳號密碼時不會觸發跳躍，可安心登入
       </div>
     </div>
   );
