@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../utils/api';
-import { LogIn, UserPlus, Key, User, ShieldCheck } from 'lucide-react';
+import { LogIn, UserPlus, Key, User, ShieldCheck, Gamepad2, ChevronUp } from 'lucide-react';
 import {
   GoldCornerOrnaments,
   GoldGeometricDivider,
   AcademicHandDrawnBackdrop
 } from './PobiDesignElements';
+import DinoGame from './DinoGame';
 
 interface AuthPageProps {
   onLoginSuccess: (user: { id: string; username: string; is_admin: number }) => void;
@@ -22,6 +23,7 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login', initia
   const [loading, setLoading] = useState(false);
   const [registerAsAdmin, setRegisterAsAdmin] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>('light');
+  const [showDinoGame, setShowDinoGame] = useState(false);
 
   useEffect(() => {
     if (initialError) {
@@ -79,6 +81,59 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login', initia
       <AcademicHandDrawnBackdrop subject="all" />
       {/* 3. Gold Geometric Page Corner Ornaments */}
       <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
+
+      {/* Expandable Offline Dino Game Above Login Card */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          width: '100%',
+          maxWidth: showDinoGame ? '640px' : '460px',
+          marginBottom: '14px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '10px',
+          transition: 'max-width 0.2s ease',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowDinoGame((prev) => !prev)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '7px',
+            padding: '7px 14px',
+            borderRadius: '999px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            backgroundColor: currentTheme === 'dark' ? '#24201c' : '#faf6ee',
+            border: `1px solid ${currentTheme === 'dark' ? '#463d34' : '#d8ccb8'}`,
+            color: currentTheme === 'dark' ? '#e8dfd1' : '#3d342b',
+            boxShadow: '0 2px 8px rgba(45, 35, 20, 0.08)',
+          }}
+        >
+          {showDinoGame ? (
+            <>
+              <ChevronUp size={15} />
+              <span>收合小恐龍遊戲</span>
+            </>
+          ) : (
+            <>
+              <Gamepad2 size={15} />
+              <span>休息一下 · 玩離線小恐龍</span>
+            </>
+          )}
+        </button>
+
+        {showDinoGame && (
+          <div style={{ width: '100%' }}>
+            <DinoGame theme={currentTheme} compact />
+          </div>
+        )}
+      </div>
 
       <div className="binder-auth-wrapper" style={{ position: 'relative', zIndex: 2 }}>
         <div className="binder-auth-card" style={{ position: 'relative', overflow: 'hidden' }}>

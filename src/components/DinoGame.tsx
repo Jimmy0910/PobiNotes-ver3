@@ -268,14 +268,14 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
     isJumping: false,
     isDucking: false,
     jumpHeld: false,
-    speed: 5.8,
+    speed: 4.2,
     distance: 0,
     score: 0,
     lastMilestone: 0,
     animTimer: 0,
     blinkTimer: 0,
     obstacles: [] as Obstacle[],
-    nextObstacleGap: 260,
+    nextObstacleGap: 340,
     clouds: [
       { x: 140, y: 32, speed: 0.6 },
       { x: 380, y: 50, speed: 0.45 },
@@ -332,13 +332,13 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
     s.isJumping = false;
     s.isDucking = false;
     s.jumpHeld = false;
-    s.speed = 5.8;
+    s.speed = 4.2;
     s.distance = 0;
     s.score = 0;
     s.lastMilestone = 0;
     s.animTimer = 0;
     s.obstacles = [];
-    s.nextObstacleGap = 240;
+    s.nextObstacleGap = 340;
     s.status = startImmediately ? 'playing' : 'idle';
     setScore(0);
     setGameState(s.status);
@@ -476,8 +476,8 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
         });
       }
 
-      const minGap = Math.max(170, 290 - s.speed * 6);
-      s.nextObstacleGap = minGap + Math.random() * 170;
+      const minGap = Math.max(300, 420 - s.speed * 8);
+      s.nextObstacleGap = minGap + Math.random() * 240;
     };
 
     const tick = (now: number) => {
@@ -490,7 +490,7 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
 
       if (s.status === 'playing') {
         // Accelerate smoothly
-        s.speed = Math.min(12.5, 5.8 + s.score * 0.0045);
+        s.speed = Math.min(9.5, 4.2 + s.score * 0.003);
         const dx = s.speed * dt;
         s.distance += dx;
 
@@ -633,7 +633,7 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
       }
 
       // Obstacles
-      const wingUp = Math.floor(s.animTimer / 14) % 2 === 0;
+      const wingUp = Math.floor(s.animTimer / 20) % 2 === 0;
       for (const ob of s.obstacles) {
         if (ob.kind === 'ptero') {
           drawPixelSprite(ctx, wingUp ? PTERO_UP : PTERO_DOWN, ob.x, ob.y, 2, accentColor);
@@ -649,7 +649,7 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
       }
 
       // Dino sprite
-      const runFrame = Math.floor(s.animTimer / 11) % 2 === 0;
+      const runFrame = Math.floor(s.animTimer / 18) % 2 === 0;
       let dinoSprite = DINO_STAND;
       if (s.status === 'gameover') {
         dinoSprite = DINO_CRASH;
