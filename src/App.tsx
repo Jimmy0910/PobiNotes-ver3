@@ -7,6 +7,7 @@ import {
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
+import DinoGame from './components/DinoGame';
 import PobiTutorialModal from './components/PobiTutorialModal';
 import { GoldCornerOrnaments, AcademicHandDrawnBackdrop } from './components/PobiDesignElements';
 import BackupRestoreModal from './components/BackupRestoreModal';
@@ -72,6 +73,13 @@ export default function App() {
       return new URLSearchParams(window.location.search).get('share');
     } catch {
       return null;
+    }
+  });
+  const [dinoTestMode, setDinoTestMode] = useState<boolean>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('dino') === '1';
+    } catch {
+      return false;
     }
   });
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -166,6 +174,10 @@ export default function App() {
     try {
       const params = new URLSearchParams(window.location.search);
       const authErr = params.get('auth_error');
+      const adminGoogleLinked = params.get('admin_google_linked');
+      const adminGoogleError = params.get('admin_google_error');
+      let urlChanged = false;
+
       if (authErr) {
         const errorMap: Record<string, string> = {
           google_cancelled: '已取消 Google 登入。',
@@ -179,6 +191,34 @@ export default function App() {
         setAuthInitialMode('login');
         setShowAuthView(true);
         params.delete('auth_error');
+        urlChanged = true;
+      }
+
+      if (adminGoogleLinked === '1') {
+        setActiveView('admin');
+        showToast('已成功連結 Google 帳號！現在可使用 Google 登入管理員，並解鎖 GMAIL 每日通知。', 'success');
+        params.delete('admin_google_linked');
+        urlChanged = true;
+      }
+
+      if (adminGoogleError) {
+        const adminErrorMap: Record<string, string> = {
+          google_cancelled: '已取消連結 Google 帳號。',
+          google_not_configured: '伺服器尚未完成 Google OAuth 設定，無法連結。',
+          admin_required: '請先登入管理員帳號後，再進行 Google 帳號綁定。',
+          invalid_state: 'Google 驗證狀態逾時或無效，請重新點擊連結。',
+          token_exchange_failed: '無法完成 Google 驗證，請稍後再試。',
+          profile_fetch_failed: '無法取得 Google 帳號資料，請稍後再試。',
+          already_linked: '此 Google 帳號已綁定其他用戶；請先在下方「用戶管理」移除該帳號後再綁定，或改選其他 Google 帳號。',
+          google_auth_failed: '連結 Google 帳號時發生錯誤，請稍後再試。'
+        };
+        setActiveView('admin');
+        showToast(adminErrorMap[adminGoogleError] || '連結 Google 帳號失敗，請稍後再試。', 'error');
+        params.delete('admin_google_error');
+        urlChanged = true;
+      }
+
+      if (urlChanged) {
         const nextQuery = params.toString();
         const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
         window.history.replaceState({}, '', nextUrl);
@@ -198,7 +238,7 @@ export default function App() {
       }
     };
     checkSession();
-  }, []);
+  }, [showToast]);
 
   // Load categories and mistakes whenever user logs in
   useEffect(() => {
@@ -457,6 +497,51 @@ export default function App() {
           } catch {}
         }}
       />
+    );
+  }
+
+  if (dinoTestMode) {
+    return (
+      <div className="binder-auth-stage">
+        <AcademicHandDrawnBackdrop subject="all" />
+        <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
+        <div
+          style={{
+            position: 'fixed',
+            top: '16px',
+            left: '16px',
+            zIndex: 50,
+            display: 'flex',
+            gap: '8px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setDinoTestMode(false);
+              setShowAuthView(true);
+            }}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+          >
+            前往登入頁
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDinoTestMode(false);
+              setShowAuthView(false);
+            }}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+          >
+            返回首頁
+          </button>
+        </div>
+        <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: '680px' }}>
+          <DinoGame theme={theme} />
+        </div>
+      </div>
     );
   }
 
@@ -784,7 +869,17 @@ export default function App() {
         )}
 
         {activeView === 'admin' && user.is_admin === 1 && (
-          <AdminPanel />
+          <AdminPanel
+            currentUser={user}
+            onRefreshCurrentUser={async () => {
+              try {
+                const res = await apiRequest('/api/auth/me');
+                if (res?.success && res?.user) {
+                  setUser(res.user);
+                }
+              } catch {}
+            }}
+          />
         )}
 
         {/* Bottom Editorial Footer Panel (下側面板背景點綴) */}

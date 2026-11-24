@@ -14,7 +14,10 @@ import {
   CheckCircle2,
   AlertCircle,
   CheckSquare,
-  Square
+  Square,
+  Link2,
+  Unlink,
+  ShieldCheck
 } from 'lucide-react';
 
 interface AdminUser {
@@ -53,7 +56,18 @@ interface SendEmailSummary {
   results: SendEmailResultItem[];
 }
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  currentUser?: {
+    id: string;
+    username: string;
+    is_admin: number;
+    email?: string | null;
+    auth_provider?: string | null;
+  } | null;
+  onRefreshCurrentUser?: () => Promise<void>;
+}
+
+export default function AdminPanel({ currentUser, onRefreshCurrentUser }: AdminPanelProps) {
   const { showToast, confirmDialog } = useUiFeedback();
   const [activeTab, setActiveTab] = useState<'users' | 'feedback' | 'email'>('users');
   const [providerFilter, setProviderFilter] = useState<'all' | 'google' | 'local'>('all');
@@ -61,6 +75,14 @@ export default function AdminPanel() {
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [unlinkingGoogle, setUnlinkingGoogle] = useState(false);
+
+  const isAdminGoogleLinked = Boolean(
+    currentUser &&
+      currentUser.auth_provider === 'google' &&
+      typeof currentUser.email === 'string' &&
+      currentUser.email.trim().length > 0
+  );
 
   // Create new user directly from Admin Panel
   const [newUsername, setNewUsername] = useState('');
@@ -246,6 +268,33 @@ export default function AdminPanel() {
     }
   };
 
+  const handleLinkAdminGoogle = () => {
+    window.location.href = '/api/auth/google?mode=link';
+  };
+
+  const handleUnlinkAdminGoogle = async () => {
+    const ok = await confirmDialog({
+      title: '解除管理員 Google 綁定',
+      message: '確定要解除此管理員帳號的 Google 帳號綁定嗎？解除後將無法透過 Google 直接登入此帳號，且每日 GMAIL 通知會暫停使用（原本的帳密登入不受影響）。',
+      confirmText: '確認解除',
+      cancelText: '取消',
+      danger: true
+    });
+    if (!ok) return;
+
+    setUnlinkingGoogle(true);
+    try {
+      await apiRequest('/api/admin/google-link', { method: 'DELETE' });
+      await onRefreshCurrentUser?.();
+      await fetchUsers();
+      showToast('已解除管理員帳號的 Google 綁定', 'success');
+    } catch (e: any) {
+      showToast(e?.message || '解除 Google 綁定失敗', 'error');
+    } finally {
+      setUnlinkingGoogle(false);
+    }
+  };
+
   const handleDeleteUser = async (userId: string, username: string) => {
     const ok = await confirmDialog({
       title: '刪除用戶確認',
@@ -314,9 +363,143 @@ export default function AdminPanel() {
   return (
     <div style={{ flex: 1, padding: '24px', overflowY: 'auto', height: 'calc(100vh - 64px)' }}>
       <div style={{ maxWidth: activeTab === 'email' ? '1080px' : '900px', margin: '0 auto', transition: 'max-width 0.2s ease' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '24px' }} className="title-gradient">
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '16px' }} className="title-gradient">
           管理員面板
         </h2>
+
+        {/* Admin Google Account Login & Binding Card */}
+        <section
+          className="glass-card"
+          data-testid="admin-google-link-card"
+          style={{
+            padding: '16px 20px',
+            marginBottom: '20px',
+            borderRadius: '12px',
+            border: isAdminGoogleLinked
+              ? '1.5px solid var(--accent-primary)'
+              : '1px solid var(--glass-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: '1 1 300px' }}>
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                backgroundColor: '#FFFFFF',
+                border: isAdminGoogleLinked ? '1.5px solid var(--accent-primary)' : '1px solid var(--glass-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.44a5.5 5.5 0 0 1-2.39 3.61v3h3.87c2.26-2.08 3.57-5.15 3.57-8.64Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-3c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.29v3.1A12 12 0 0 0 12 24Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.29 14.29A7.18 7.18 0 0 1 4.91 12c0-.79.14-1.56.38-2.29v-3.1H1.29A12 12 0 0 0 0 12c0 1.94.46 3.77 1.29 5.39l4-3.1Z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.61l4 3.1c.94-2.84 3.59-4.96 6.71-4.96Z"
+                />
+              </svg>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-primary)' }}>
+                  管理員 Google 帳號登入與綁定
+                </span>
+                <span
+                  style={{
+                    padding: '2px 9px',
+                    borderRadius: '999px',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    backgroundColor: isAdminGoogleLinked ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                    color: isAdminGoogleLinked ? '#FFFFFF' : 'var(--text-secondary)',
+                    border: '1px solid var(--glass-border)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ShieldCheck size={12} />
+                  <span>{isAdminGoogleLinked ? '已啟用 Google 登入' : '尚未綁定 Google'}</span>
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                {isAdminGoogleLinked ? (
+                  <>
+                    目前管理員帳號（{currentUser?.username}）已綁定 Gmail：
+                    <strong style={{ color: 'var(--text-primary)' }}>{currentUser?.email}</strong>
+                    。您可使用 Google 或原帳密登入，並已開通「每日複習 &gt; GMAIL 每日通知」。
+                  </>
+                ) : (
+                  <>
+                    為管理員帳號（{currentUser?.username || 'jimmy'}）連結 Google 帳號後，可直接用 Google 登入此管理員帳號（保留原帳密與全部錯題），並立即開通「GMAIL 每日通知」。
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleLinkAdminGoogle}
+              disabled={unlinkingGoogle}
+              data-testid="admin-google-link-btn"
+              className="btn btn-primary"
+              style={{
+                padding: '8px 14px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Link2 size={15} />
+              <span>{isAdminGoogleLinked ? '更換 / 重新登入 Google 帳號' : '登入並綁定 Google 帳號'}</span>
+            </button>
+
+            {isAdminGoogleLinked && (
+              <button
+                type="button"
+                onClick={handleUnlinkAdminGoogle}
+                disabled={unlinkingGoogle}
+                data-testid="admin-google-unlink-btn"
+                className="btn btn-secondary"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  color: 'var(--danger)'
+                }}
+              >
+                {unlinkingGoogle ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
+                <span>解除綁定</span>
+              </button>
+            )}
+          </div>
+        </section>
 
         {/* Tab Buttons */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
