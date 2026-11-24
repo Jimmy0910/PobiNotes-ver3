@@ -874,10 +874,14 @@ export default function GmailDailyReminderPanel({
                   data-testid="gmail-send-time-select"
                   className="input"
                   style={{
-                    height: '36px',
+                    height: '42px',
+                    minHeight: '42px',
+                    padding: '0 14px',
+                    lineHeight: 'normal',
                     fontWeight: 700,
-                    fontSize: '0.88rem',
-                    fontVariantNumeric: 'tabular-nums'
+                    fontSize: '0.9rem',
+                    fontVariantNumeric: 'tabular-nums',
+                    boxSizing: 'border-box'
                   }}
                 >
                   {SEND_TIME_OPTIONS.map(t => (

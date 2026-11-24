@@ -50,9 +50,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       '想先看完整示範，也可點下方按鈕一鍵建立範例題本。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="bookshelf-add-book-card"]') as HTMLElement | null) ||
-      (document.querySelector('[data-pobi-demo-book="1"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid^="book-card-"]') as HTMLElement | null)
+      document.querySelector('[data-testid="bookshelf-add-book-card"]') as HTMLElement | null
   },
   {
     id: 'sidebar-overview',
@@ -87,8 +85,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       '自由勾選要複習的章節與小單元，並可自訂各熟悉度的間隔天數或設為「不再複習」。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="daily-review-hub-header"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="nav-daily-review"]') as HTMLElement | null)
+      document.querySelector('[data-testid="daily-review-hub-header"]') as HTMLElement | null
   },
   {
     id: 'weakness-charts',
@@ -100,8 +97,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       '互動多選：直接點擊圖表項目或熱度方格可複選多個弱點，直接帶入步驟 3 匯出 AI 提詞包或練習卷。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-step2-chart-cards"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="workshop-step2-tab-heatmap"]') as HTMLElement | null)
+      document.querySelector('[data-testid="workshop-step2-chart-cards"]') as HTMLElement | null
   },
   {
     id: 'ai-prompt-pack',
@@ -112,8 +108,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       'ZIP 內含提詞清單與所有題目／解析圖片，直接整包上傳給 ChatGPT / Gemini / Claude 即可分析。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="workshop-ai-zip-panel"]') as HTMLElement | null)
+      document.querySelector('[data-testid="workshop-submode-ai-zip"]') as HTMLElement | null
   },
   {
     id: 'export-exam',
@@ -124,8 +119,7 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       '預設 A4 防跨頁切割排版，生成中可隨時取消，也支援手機／平板系統列印。'
     ],
     getTarget: () =>
-      (document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null) ||
-      (document.querySelector('[data-testid="export-generate-pdf-btn"]') as HTMLElement | null)
+      document.querySelector('[data-testid="workshop-submode-exam-paper"]') as HTMLElement | null
   }
 ];
 
@@ -588,13 +582,6 @@ export default function PobiTutorialModal({
 
   return createPortal(
     <>
-      <style>{`
-        @keyframes pobiSpotlightPulse {
-          0%, 100% { box-shadow: 0 0 0 9999px rgba(10, 18, 28, 0.56), 0 0 0 3px #F59E0B, 0 0 18px rgba(245, 158, 11, 0.72); }
-          50% { box-shadow: 0 0 0 9999px rgba(10, 18, 28, 0.56), 0 0 0 6px #FBBF24, 0 0 26px rgba(251, 191, 36, 0.92); }
-        }
-      `}</style>
-
       {/* Transparent click & touch drag blocker backdrop so background cannot be dragged or clicked during tour */}
       <div
         aria-hidden="true"
@@ -605,13 +592,14 @@ export default function PobiTutorialModal({
           touchAction: 'none',
           overscrollBehavior: 'none',
           userSelect: 'none',
-          backgroundColor: targetRect ? 'transparent' : 'rgba(10, 18, 28, 0.56)'
+          backgroundColor: targetRect ? 'transparent' : 'rgba(10, 18, 28, 0.58)'
         }}
       />
 
-      {/* Spotlight Cutout Ring */}
+      {/* Spotlight Cutout Ring - static cutout shadow (no WebKit 9999px box-shadow animation ghosting), keyed per step */}
       {targetRect && (
         <div
+          key={currentStep.id}
           data-testid="pobi-spotlight-ring"
           style={{
             position: 'fixed',
@@ -620,11 +608,10 @@ export default function PobiTutorialModal({
             width: `${targetRect.width + pad * 2}px`,
             height: `${targetRect.height + pad * 2}px`,
             borderRadius: '11px',
-            border: '2.5px solid #F59E0B',
+            border: '3px solid #F59E0B',
+            boxShadow: '0 0 0 9999px rgba(10, 18, 28, 0.58), 0 0 18px rgba(245, 158, 11, 0.55)',
             zIndex: 100040,
-            pointerEvents: 'none',
-            transition: 'all 0.24s cubic-bezier(0.22, 1, 0.36, 1)',
-            animation: 'pobiSpotlightPulse 1.8s ease-in-out infinite'
+            pointerEvents: 'none'
           }}
         >
           <span
@@ -653,6 +640,7 @@ export default function PobiTutorialModal({
 
       {/* Floating POBI Coachmark Card */}
       <div
+        key={currentStep.id}
         role="dialog"
         aria-label="POBI 步驟教學導覽"
         data-testid="pobi-tutorial-coachmark"
@@ -667,8 +655,7 @@ export default function PobiTutorialModal({
           border: '2px solid #D97706',
           boxShadow: '0 22px 50px rgba(0, 0, 0, 0.38)',
           zIndex: 100050,
-          overflow: 'hidden',
-          transition: 'top 0.24s cubic-bezier(0.22, 1, 0.36, 1), left 0.24s cubic-bezier(0.22, 1, 0.36, 1)'
+          overflow: 'hidden'
         }}
       >
         {/* Header with POBI Avatar & Top-Right X */}
