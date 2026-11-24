@@ -7,7 +7,6 @@ import {
 } from './types';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
-import DinoGame from './components/DinoGame';
 import PobiTutorialModal from './components/PobiTutorialModal';
 import { GoldCornerOrnaments, AcademicHandDrawnBackdrop } from './components/PobiDesignElements';
 import BackupRestoreModal from './components/BackupRestoreModal';
@@ -20,7 +19,7 @@ import TemplateManager from './components/TemplateManager';
 import AdminPanel from './components/AdminPanel';
 import UsageGuide from './components/UsageGuide';
 import BookshelfView from './components/BookshelfView';
-import NotebookOpenView from './components/NotebookOpenView';
+import NotebookOpenView, { type NotebookOpenOptions } from './components/NotebookOpenView';
 import DailyReviewHubView from './components/DailyReviewHubView';
 import BatchExamImportModal from './components/BatchExamImportModal';
 import BinderSpineNav from './components/BinderSpineNav';
@@ -75,13 +74,6 @@ export default function App() {
       return null;
     }
   });
-  const [dinoTestMode, setDinoTestMode] = useState<boolean>(() => {
-    try {
-      return new URLSearchParams(window.location.search).get('dino') === '1';
-    } catch {
-      return false;
-    }
-  });
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
       const saved = localStorage.getItem('theme');
@@ -94,6 +86,7 @@ export default function App() {
   // Navigation & Hierarchy states: default to 'bookshelf' (數位書架)
   const [activeView, setActiveView] = useState<AppViewType>('bookshelf');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [notebookPreset, setNotebookPreset] = useState<NotebookOpenOptions | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
   const [batchImportStage, setBatchImportStage] = useState<'prompt' | 'import' | 'review'>('prompt');
@@ -383,10 +376,11 @@ export default function App() {
     }
   };
 
-  const handleOpenNotebook = (subjectId: string) => {
+  const handleOpenNotebook = useCallback((subjectId: string, options?: NotebookOpenOptions) => {
     setSelectedSubjectId(subjectId);
+    setNotebookPreset(options ?? null);
     setActiveView('notebook');
-  };
+  }, []);
 
   const handleUpdateSingleMistake = (updated: MistakeRecord) => {
     setAllMistakes(prev => prev.map(m => m.id === updated.id ? updated : m));
@@ -497,51 +491,6 @@ export default function App() {
           } catch {}
         }}
       />
-    );
-  }
-
-  if (dinoTestMode) {
-    return (
-      <div className="binder-auth-stage">
-        <AcademicHandDrawnBackdrop subject="all" />
-        <GoldCornerOrnaments size={68} inset={14} opacity={0.58} />
-        <div
-          style={{
-            position: 'fixed',
-            top: '16px',
-            left: '16px',
-            zIndex: 50,
-            display: 'flex',
-            gap: '8px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setDinoTestMode(false);
-              setShowAuthView(true);
-            }}
-            className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-          >
-            前往登入頁
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDinoTestMode(false);
-              setShowAuthView(false);
-            }}
-            className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-          >
-            返回首頁
-          </button>
-        </div>
-        <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: '680px' }}>
-          <DinoGame theme={theme} />
-        </div>
-      </div>
     );
   }
 
@@ -847,7 +796,11 @@ export default function App() {
               subjectId={selectedSubjectId}
               categories={categories}
               mistakes={allMistakes}
-              onBackToBookshelf={() => setActiveView('bookshelf')}
+              initialPreset={notebookPreset}
+              onBackToBookshelf={() => {
+                setNotebookPreset(null);
+                setActiveView('bookshelf');
+              }}
               onAddChapter={handleAddChapterFromNotebook}
               onAddUnit={handleAddUnitFromNotebook}
               onRefreshAll={refreshAllData}

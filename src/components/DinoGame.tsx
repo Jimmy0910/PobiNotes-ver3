@@ -706,7 +706,7 @@ export default function DinoGame({ theme = 'light', compact = false }: DinoGameP
               color: theme === 'dark' ? '#e8dfd1' : '#3d342b',
             }}
           >
-            離線小恐龍 · 測試版
+            離線小恐龍
           </span>
           <span
             style={{
