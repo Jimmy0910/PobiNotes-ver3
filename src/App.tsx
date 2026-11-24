@@ -43,6 +43,8 @@ interface User {
   id: string;
   username: string;
   is_admin: number;
+  email?: string | null;
+  auth_provider?: string | null;
 }
 
 const EMPTY_CATEGORIES: CategoriesBundle = {
@@ -731,6 +733,7 @@ export default function App() {
             <DailyReviewHubView
               categories={categories}
               mistakes={allMistakes}
+              currentUser={user}
               initialSubjectId={selectedSubjectId}
               onSelectSubject={id => setSelectedSubjectId(id)}
               onGoToBookshelf={() => setActiveView('bookshelf')}

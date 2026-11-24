@@ -14,6 +14,10 @@ import {
 } from '../utils/reviewSettings';
 import { useUiFeedback } from './UiFeedbackProvider';
 import { GoldCornerOrnaments } from './PobiDesignElements';
+import GmailDailyReminderPanel, {
+  type DailyReminderClientConfig
+} from './GmailDailyReminderPanel';
+import { apiRequest } from '../utils/api';
 import {
   RotateCcw,
   CheckSquare,
@@ -29,7 +33,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
-  Check
+  Check,
+  Mail,
+  Lock
 } from 'lucide-react';
 
 interface SubjectDailyReviewPanelProps {
@@ -37,6 +43,13 @@ interface SubjectDailyReviewPanelProps {
   subjectName: string;
   categories: CategoriesBundle;
   subjectMistakes: MistakeRecord[];
+  currentUser?: {
+    id: string;
+    username: string;
+    is_admin: number;
+    email?: string | null;
+    auth_provider?: string | null;
+  } | null;
   onStartReview: (selectedMistakes: MistakeRecord[]) => void;
   onScheduleChanged?: () => void;
 }
@@ -46,6 +59,7 @@ export default function SubjectDailyReviewPanel({
   subjectName,
   categories,
   subjectMistakes,
+  currentUser,
   onStartReview,
   onScheduleChanged
 }: SubjectDailyReviewPanelProps) {
@@ -65,9 +79,49 @@ export default function SubjectDailyReviewPanel({
     };
   });
   const [scheduleVersion, setScheduleVersion] = useState(0);
-  // Default: only show the 2 step buttons (1. 選擇範圍 / 2. 開始複習), with schedule collapsed
-  const [activeReviewStep, setActiveReviewStep] = useState<'scope' | 'start' | null>(null);
+  // Default: show the 3 step buttons (1. 選擇範圍 / 2. 開始複習 / 3. GMAIL 每日通知), with schedule collapsed
+  const [activeReviewStep, setActiveReviewStep] = useState<'scope' | 'start' | 'gmail' | null>(null);
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
+
+  // Gmail Daily Notification eligibility & saved server state
+  const isGmailUser = Boolean(
+    currentUser &&
+      currentUser.id !== 'demo-guest' &&
+      currentUser.auth_provider === 'google' &&
+      typeof currentUser.email === 'string' &&
+      currentUser.email.trim().length > 0
+  );
+  const userGmailEmail = isGmailUser && currentUser?.email ? currentUser.email.trim() : '';
+  const [gmailConfig, setGmailConfig] = useState<DailyReminderClientConfig | null>(null);
+  const [loadingGmailConfig, setLoadingGmailConfig] = useState(false);
+
+  useEffect(() => {
+    if (!isGmailUser || !subjectId) {
+      setGmailConfig(null);
+      setLoadingGmailConfig(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingGmailConfig(true);
+    apiRequest(`/api/daily-reminder?subjectId=${encodeURIComponent(subjectId)}`)
+      .then(res => {
+        if (cancelled) return;
+        if (res?.success && res?.reminder) {
+          setGmailConfig(res.reminder);
+        } else {
+          setGmailConfig(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setGmailConfig(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingGmailConfig(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGmailUser, subjectId]);
 
   const syncDraftsFromSchedule = (next: SubjectFamiliaritySchedule) => {
     setDraftDays({
@@ -356,12 +410,12 @@ export default function SubjectDailyReviewPanel({
           </div>
         </div>
 
-        {/* Two Primary Step Buttons (Default View: 1. 選擇範圍 / 2. 開始複習) */}
+        {/* Primary Step Cards (1. 選擇範圍 / 2. 開始複習 / 3. GMAIL 每日通知) */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '18px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+            gap: '16px'
           }}
         >
           {/* Step Button 1: 選擇範圍 */}
@@ -521,6 +575,169 @@ export default function SubjectDailyReviewPanel({
               }}
             >
               今日到期 {selectedDueMistakes.length} 題 · 已選範圍全部 {selectedScopeMistakes.length} 題
+            </div>
+          </button>
+
+          {/* Step Button 3: GMAIL 每日通知 (Gmail-registered users only; locked otherwise) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!isGmailUser) {
+                showToast('開通Gmail帳號才能使用喔!!!', 'info');
+                return;
+              }
+              setActiveReviewStep(prev => (prev === 'gmail' ? null : 'gmail'));
+            }}
+            data-testid="daily-review-step3-gmail-btn"
+            aria-disabled={!isGmailUser}
+            className={`pobi-mode-card ${isGmailUser && activeReviewStep === 'gmail' ? 'is-selected' : ''}`}
+            style={{
+              minHeight: '176px',
+              padding: '22px 22px 18px 22px',
+              borderRadius: '14px',
+              border: !isGmailUser
+                ? '1.5px dashed var(--glass-border)'
+                : activeReviewStep === 'gmail'
+                  ? '2px solid var(--accent-primary)'
+                  : '1px solid var(--glass-border)',
+              backgroundColor: !isGmailUser
+                ? 'var(--bg-secondary)'
+                : activeReviewStep === 'gmail'
+                  ? 'var(--warning-bg)'
+                  : 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              cursor: !isGmailUser ? 'not-allowed' : 'pointer',
+              opacity: !isGmailUser ? 0.92 : 1,
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '14px',
+              boxShadow:
+                isGmailUser && activeReviewStep === 'gmail'
+                  ? '0 8px 20px rgba(20, 91, 56, 0.16)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.05)'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '11px',
+                    backgroundColor: !isGmailUser
+                      ? 'var(--glass-border)'
+                      : gmailConfig?.enabled
+                        ? 'var(--accent-primary)'
+                        : 'var(--glass-highlight)',
+                    color: !isGmailUser
+                      ? 'var(--text-secondary)'
+                      : gmailConfig?.enabled
+                        ? '#FFFFFF'
+                        : 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  {isGmailUser ? <Mail size={21} /> : <Lock size={20} />}
+                </div>
+                <span
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    border: !isGmailUser
+                      ? '1px solid var(--glass-border)'
+                      : gmailConfig?.enabled
+                        ? '1px solid var(--accent-primary)'
+                        : '1px solid var(--glass-border)',
+                    backgroundColor: !isGmailUser
+                      ? 'var(--bg-primary)'
+                      : gmailConfig?.enabled
+                        ? 'var(--accent-primary)'
+                        : 'var(--bg-secondary)',
+                    color: !isGmailUser
+                      ? 'var(--text-secondary)'
+                      : gmailConfig?.enabled
+                        ? '#FFFFFF'
+                        : 'var(--text-secondary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {!isGmailUser ? (
+                    <>
+                      <Lock size={12} />
+                      <span>已鎖定</span>
+                    </>
+                  ) : gmailConfig?.enabled ? (
+                    <>
+                      <Check size={12} />
+                      <span>已開啟 · {gmailConfig.sendTime}</span>
+                    </>
+                  ) : (
+                    <span>{activeReviewStep === 'gmail' ? '設定中（點此收合）' : '點此設定通知'}</span>
+                  )}
+                </span>
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '1.08rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>3. GMAIL 每日通知</span>
+                </div>
+                {!isGmailUser ? (
+                  <div
+                    data-testid="gmail-locked-notice"
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--warning-bg)',
+                      border: '1px solid var(--warning-border)',
+                      color: 'var(--warning-text)',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      lineHeight: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Lock size={14} style={{ flexShrink: 0 }} />
+                    <span>開通Gmail帳號才能使用喔!!!</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.6 }}>
+                    自訂通知範圍、熟悉度週期、開啟或關閉每日提醒，以及自動寄信時間與星期。
+                  </div>
+                )}
+              </div>
+            </div>
+            <div
+              style={{
+                paddingTop: '10px',
+                borderTop: '1px dashed var(--glass-border)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: !isGmailUser
+                  ? 'var(--text-secondary)'
+                  : gmailConfig?.enabled
+                    ? 'var(--accent-primary)'
+                    : 'var(--text-secondary)',
+                fontVariantNumeric: 'tabular-nums'
+              }}
+            >
+              {!isGmailUser
+                ? '一般帳號無法使用 · 請以 Google 帳號登入解鎖'
+                : loadingGmailConfig
+                  ? '正在同步通知狀態...'
+                  : gmailConfig?.enabled
+                    ? `自動寄信已開啟 · ${gmailConfig.sendTime}（UTC+8）`
+                    : '目前未開啟 · 點擊設定每日自動寄信'}
             </div>
           </button>
         </div>
@@ -768,6 +985,28 @@ export default function SubjectDailyReviewPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Expanded Panel for Step 3: GMAIL Daily Notification Settings (Gmail users only) */}
+        {activeReviewStep === 'gmail' && isGmailUser && (
+          <GmailDailyReminderPanel
+            subjectId={subjectId}
+            subjectName={subjectName}
+            userEmail={userGmailEmail}
+            scopeGroups={scopeStructure.groups}
+            allScopeKeys={scopeStructure.allScopeKeys}
+            currentReviewScopeKeys={selectedKeys}
+            currentSubjectSchedule={schedule}
+            initialConfig={gmailConfig}
+            loadingConfig={loadingGmailConfig}
+            onConfigSaved={saved => setGmailConfig(saved)}
+            onScheduleSynced={nextSchedule => {
+              setSchedule(nextSchedule);
+              syncDraftsFromSchedule(nextSchedule);
+              setScheduleVersion(v => v + 1);
+              onScheduleChanged?.();
+            }}
+          />
         )}
       </section>
 

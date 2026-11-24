@@ -71,7 +71,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       success: true,
       token,
       message: 'User registered successfully.',
-      user: { id: userId, username: trimmedUsername, is_admin: isAdminVal }
+      user: {
+        id: userId,
+        username: trimmedUsername,
+        is_admin: isAdminVal,
+        email: null,
+        auth_provider: 'local'
+      }
     }), {
       status: 200,
       headers: {

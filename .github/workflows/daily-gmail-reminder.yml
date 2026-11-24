@@ -1,0 +1,31 @@
+name: Daily Gmail Review Reminder Dispatch
+
+on:
+  schedule:
+    # Run at minute 0 of every hour (UTC); the Pages Function matches Asia/Taipei (UTC+8) hour & weekday
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch-daily-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Pages daily reminder dispatch
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.POBI_SITE_URL || 'https://pobinotes-ver3.pages.dev' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not configured in GitHub Actions. Skipping dispatch."
+            exit 0
+          fi
+          HTTP_STATUS=$(curl -sS -o /tmp/cron_response.json -w "%{http_code}" \
+            -X POST "${SITE_URL}/api/cron/send-daily-reminders" \
+            -H "X-Cron-Secret: ${CRON_SECRET}" \
+            -H "Content-Type: application/json")
+          echo "HTTP Status: ${HTTP_STATUS}"
+          cat /tmp/cron_response.json
+          echo ""
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            exit 1
+          fi

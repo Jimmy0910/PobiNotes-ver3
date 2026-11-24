@@ -385,6 +385,23 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS daily_email_reminders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          subject_id TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          scope_keys_json TEXT NOT NULL DEFAULT '["__ALL__"]',
+          schedule_json TEXT NOT NULL DEFAULT '{"不會":1,"卡":3,"誤解":5,"順":14}',
+          send_time TEXT NOT NULL DEFAULT '20:00',
+          days_of_week_json TEXT NOT NULL DEFAULT '[0,1,2,3,4,5,6]',
+          timezone TEXT NOT NULL DEFAULT 'Asia/Taipei',
+          last_sent_date TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(user_id, subject_id)
+        )
       `)
     ]);
 

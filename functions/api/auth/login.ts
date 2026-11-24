@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const trimmedUsername = username.trim();
 
     // Query user
-    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin, auth_provider FROM users WHERE LOWER(username) = LOWER(?)')
+    const user = await env.DB.prepare('SELECT id, username, password_hash, is_admin, auth_provider, email FROM users WHERE LOWER(username) = LOWER(?)')
       .bind(trimmedUsername)
       .first() as any;
 
@@ -73,7 +73,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify({
       success: true,
       token,
-      user: { id: user.id, username: user.username, is_admin: isAdminVal }
+      user: {
+        id: user.id,
+        username: user.username,
+        is_admin: isAdminVal,
+        email: typeof user.email === 'string' && user.email.trim() ? user.email.trim() : null,
+        auth_provider: typeof user.auth_provider === 'string' && user.auth_provider.trim() ? user.auth_provider.trim() : 'local'
+      }
     }), {
       status: 200,
       headers: {

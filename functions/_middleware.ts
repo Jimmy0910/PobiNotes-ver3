@@ -18,6 +18,10 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
   const isPublicReadRequest =
     request.method === 'GET' &&
     (url.pathname === '/api/share' || url.pathname.startsWith('/api/images/'));
+  const isCronDispatchRequest =
+    request.method === 'POST' &&
+    url.pathname === '/api/cron/send-daily-reminders' &&
+    Boolean(request.headers.get('X-Cron-Secret'));
   
   const jwtSecret = env.JWT_SECRET || 'local-dev-jwt-secret-key-12345';
   
@@ -62,8 +66,8 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
     });
   }
 
-  // Block unauthorized API requests (excluding login/register and public read-only share/image endpoints)
-  if (isApiRequest && !isAuthRequest && !isPublicReadRequest && !user) {
+  // Block unauthorized API requests (excluding login/register, public read-only share/image, and secret-authenticated cron dispatch)
+  if (isApiRequest && !isAuthRequest && !isPublicReadRequest && !isCronDispatchRequest && !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized. Please login.' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }

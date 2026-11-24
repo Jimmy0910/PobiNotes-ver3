@@ -12,6 +12,13 @@ import { RotateCcw, BookOpen } from 'lucide-react';
 interface DailyReviewHubViewProps {
   categories: CategoriesBundle;
   mistakes: MistakeRecord[];
+  currentUser?: {
+    id: string;
+    username: string;
+    is_admin: number;
+    email?: string | null;
+    auth_provider?: string | null;
+  } | null;
   initialSubjectId?: string | null;
   onSelectSubject?: (subjectId: string) => void;
   onGoToBookshelf: () => void;
@@ -22,6 +29,7 @@ interface DailyReviewHubViewProps {
 export default function DailyReviewHubView({
   categories,
   mistakes,
+  currentUser,
   initialSubjectId,
   onSelectSubject,
   onGoToBookshelf,
@@ -232,6 +240,7 @@ export default function DailyReviewHubView({
           subjectName={activeSubject.name}
           categories={categories}
           subjectMistakes={activeSubjectMistakes}
+          currentUser={currentUser}
           onStartReview={picked => setActiveReviewQueue(picked)}
           onScheduleChanged={() => setScheduleTick(t => t + 1)}
         />
