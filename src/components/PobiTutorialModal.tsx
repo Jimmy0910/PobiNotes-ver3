@@ -144,8 +144,11 @@ export default function PobiTutorialModal({
   const [seededDone, setSeededDone] = useState(false);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const initializedRef = useRef(false);
+  const activeStepIdxRef = useRef(0);
   const stepRunIdRef = useRef(0);
   const timersRef = useRef<number[]>([]);
+
+  activeStepIdxRef.current = stepIdx;
 
   const clearScheduledTimers = useCallback(() => {
     for (const id of timersRef.current) {
@@ -174,8 +177,14 @@ export default function PobiTutorialModal({
 
   const currentStep = SPOTLIGHT_STEPS[stepIdx];
 
-  const measureTarget = useCallback((allowAutoScroll = false) => {
-    const el = currentStep.getTarget();
+  const measureTarget = useCallback((allowAutoScroll = false, explicitStepIdx?: number) => {
+    const idx = explicitStepIdx ?? activeStepIdxRef.current;
+    const step = SPOTLIGHT_STEPS[idx];
+    if (!step) {
+      setTargetRect(null);
+      return;
+    }
+    const el = step.getTarget();
     if (!el) {
       setTargetRect(null);
       return;
@@ -211,7 +220,7 @@ export default function PobiTutorialModal({
       }
       return nextRect;
     });
-  }, [currentStep]);
+  }, []);
 
   // Helper: wait until an element appears in DOM (respecting step cancellation)
   const waitForElement = useCallback(
@@ -232,6 +241,7 @@ export default function PobiTutorialModal({
   const syncViewForStep = useCallback(
     (nextIdx: number) => {
       clearScheduledTimers();
+      activeStepIdxRef.current = nextIdx;
       const runId = ++stepRunIdRef.current;
       setTargetRect(null);
 
@@ -268,7 +278,7 @@ export default function PobiTutorialModal({
                   cardsEl.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
                 } catch {}
                 scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true);
+                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
                 }, 100);
               }, 40);
             }, 60);
@@ -288,7 +298,7 @@ export default function PobiTutorialModal({
                   aiBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
                 } catch {}
                 scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true);
+                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
                 }, 100);
               }, 40);
             }, 60);
@@ -308,13 +318,13 @@ export default function PobiTutorialModal({
                   pdfBtn.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
                 } catch {}
                 scheduleTimer(() => {
-                  if (stepRunIdRef.current === runId) measureTarget(true);
+                  if (stepRunIdRef.current === runId) measureTarget(true, nextIdx);
                 }, 100);
               }, 40);
             }, 60);
           }, 40);
         }
-      });
+      }, 40);
     },
     [clearScheduledTimers, measureTarget, onNavigateView, onOpenNotebook, pickPreferredSubjectId, scheduleTimer, waitForElement]
   );
