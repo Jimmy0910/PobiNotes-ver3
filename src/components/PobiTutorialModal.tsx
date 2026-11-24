@@ -581,7 +581,7 @@ export default function PobiTutorialModal({
   }
 
   return createPortal(
-    <>
+    <div data-testid="pobi-tutorial-root">
       {/* Transparent click & touch drag blocker backdrop so background cannot be dragged or clicked during tour */}
       <div
         aria-hidden="true"
@@ -596,10 +596,9 @@ export default function PobiTutorialModal({
         }}
       />
 
-      {/* Spotlight Cutout Ring - static cutout shadow (no WebKit 9999px box-shadow animation ghosting), keyed per step */}
+      {/* Single Spotlight Cutout Ring (static shadow, no position morph transition, single DOM node guaranteed) */}
       {targetRect && (
         <div
-          key={currentStep.id}
           data-testid="pobi-spotlight-ring"
           style={{
             position: 'fixed',
@@ -640,11 +639,10 @@ export default function PobiTutorialModal({
 
       {/* Floating POBI Coachmark Card */}
       <div
-        key={currentStep.id}
         role="dialog"
         aria-label="POBI 步驟教學導覽"
         data-testid="pobi-tutorial-coachmark"
-        className="glass animate-fade-in"
+        className="glass"
         style={{
           position: 'fixed',
           top: `${cardTop}px`,
@@ -842,7 +840,7 @@ export default function PobiTutorialModal({
           </div>
         </div>
       </div>
-    </>,
+    </div>,
     document.body
   );
 }
