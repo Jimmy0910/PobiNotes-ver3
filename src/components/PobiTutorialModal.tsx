@@ -335,10 +335,14 @@ export default function PobiTutorialModal({
       initializedRef.current = true;
       onNavigateView('bookshelf');
     }
+  }, [onNavigateView]);
+
+  // Only clear scheduled timers when the tutorial modal actually unmounts
+  useEffect(() => {
     return () => {
       clearScheduledTimers();
     };
-  }, [onNavigateView, clearScheduledTimers]);
+  }, [clearScheduledTimers]);
 
   // Lock user wheel/touch/keyboard scroll while keeping programmatic scrollIntoView working
   useEffect(() => {

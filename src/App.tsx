@@ -1069,7 +1069,7 @@ export default function App() {
           categories={categories}
           activeView={activeView}
           selectedSubjectId={selectedSubjectId}
-          onNavigateView={view => setActiveView(view)}
+          onNavigateView={setActiveView}
           onOpenNotebook={handleOpenNotebook}
           isNewUser={isNewUserTutorial}
           onClose={() => {
