@@ -33,9 +33,11 @@ const OFFICIAL_SHARE_URL = 'https://pobinotes-ver3.pages.dev/';
 interface LandingPageProps {
   onEnterDemo: () => void;
   onGoToAuth: (mode?: 'login' | 'register') => void;
+  onPrefetchDemo?: () => void;
+  onPrefetchAuth?: () => void;
 }
 
-export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProps) {
+export default function LandingPage({ onEnterDemo, onGoToAuth, onPrefetchDemo, onPrefetchAuth }: LandingPageProps) {
   const { showToast } = useUiFeedback();
   const [copiedSiteUrl, setCopiedSiteUrl] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
@@ -224,6 +226,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           </button>
           <button
             type="button"
+            onMouseEnter={onPrefetchAuth}
+            onFocus={onPrefetchAuth}
+            onPointerDown={onPrefetchAuth}
             onClick={() => onGoToAuth('login')}
             className="btn btn-secondary"
             style={{ padding: '7px 14px', fontSize: '0.86rem', fontWeight: 600 }}
@@ -233,6 +238,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           </button>
           <button
             type="button"
+            onMouseEnter={onPrefetchAuth}
+            onFocus={onPrefetchAuth}
+            onPointerDown={onPrefetchAuth}
             onClick={() => onGoToAuth('register')}
             className="btn btn-primary"
             style={{ padding: '7px 16px', fontSize: '0.86rem', fontWeight: 700 }}
@@ -308,6 +316,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', paddingTop: '4px' }}>
               <button
                 type="button"
+                onMouseEnter={onPrefetchDemo}
+                onFocus={onPrefetchDemo}
+                onPointerDown={onPrefetchDemo}
                 onClick={onEnterDemo}
                 className="btn btn-primary"
                 style={{
@@ -326,6 +337,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
 
               <button
                 type="button"
+                onMouseEnter={onPrefetchAuth}
+                onFocus={onPrefetchAuth}
+                onPointerDown={onPrefetchAuth}
                 onClick={() => onGoToAuth('register')}
                 className="btn btn-secondary"
                 style={{
@@ -718,6 +732,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
+              onMouseEnter={onPrefetchDemo}
+              onFocus={onPrefetchDemo}
+              onPointerDown={onPrefetchDemo}
               onClick={onEnterDemo}
               className="btn btn-primary"
               style={{ padding: '10px 20px', fontSize: '0.9rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -728,6 +745,9 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             <button
               type="button"
               className="pobi-promo-ctrl-btn"
+              onMouseEnter={onPrefetchAuth}
+              onFocus={onPrefetchAuth}
+              onPointerDown={onPrefetchAuth}
               onClick={() => onGoToAuth('register')}
               data-testid="landing-bottom-register-btn"
               style={{

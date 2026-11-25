@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import '../styles/notebookLayout.css';
 import {
   type CategoriesBundle,
   type MistakeRecord,

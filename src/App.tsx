@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
-import { apiRequest } from './utils/api';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, startTransition, type ComponentType } from 'react';
+import { apiRequest, preloadLocalFallback } from './utils/api';
 import {
   type CategoriesBundle,
   type MistakeRecord,
@@ -10,22 +10,59 @@ import { GoldCornerOrnaments, AcademicHandDrawnBackdrop } from './components/Pob
 import { useUiFeedback } from './components/UiFeedbackProvider';
 import type { AppViewType } from './components/Dashboard';
 import type { NotebookOpenOptions } from './components/NotebookOpenView';
-import './styles/notebookLayout.css';
 
-const AuthPage = lazy(() => import('./components/AuthPage'));
-const PobiTutorialModal = lazy(() => import('./components/PobiTutorialModal'));
-const BackupRestoreModal = lazy(() => import('./components/BackupRestoreModal'));
-const SharedPackView = lazy(() => import('./components/SharedPackView'));
-const UncategorizedView = lazy(() => import('./components/UncategorizedView'));
-const PromptGenerator = lazy(() => import('./components/PromptGenerator'));
-const TemplateManager = lazy(() => import('./components/TemplateManager'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
-const UsageGuide = lazy(() => import('./components/UsageGuide'));
-const BookshelfView = lazy(() => import('./components/BookshelfView'));
-const NotebookOpenView = lazy(() => import('./components/NotebookOpenView'));
-const DailyReviewHubView = lazy(() => import('./components/DailyReviewHubView'));
-const BatchExamImportModal = lazy(() => import('./components/BatchExamImportModal'));
-const BinderSpineNav = lazy(() => import('./components/BinderSpineNav'));
+function lazyWithPreload<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  let cachedPromise: Promise<{ default: T }> | null = null;
+  const preload = () => {
+    if (!cachedPromise) {
+      cachedPromise = factory();
+    }
+    return cachedPromise;
+  };
+  return Object.assign(lazy(preload), { preload });
+}
+
+const AuthPage = lazyWithPreload(() => import('./components/AuthPage'));
+const PobiTutorialModal = lazyWithPreload(() => import('./components/PobiTutorialModal'));
+const BackupRestoreModal = lazyWithPreload(() => import('./components/BackupRestoreModal'));
+const SharedPackView = lazyWithPreload(() => import('./components/SharedPackView'));
+const UncategorizedView = lazyWithPreload(() => import('./components/UncategorizedView'));
+const PromptGenerator = lazyWithPreload(() => import('./components/PromptGenerator'));
+const TemplateManager = lazyWithPreload(() => import('./components/TemplateManager'));
+const AdminPanel = lazyWithPreload(() => import('./components/AdminPanel'));
+const UsageGuide = lazyWithPreload(() => import('./components/UsageGuide'));
+const BookshelfView = lazyWithPreload(() => import('./components/BookshelfView'));
+const NotebookOpenView = lazyWithPreload(() => import('./components/NotebookOpenView'));
+const DailyReviewHubView = lazyWithPreload(() => import('./components/DailyReviewHubView'));
+const BatchExamImportModal = lazyWithPreload(() => import('./components/BatchExamImportModal'));
+const BinderSpineNav = lazyWithPreload(() => import('./components/BinderSpineNav'));
+
+function preloadAuthenticatedChunks(includeAdmin = false) {
+  void preloadLocalFallback();
+  void BinderSpineNav.preload();
+  void BookshelfView.preload();
+  const runSecondary = () => {
+    void NotebookOpenView.preload();
+    void DailyReviewHubView.preload();
+    void UncategorizedView.preload();
+    void PromptGenerator.preload();
+    void TemplateManager.preload();
+    void UsageGuide.preload();
+    void PobiTutorialModal.preload();
+    void BatchExamImportModal.preload();
+    void BackupRestoreModal.preload();
+    if (includeAdmin) {
+      void AdminPanel.preload();
+    }
+  };
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(runSecondary);
+  } else {
+    globalThis.setTimeout(runSecondary, 120);
+  }
+}
 import {
   LogOut,
   Sun,
@@ -259,9 +296,10 @@ export default function App() {
     checkSession();
   }, [showToast]);
 
-  // Load categories and mistakes whenever user logs in
+  // Load categories and mistakes whenever user logs in, and warm-preload all authenticated chunks
   useEffect(() => {
     if (user) {
+      preloadAuthenticatedChunks(user.is_admin === 1);
       refreshAllData().then(() => {
         try {
           const doneKey = `pobi_onboarding_done_${user.id}`;
@@ -271,8 +309,12 @@ export default function App() {
             apiRequest('/api/mistakes')
               .then(list => {
                 if (Array.isArray(list) && list.length === 0) {
-                  setIsNewUserTutorial(true);
-                  setShowPobiTutorial(true);
+                  void PobiTutorialModal.preload().then(() => {
+                    startTransition(() => {
+                      setIsNewUserTutorial(true);
+                      setShowPobiTutorial(true);
+                    });
+                  });
                 }
               })
               .catch(() => {});
@@ -285,6 +327,27 @@ export default function App() {
       setShowPobiTutorial(false);
     }
   }, [user, refreshAllData]);
+
+  // Warm-preload entry chunks upon first human interaction on LandingPage (zero cold-load cost)
+  useEffect(() => {
+    if (user) return;
+    let triggered = false;
+    const warmOnInteraction = () => {
+      if (triggered) return;
+      triggered = true;
+      void AuthPage.preload();
+      preloadAuthenticatedChunks(false);
+    };
+    const events: Array<keyof WindowEventMap> = ['pointermove', 'pointerdown', 'touchstart', 'keydown', 'scroll'];
+    for (const evt of events) {
+      window.addEventListener(evt, warmOnInteraction, { once: true, passive: true });
+    }
+    return () => {
+      for (const evt of events) {
+        window.removeEventListener(evt, warmOnInteraction);
+      }
+    };
+  }, [user]);
 
   // Listen for window resize to auto-collapse sidebar on mobile
   useEffect(() => {
@@ -310,6 +373,30 @@ export default function App() {
     } catch {}
   }, [theme]);
 
+  const navigateView = useCallback((nextView: AppViewType) => {
+    const preloaderMap: Partial<Record<AppViewType, () => Promise<unknown>>> = {
+      bookshelf: BookshelfView.preload,
+      notebook: NotebookOpenView.preload,
+      'daily-review': DailyReviewHubView.preload,
+      uncategorized: UncategorizedView.preload,
+      prompt: PromptGenerator.preload,
+      templates: TemplateManager.preload,
+      guide: UsageGuide.preload,
+      admin: AdminPanel.preload
+    };
+    const preloadFn = preloaderMap[nextView];
+    const apply = () => {
+      startTransition(() => {
+        setActiveView(nextView);
+      });
+    };
+    if (preloadFn) {
+      void preloadFn().finally(apply);
+    } else {
+      apply();
+    }
+  }, []);
+
   const handleLoginSuccess = (loggedInUser: User) => {
     if (loggedInUser.id !== 'demo-guest') {
       try {
@@ -320,9 +407,13 @@ export default function App() {
         localStorage.setItem('pobi_has_session', '1');
       } catch {}
     }
-    setUser(loggedInUser);
-    setShowAuthView(false);
-    setActiveView('bookshelf');
+    void Promise.all([BinderSpineNav.preload(), BookshelfView.preload()]).finally(() => {
+      startTransition(() => {
+        setUser(loggedInUser);
+        setShowAuthView(false);
+        setActiveView('bookshelf');
+      });
+    });
   };
 
   const clearGuestDemoStorage = () => {
@@ -371,11 +462,16 @@ export default function App() {
           }
         }
       } catch {}
-      setUser(demoUser);
-      setActiveView('bookshelf');
+      await Promise.all([BinderSpineNav.preload(), BookshelfView.preload()]);
+      startTransition(() => {
+        setUser(demoUser);
+        setActiveView('bookshelf');
+      });
       showToast('已進入訪客體驗模式（登出後將自動清空重設）', 'info');
     } catch {
-      setShowAuthView(true);
+      void AuthPage.preload().finally(() => {
+        startTransition(() => setShowAuthView(true));
+      });
     }
   };
 
@@ -408,9 +504,13 @@ export default function App() {
   };
 
   const handleOpenNotebook = useCallback((subjectId: string, options?: NotebookOpenOptions) => {
-    setSelectedSubjectId(subjectId);
-    setNotebookPreset(options ?? null);
-    setActiveView('notebook');
+    void NotebookOpenView.preload().finally(() => {
+      startTransition(() => {
+        setSelectedSubjectId(subjectId);
+        setNotebookPreset(options ?? null);
+        setActiveView('notebook');
+      });
+    });
   }, []);
 
   const handleUpdateSingleMistake = (updated: MistakeRecord) => {
@@ -551,20 +651,32 @@ export default function App() {
       return (
         <LandingPage
           onEnterDemo={handleEnterDemo}
+          onPrefetchDemo={() => {
+            void preloadLocalFallback();
+            void BinderSpineNav.preload();
+            void BookshelfView.preload();
+          }}
+          onPrefetchAuth={() => {
+            void AuthPage.preload();
+          }}
           onGoToAuth={mode => {
-            setAuthInitialMode(mode || 'login');
-            setShowAuthView(true);
+            void AuthPage.preload().finally(() => {
+              startTransition(() => {
+                setAuthInitialMode(mode || 'login');
+                setShowAuthView(true);
+              });
+            });
           }}
         />
       );
     }
     return (
-      <Suspense fallback={suspenseFallback}>
+      <Suspense fallback={null}>
         <div className="bg-ambient-lights" />
         <div style={{ position: 'fixed', top: '16px', left: '16px', zIndex: 50 }}>
           <button
             type="button"
-            onClick={() => setShowAuthView(false)}
+            onClick={() => startTransition(() => setShowAuthView(false))}
             className="btn btn-secondary"
             style={{ padding: '6px 12px', fontSize: '0.82rem' }}
           >
@@ -581,7 +693,6 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={suspenseFallback}>
     <div className="binder-app-shell">
       <div className="bg-ambient-lights" />
 
@@ -595,40 +706,46 @@ export default function App() {
       )}
 
       {/* Left Binder Spine Navigation */}
-      <BinderSpineNav
-        activeView={activeView}
-        onNavigateView={(view) => {
-          setActiveView(view);
-          if (window.innerWidth <= 768) {
-            setSidebarCollapsed(true);
-          }
-        }}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
-        user={user}
-        uncategorizedCount={uncategorizedCount}
-        dueReviewCount={totalDueReviewCount}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onOpenGuide={() => {
-          setActiveView('guide');
-          if (window.innerWidth <= 768) setSidebarCollapsed(true);
-        }}
-        onOpenPobiTutorial={() => {
-          setIsNewUserTutorial(false);
-          setShowPobiTutorial(true);
-          if (window.innerWidth <= 768) setSidebarCollapsed(true);
-        }}
-        onOpenFeedback={() => {
-          openFeedbackModal();
-          if (window.innerWidth <= 768) setSidebarCollapsed(true);
-        }}
-        onLogout={handleLogout}
-        onOpenDeleteAccount={() => {
-          setShowDeleteAccountModal(true);
-          if (window.innerWidth <= 768) setSidebarCollapsed(true);
-        }}
-      />
+      <Suspense fallback={null}>
+        <BinderSpineNav
+          activeView={activeView}
+          onNavigateView={(view) => {
+            navigateView(view);
+            if (window.innerWidth <= 768) {
+              setSidebarCollapsed(true);
+            }
+          }}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+          user={user}
+          uncategorizedCount={uncategorizedCount}
+          dueReviewCount={totalDueReviewCount}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOpenGuide={() => {
+            navigateView('guide');
+            if (window.innerWidth <= 768) setSidebarCollapsed(true);
+          }}
+          onOpenPobiTutorial={() => {
+            void PobiTutorialModal.preload().finally(() => {
+              startTransition(() => {
+                setIsNewUserTutorial(false);
+                setShowPobiTutorial(true);
+              });
+            });
+            if (window.innerWidth <= 768) setSidebarCollapsed(true);
+          }}
+          onOpenFeedback={() => {
+            openFeedbackModal();
+            if (window.innerWidth <= 768) setSidebarCollapsed(true);
+          }}
+          onLogout={handleLogout}
+          onOpenDeleteAccount={() => {
+            setShowDeleteAccountModal(true);
+            if (window.innerWidth <= 768) setSidebarCollapsed(true);
+          }}
+        />
+      </Suspense>
 
       {/* Main Binder Stage */}
       <div className="binder-main-stage">
@@ -657,7 +774,7 @@ export default function App() {
             {/* Hidden brand for E2E navbar-brand compatibility */}
             <button
               className="pobi-wordmark navbar-brand"
-              onClick={() => setActiveView('bookshelf')}
+              onClick={() => navigateView('bookshelf')}
               title="回到我的書架首頁"
               style={{ display: 'none' }}
             >
@@ -683,7 +800,7 @@ export default function App() {
           >
             <button
               type="button"
-              onClick={() => setActiveView('bookshelf')}
+              onClick={() => navigateView('bookshelf')}
               className={`pobi-nav-item btn ${activeView === 'bookshelf' || activeView === 'notebook' ? 'active btn-primary' : 'btn-text'}`}
             >
               <BookOpen size={15} />
@@ -691,14 +808,14 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveView('templates')}
+              onClick={() => navigateView('templates')}
               className={`pobi-nav-item btn ${activeView === 'templates' ? 'active btn-primary' : 'btn-text'}`}
             >
               <span className="nav-label">模板管理</span>
             </button>
             <button
               type="button"
-              onClick={() => setActiveView('prompt')}
+              onClick={() => navigateView('prompt')}
               className={`pobi-nav-item btn ${activeView === 'prompt' ? 'active btn-primary' : 'btn-text'}`}
             >
               <Sparkles size={15} />
@@ -707,7 +824,7 @@ export default function App() {
             {user.is_admin === 1 && (
               <button
                 type="button"
-                onClick={() => setActiveView('admin')}
+                onClick={() => navigateView('admin')}
                 className={`pobi-nav-item btn ${activeView === 'admin' ? 'active btn-primary' : 'btn-text'}`}
               >
                 <Shield size={15} />
@@ -727,7 +844,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setActiveView('guide')}
+              onClick={() => navigateView('guide')}
               className="pobi-icon-btn btn btn-secondary"
               title="閱讀使用導引"
             >
@@ -769,6 +886,7 @@ export default function App() {
 
         {/* Main Layout Stage Container */}
         <div className="main-layout binder-stage-container" style={{ display: 'flex', flex: 1, padding: 0 }}>
+        <Suspense fallback={null}>
 
         {/* Bookshelf View (default fallback for any unmapped view) */}
         {(activeView === 'bookshelf' || (activeView === 'notebook' && !selectedSubjectId) || !['notebook', 'daily-review', 'uncategorized', 'templates', 'prompt', 'guide', 'admin'].includes(activeView)) && (
@@ -778,21 +896,35 @@ export default function App() {
               mistakes={allMistakes}
               onOpenNotebook={handleOpenNotebook}
               onAddSubject={handleAddSubjectFromBookshelf}
-              onOpenGuideModal={() => setActiveView('guide')}
+              onOpenGuideModal={() => navigateView('guide')}
               onOpenFeedbackModal={openFeedbackModal}
               onToggleTheme={toggleTheme}
               theme={theme}
               currentUser={user}
               onOpenBatchImport={() => {
-                setBatchImportStage('prompt');
-                setShowBatchImportModal(true);
+                void BatchExamImportModal.preload().finally(() => {
+                  startTransition(() => {
+                    setBatchImportStage('prompt');
+                    setShowBatchImportModal(true);
+                  });
+                });
               }}
               onOpenPobiTutorial={() => {
-                setIsNewUserTutorial(false);
-                setShowPobiTutorial(true);
+                void PobiTutorialModal.preload().finally(() => {
+                  startTransition(() => {
+                    setIsNewUserTutorial(false);
+                    setShowPobiTutorial(true);
+                  });
+                });
               }}
               onRefreshAll={refreshAllData}
-              onOpenBackupRestore={() => setShowBackupRestore(true)}
+              onOpenBackupRestore={() => {
+                void BackupRestoreModal.preload().finally(() => {
+                  startTransition(() => {
+                    setShowBackupRestore(true);
+                  });
+                });
+              }}
             />
           </div>
         )}
@@ -806,7 +938,7 @@ export default function App() {
               currentUser={user}
               initialSubjectId={selectedSubjectId}
               onSelectSubject={id => setSelectedSubjectId(id)}
-              onGoToBookshelf={() => setActiveView('bookshelf')}
+              onGoToBookshelf={() => navigateView('bookshelf')}
               onRefreshAll={refreshAllData}
               onUpdateMistake={handleUpdateSingleMistake}
             />
@@ -835,7 +967,7 @@ export default function App() {
               initialPreset={notebookPreset}
               onBackToBookshelf={() => {
                 setNotebookPreset(null);
-                setActiveView('bookshelf');
+                navigateView('bookshelf');
               }}
               onAddChapter={handleAddChapterFromNotebook}
               onAddUnit={handleAddUnitFromNotebook}
@@ -870,6 +1002,7 @@ export default function App() {
             }}
           />
         )}
+        </Suspense>
 
         {/* Bottom Editorial Footer Panel (下側面板背景點綴) */}
         <footer className="binder-bottom-bar no-print">
@@ -1036,54 +1169,59 @@ export default function App() {
 
       {/* Batch Exam Import & Fast Review Modal */}
       {showBatchImportModal && (
-        <BatchExamImportModal
-          isOpen={showBatchImportModal}
-          onClose={() => setShowBatchImportModal(false)}
-          categories={categories}
-          onRefreshCategories={refreshAllData}
-          onBatchImportComplete={(newMistakes) => {
-            setAllMistakes(prev => {
-              const existingIds = new Set(prev.map(m => m.id));
-              const uniqueNew = newMistakes.filter(m => !existingIds.has(m.id));
-              return [...uniqueNew, ...prev];
-            });
-          }}
-          onOpenZoomedImage={src => setZoomedImage(src)}
-          initialStage={batchImportStage}
-          unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
-        />
+        <Suspense fallback={null}>
+          <BatchExamImportModal
+            isOpen={showBatchImportModal}
+            onClose={() => setShowBatchImportModal(false)}
+            categories={categories}
+            onRefreshCategories={refreshAllData}
+            onBatchImportComplete={(newMistakes) => {
+              setAllMistakes(prev => {
+                const existingIds = new Set(prev.map(m => m.id));
+                const uniqueNew = newMistakes.filter(m => !existingIds.has(m.id));
+                return [...uniqueNew, ...prev];
+              });
+            }}
+            onOpenZoomedImage={src => setZoomedImage(src)}
+            initialStage={batchImportStage}
+            unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
+          />
+        </Suspense>
       )}
 
       {/* POBI Interactive Dynamic Spotlight Tutorial */}
       {showPobiTutorial && user && (
-        <PobiTutorialModal
-          categories={categories}
-          activeView={activeView}
-          selectedSubjectId={selectedSubjectId}
-          onNavigateView={setActiveView}
-          onOpenNotebook={handleOpenNotebook}
-          isNewUser={isNewUserTutorial}
-          onClose={() => {
-            try {
-              localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
-            } catch {}
-            setShowPobiTutorial(false);
-          }}
-          onRefreshAll={refreshAllData}
-        />
+        <Suspense fallback={null}>
+          <PobiTutorialModal
+            categories={categories}
+            activeView={activeView}
+            selectedSubjectId={selectedSubjectId}
+            onNavigateView={navigateView}
+            onOpenNotebook={handleOpenNotebook}
+            isNewUser={isNewUserTutorial}
+            onClose={() => {
+              try {
+                localStorage.setItem(`pobi_onboarding_done_${user.id}`, '1');
+              } catch {}
+              setShowPobiTutorial(false);
+            }}
+            onRefreshAll={refreshAllData}
+          />
+        </Suspense>
       )}
 
       {/* One-Click Full Backup & Restore Modal */}
       {showBackupRestore && (
-        <BackupRestoreModal
-          categories={categories}
-          mistakes={allMistakes}
-          onClose={() => setShowBackupRestore(false)}
-          onRestored={refreshAllData}
-        />
+        <Suspense fallback={null}>
+          <BackupRestoreModal
+            categories={categories}
+            mistakes={allMistakes}
+            onClose={() => setShowBackupRestore(false)}
+            onRestored={refreshAllData}
+          />
+        </Suspense>
       )}
       </div>
     </div>
-    </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import '../styles/notebookLayout.css';
 import type { CategoriesBundle, MistakeRecord } from '../types';
 import { apiRequest } from '../utils/api';
 import { useUiFeedback } from './UiFeedbackProvider';
