@@ -27,8 +27,10 @@ import {
   GoldGeometricDivider,
   AcademicHandDrawnBackdrop
 } from './PobiDesignElements';
+import RollerShutterIntro from './RollerShutterIntro';
 
 const OFFICIAL_SHARE_URL = 'https://pobinotes-ver3.pages.dev/';
+let hasPlayedShutterIntroInMemory = false;
 
 interface LandingPageProps {
   onEnterDemo: () => void;
@@ -40,6 +42,8 @@ interface LandingPageProps {
 export default function LandingPage({ onEnterDemo, onGoToAuth, onPrefetchDemo, onPrefetchAuth }: LandingPageProps) {
   const { showToast } = useUiFeedback();
   const [copiedSiteUrl, setCopiedSiteUrl] = useState(false);
+  const [showShutterIntro, setShowShutterIntro] = useState<boolean>(() => !hasPlayedShutterIntroInMemory);
+  const [introRunKey, setIntroRunKey] = useState(0);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const promoVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -157,6 +161,17 @@ export default function LandingPage({ onEnterDemo, onGoToAuth, onPrefetchDemo, o
         flexDirection: 'column'
       }}
     >
+      {/* Opening Warehouse Roller Shutter + Spray Paint + Bichon Paws Reveal */}
+      {showShutterIntro && (
+        <RollerShutterIntro
+          key={introRunKey}
+          onComplete={() => {
+            hasPlayedShutterIntroInMemory = true;
+            setShowShutterIntro(false);
+          }}
+        />
+      )}
+
       {/* Academic Hand-Drawn Technical Sketches Watermark */}
       <AcademicHandDrawnBackdrop subject="all" />
       {/* Gold Geometric Page Corner Ornaments */}
@@ -786,6 +801,31 @@ export default function LandingPage({ onEnterDemo, onGoToAuth, onPrefetchDemo, o
         <span style={{ position: 'relative', zIndex: 2, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.03em' }}>POBI STUDIO｜數位錯題手帳</span>
         <span style={{ position: 'relative', zIndex: 2, width: '5px', height: '5px', transform: 'rotate(45deg)', backgroundColor: '#C89A50', display: 'inline-block' }} />
         <span style={{ position: 'relative', zIndex: 2, letterSpacing: '0.06em' }}>Explore. Decode. Understand.</span>
+        <button
+          type="button"
+          onClick={() => {
+            setIntroRunKey(k => k + 1);
+            setShowShutterIntro(true);
+          }}
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            background: 'none',
+            border: '1px solid rgba(200, 154, 80, 0.45)',
+            borderRadius: '999px',
+            padding: '3px 10px',
+            fontSize: '0.74rem',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <RotateCcw size={12} />
+          <span>重播開場</span>
+        </button>
       </footer>
     </div>
   );
