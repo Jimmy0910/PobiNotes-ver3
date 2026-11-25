@@ -175,7 +175,7 @@ export default function AuthPage({ onLoginSuccess, initialMode = 'login', initia
                 justifyContent: 'center'
               }}
             >
-              <img src="/logo.png" alt="POBI STUDIO" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+              <img src="/logo-128.webp" alt="POBI STUDIO" width={50} height={50} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
             </div>
             <h1 className="binder-auth-title">
               POBI STUDIO

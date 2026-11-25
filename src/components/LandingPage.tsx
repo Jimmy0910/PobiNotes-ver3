@@ -193,8 +193,11 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             }}
           >
             <img
-              src="/logo.png"
+              src="/logo-128.webp"
               alt="POBI STUDIO 筆記本標誌"
+              width={32}
+              height={32}
+              decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '5px' }}
             />
           </div>
@@ -426,8 +429,11 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(200, 154, 80, 0.35)', paddingBottom: '12px', position: 'relative', zIndex: 2, gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <img
-                  src="/pobi-mascot.jpg"
+                  src="/pobi-mascot-128.webp"
                   alt="比熊 POBI 學習夥伴"
+                  width={40}
+                  height={40}
+                  decoding="async"
                   style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 25%', border: '1.5px solid #E4C284' }}
                 />
                 <div>
@@ -511,11 +517,11 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
               <video
                 ref={promoVideoRef}
                 src="/pobi-promo.mp4"
-                poster="/pobi-promo-poster.jpg"
+                poster="/pobi-promo-poster.webp"
                 muted={isVideoMuted}
                 playsInline
                 controls
-                preload="metadata"
+                preload="none"
                 data-testid="landing-promo-video"
                 onPlay={e => {
                   const v = e.currentTarget;
@@ -625,7 +631,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
         <GoldGeometricDivider />
 
         {/* Feature Grid Section */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '18px', contentVisibility: 'auto', containIntrinsicSize: '0 420px' }}>
           <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
             <h2 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: '1.52rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               從收錄、複習到實戰輸出，一套工具全部完成
@@ -691,8 +697,12 @@ export default function LandingPage({ onEnterDemo, onGoToAuth }: LandingPageProp
           <GoldCornerOrnaments size={44} inset={6} opacity={0.72} color="#E4C284" />
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 320px' }}>
             <img
-              src="/pobi-mascot.jpg"
+              src="/pobi-mascot-128.webp"
               alt="比熊 POBI"
+              width={56}
+              height={56}
+              loading="lazy"
+              decoding="async"
               style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 25%', border: '2px solid #E4C284', flexShrink: 0 }}
             />
             <div>

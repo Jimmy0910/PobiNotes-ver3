@@ -20,8 +20,6 @@ import {
   Check,
   X
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 interface FieldOption {
   value: string;
@@ -305,6 +303,11 @@ export default function ExportPDF({
       if (blocks.length === 0) {
         throw new Error('找不到可排版的試卷區塊');
       }
+
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas')
+      ]);
 
       const pdf = new jsPDF({
         orientation: 'portrait',

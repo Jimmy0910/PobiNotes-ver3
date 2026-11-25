@@ -1,29 +1,31 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { apiRequest } from './utils/api';
 import {
   type CategoriesBundle,
   type MistakeRecord,
   isMistakeDueForReview
 } from './types';
-import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
-import PobiTutorialModal from './components/PobiTutorialModal';
 import { GoldCornerOrnaments, AcademicHandDrawnBackdrop } from './components/PobiDesignElements';
-import BackupRestoreModal from './components/BackupRestoreModal';
-import SharedPackView from './components/SharedPackView';
-import UncategorizedView from './components/UncategorizedView';
 import { useUiFeedback } from './components/UiFeedbackProvider';
 import type { AppViewType } from './components/Dashboard';
-import PromptGenerator from './components/PromptGenerator';
-import TemplateManager from './components/TemplateManager';
-import AdminPanel from './components/AdminPanel';
-import UsageGuide from './components/UsageGuide';
-import BookshelfView from './components/BookshelfView';
-import NotebookOpenView, { type NotebookOpenOptions } from './components/NotebookOpenView';
-import DailyReviewHubView from './components/DailyReviewHubView';
-import BatchExamImportModal from './components/BatchExamImportModal';
-import BinderSpineNav from './components/BinderSpineNav';
+import type { NotebookOpenOptions } from './components/NotebookOpenView';
 import './styles/notebookLayout.css';
+
+const AuthPage = lazy(() => import('./components/AuthPage'));
+const PobiTutorialModal = lazy(() => import('./components/PobiTutorialModal'));
+const BackupRestoreModal = lazy(() => import('./components/BackupRestoreModal'));
+const SharedPackView = lazy(() => import('./components/SharedPackView'));
+const UncategorizedView = lazy(() => import('./components/UncategorizedView'));
+const PromptGenerator = lazy(() => import('./components/PromptGenerator'));
+const TemplateManager = lazy(() => import('./components/TemplateManager'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const UsageGuide = lazy(() => import('./components/UsageGuide'));
+const BookshelfView = lazy(() => import('./components/BookshelfView'));
+const NotebookOpenView = lazy(() => import('./components/NotebookOpenView'));
+const DailyReviewHubView = lazy(() => import('./components/DailyReviewHubView'));
+const BatchExamImportModal = lazy(() => import('./components/BatchExamImportModal'));
+const BinderSpineNav = lazy(() => import('./components/BinderSpineNav'));
 import {
   LogOut,
   Sun,
@@ -60,7 +62,21 @@ const EMPTY_CATEGORIES: CategoriesBundle = {
 export default function App() {
   const { showToast } = useUiFeedback();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('admin_google_linked') || params.has('admin_google_error')) {
+        return true;
+      }
+      return Boolean(
+        localStorage.getItem('pobi_has_session') ||
+        localStorage.getItem('pobi_auth_token') ||
+        localStorage.getItem('pobi_local_user')
+      );
+    } catch {
+      return false;
+    }
+  });
   const [showAuthView, setShowAuthView] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [authInitialError, setAuthInitialError] = useState<string>('');
@@ -223,9 +239,19 @@ export default function App() {
         const res = await apiRequest('/api/auth/me');
         if (res.success && res.user) {
           setUser(res.user);
+          try {
+            localStorage.setItem('pobi_has_session', '1');
+          } catch {}
+        } else {
+          try {
+            localStorage.removeItem('pobi_has_session');
+          } catch {}
         }
       } catch {
         setUser(null);
+        try {
+          localStorage.removeItem('pobi_has_session');
+        } catch {}
       } finally {
         setLoading(false);
       }
@@ -287,7 +313,11 @@ export default function App() {
   const handleLoginSuccess = (loggedInUser: User) => {
     if (loggedInUser.id !== 'demo-guest') {
       try {
-        localStorage.removeItem('pobi_local_user');
+        const rawLocal = localStorage.getItem('pobi_local_user');
+        if (rawLocal && JSON.parse(rawLocal)?.id === 'demo-guest') {
+          localStorage.removeItem('pobi_local_user');
+        }
+        localStorage.setItem('pobi_has_session', '1');
       } catch {}
     }
     setUser(loggedInUser);
@@ -363,6 +393,7 @@ export default function App() {
       } else {
         try {
           localStorage.removeItem('pobi_local_user');
+          localStorage.removeItem('pobi_has_session');
         } catch {}
       }
       setUser(null);
@@ -478,37 +509,41 @@ export default function App() {
     }
   };
 
+  const suspenseFallback = (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      background: 'var(--bg-primary)',
+      color: 'var(--text-primary)'
+    }}>
+      <Loader2 size={36} className="animate-spin" style={{ color: 'var(--accent-primary)', marginBottom: '16px' }} />
+      <span style={{ fontSize: '0.95rem', letterSpacing: '0.05em' }}>載入錯題本中...</span>
+    </div>
+  );
+
   if (sharedPackId) {
     return (
-      <SharedPackView
-        shareId={sharedPackId}
-        onGoHome={() => {
-          setSharedPackId(null);
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('share');
-            window.history.replaceState({}, '', url.toString());
-          } catch {}
-        }}
-      />
+      <Suspense fallback={suspenseFallback}>
+        <SharedPackView
+          shareId={sharedPackId}
+          onGoHome={() => {
+            setSharedPackId(null);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('share');
+              window.history.replaceState({}, '', url.toString());
+            } catch {}
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: 'var(--bg-primary)',
-        color: 'var(--text-primary)'
-      }}>
-        <Loader2 size={36} className="animate-spin" style={{ color: 'var(--accent-primary)', marginBottom: '16px' }} />
-        <span style={{ fontSize: '0.95rem', letterSpacing: '0.05em' }}>載入錯題本中...</span>
-      </div>
-    );
+    return suspenseFallback;
   }
 
   if (!user) {
@@ -524,7 +559,7 @@ export default function App() {
       );
     }
     return (
-      <>
+      <Suspense fallback={suspenseFallback}>
         <div className="bg-ambient-lights" />
         <div style={{ position: 'fixed', top: '16px', left: '16px', zIndex: 50 }}>
           <button
@@ -541,11 +576,12 @@ export default function App() {
           initialMode={authInitialMode}
           initialError={authInitialError}
         />
-      </>
+      </Suspense>
     );
   }
 
   return (
+    <Suspense fallback={suspenseFallback}>
     <div className="binder-app-shell">
       <div className="bg-ambient-lights" />
 
@@ -999,22 +1035,24 @@ export default function App() {
       )}
 
       {/* Batch Exam Import & Fast Review Modal */}
-      <BatchExamImportModal
-        isOpen={showBatchImportModal}
-        onClose={() => setShowBatchImportModal(false)}
-        categories={categories}
-        onRefreshCategories={refreshAllData}
-        onBatchImportComplete={(newMistakes) => {
-          setAllMistakes(prev => {
-            const existingIds = new Set(prev.map(m => m.id));
-            const uniqueNew = newMistakes.filter(m => !existingIds.has(m.id));
-            return [...uniqueNew, ...prev];
-          });
-        }}
-        onOpenZoomedImage={src => setZoomedImage(src)}
-        initialStage={batchImportStage}
-        unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
-      />
+      {showBatchImportModal && (
+        <BatchExamImportModal
+          isOpen={showBatchImportModal}
+          onClose={() => setShowBatchImportModal(false)}
+          categories={categories}
+          onRefreshCategories={refreshAllData}
+          onBatchImportComplete={(newMistakes) => {
+            setAllMistakes(prev => {
+              const existingIds = new Set(prev.map(m => m.id));
+              const uniqueNew = newMistakes.filter(m => !existingIds.has(m.id));
+              return [...uniqueNew, ...prev];
+            });
+          }}
+          onOpenZoomedImage={src => setZoomedImage(src)}
+          initialStage={batchImportStage}
+          unreviewedMistakes={allMistakes.filter(m => !m.familiarity_id)}
+        />
+      )}
 
       {/* POBI Interactive Dynamic Spotlight Tutorial */}
       {showPobiTutorial && user && (
@@ -1046,5 +1084,6 @@ export default function App() {
       )}
       </div>
     </div>
+    </Suspense>
   );
 }

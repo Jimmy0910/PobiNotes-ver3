@@ -3,19 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
-    <link rel="icon" type="image/png" href="/logo.png?v=3" />
-    <link rel="apple-touch-icon" href="/logo.png?v=3" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <link rel="icon" type="image/png" href="/favicon-64.png?v=3" />
+    <link rel="apple-touch-icon" href="/favicon-64.png?v=3" />
+    <link rel="preload" as="image" href="/pobi-promo-poster.webp" type="image/webp" fetchpriority="high" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#F5F0E6" />
     <meta name="description" content="POBI STUDIO 數位錯題手帳｜Explore. Decode. Understand." />
     <title>POBI STUDIO｜數位錯題手帳</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600;700&display=swap" rel="stylesheet">
     <script>
+      // 首次互動後非同步載入外部字體，避免冷啟動階段觸發全頁 Style & Layout 重算阻塞主執行緒
+      (function() {
+        var loaded = false;
+        function loadWebFonts() {
+          if (loaded) return;
+          loaded = true;
+          var link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Serif+TC:wght@700&display=swap';
+          document.head.appendChild(link);
+        }
+        ['pointerdown', 'keydown', 'scroll'].forEach(function(evt) {
+          window.addEventListener(evt, loadWebFonts, { once: true, passive: true });
+        });
+      })();
       // 偵測 iOS / iPadOS 與 PWA Standalone 模式，解決無瀏海 iPad 回傳 env(safe-area-inset-top)=0 導致狀態列遮擋問題
       try {
         var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||

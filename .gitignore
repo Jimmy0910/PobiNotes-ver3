@@ -26,6 +26,7 @@ dist-ssr
 # Local Agent & Wrangler files
 .agents/
 .wrangler/
+.lighthouseci/
 .dev.vars
 .env
 .env.*

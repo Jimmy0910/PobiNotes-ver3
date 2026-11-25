@@ -17,6 +17,16 @@ export default defineConfig({
   build: {
     outDir: outDir,
     emptyOutDir: true,
-    minify: false
+    minify: 'esbuild',
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {
+            return 'vendor-react';
+          }
+        }
+      }
+    }
   }
 })

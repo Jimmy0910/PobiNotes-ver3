@@ -10,7 +10,10 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "deploy": "wrangler pages deploy dist",
-    "test:e2e": "node tests/e2e/runner.js"
+    "test:e2e": "node tests/e2e/runner.js",
+    "lhci:mobile": "lhci autorun --config=./lighthouserc.json",
+    "lhci:desktop": "lhci autorun --config=./lighthouserc.desktop.json",
+    "lhci": "npm run lhci:mobile && npm run lhci:desktop"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
@@ -23,11 +26,13 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
+    "@lhci/cli": "^0.16.1",
     "@types/jszip": "^3.4.0",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
+    "lighthouse": "^13.6.0",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
     "vite": "^6.4.3",
