@@ -929,6 +929,8 @@ export async function handleLocalFallback<T = any>(
 
   if (pathname === '/api/share') {
     const SHARE_KEY = 'pobi_local_shared_packs';
+    const SHARE_TTL_DAYS = 30;
+    const SHARE_TTL_MS = SHARE_TTL_DAYS * 24 * 60 * 60 * 1000;
     const readPacks = (): Record<string, any> => {
       try {
         const raw = localStorage.getItem(SHARE_KEY);
@@ -939,31 +941,48 @@ export async function handleLocalFallback<T = any>(
     };
     if (method === 'POST') {
       const packs = readPacks();
-      const shareId = `demo${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      const now = Date.now();
+      for (const [k, v] of Object.entries(packs)) {
+        const exp = typeof v?.expiresAt === 'number' ? v.expiresAt : (Number(v?.createdAt) || 0) + SHARE_TTL_MS;
+        if (now > exp) delete packs[k];
+      }
+      const shareId = `demo${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       let creatorName = 'PobiNotes 學習者';
       try {
         const rawU = localStorage.getItem(STORAGE_KEYS.USER);
         if (rawU) creatorName = JSON.parse(rawU)?.username || creatorName;
       } catch {}
+      const expiresAt = now + SHARE_TTL_MS;
       packs[shareId] = {
         id: shareId,
         title: String(bodyData?.title || '精華錯題分享包').trim(),
         creatorName,
-        createdAt: Date.now(),
+        createdAt: now,
+        expiresAt,
+        ttlDays: SHARE_TTL_DAYS,
         items: Array.isArray(bodyData?.items) ? bodyData.items : []
       };
       try {
         localStorage.setItem(SHARE_KEY, JSON.stringify(packs));
       } catch {}
-      return { success: true, shareId } as any as T;
+      return { success: true, shareId, expiresAt, ttlDays: SHARE_TTL_DAYS } as any as T;
     }
     if (method === 'GET') {
       const id = searchParams.get('id') || '';
       const packs = readPacks();
       if (packs[id]) {
-        return { success: true, pack: packs[id] } as any as T;
+        const p = packs[id];
+        const expiresAt = typeof p.expiresAt === 'number' ? p.expiresAt : (Number(p.createdAt) || 0) + SHARE_TTL_MS;
+        if (Date.now() > expiresAt) {
+          delete packs[id];
+          try {
+            localStorage.setItem(SHARE_KEY, JSON.stringify(packs));
+          } catch {}
+          throw new Error('此錯題分享連結已超過 30 天有效期限，系統已自動失效並清除。');
+        }
+        return { success: true, pack: { ...p, expiresAt, ttlDays: SHARE_TTL_DAYS } } as any as T;
       }
-      throw new Error('找不到此錯題分享連結或連結已失效');
+      throw new Error('找不到此錯題分享連結，或連結已超過 30 天效期而自動失效');
     }
   }
 

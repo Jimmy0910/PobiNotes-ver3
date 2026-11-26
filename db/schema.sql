@@ -138,12 +138,13 @@ CREATE TABLE IF NOT EXISTS feedback (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Shared Mistake Packs Table (Read-only public share links)
+-- Shared Mistake Packs Table (Read-only public share links, 30-day TTL)
 CREATE TABLE IF NOT EXISTS shared_packs (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     title TEXT NOT NULL,
     creator_name TEXT DEFAULT '',
     payload TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER
 );

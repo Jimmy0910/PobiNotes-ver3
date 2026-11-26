@@ -6,6 +6,9 @@ interface UserContext {
   user?: { id: string; username: string };
 }
 
+const SHARE_TTL_DAYS = 30;
+const SHARE_TTL_MS = SHARE_TTL_DAYS * 24 * 60 * 60 * 1000;
+
 async function ensureSharedPacksTable(db: D1Database) {
   await db
     .prepare(
@@ -15,13 +18,36 @@ async function ensureSharedPacksTable(db: D1Database) {
         title TEXT NOT NULL,
         creator_name TEXT DEFAULT '',
         payload TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER
       )`
     )
     .run();
+
+  try {
+    await db.prepare(`ALTER TABLE shared_packs ADD COLUMN expires_at INTEGER`).run();
+  } catch {
+    // Column already exists
+  }
 }
 
-// GET /api/share?id=xxx (Public read-only)
+async function cleanupExpiredSharedPacks(db: D1Database, now: number) {
+  const cutoffCreatedAt = now - SHARE_TTL_MS;
+  try {
+    await db
+      .prepare(
+        `DELETE FROM shared_packs
+         WHERE (expires_at IS NOT NULL AND expires_at <= ?)
+            OR (expires_at IS NULL AND created_at <= ?)`
+      )
+      .bind(now, cutoffCreatedAt)
+      .run();
+  } catch {
+    // Best-effort cleanup
+  }
+}
+
+// GET /api/share?id=xxx (Public read-only, 30-day TTL)
 export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context) => {
   try {
     const { request, env } = context;
@@ -37,16 +63,39 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
     }
 
     const row = (await env.DB.prepare(
-      `SELECT id, title, creator_name, payload, created_at FROM shared_packs WHERE id = ?`
+      `SELECT id, title, creator_name, payload, created_at, expires_at FROM shared_packs WHERE id = ?`
     )
       .bind(id)
       .first()) as any;
 
     if (!row) {
-      return new Response(JSON.stringify({ error: '找不到此錯題分享連結或連結已失效' }), {
+      return new Response(JSON.stringify({ error: '找不到此錯題分享連結，或連結已超過 30 天效期而自動失效' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    const now = Date.now();
+    const createdAt = Number(row.created_at) || now;
+    const expiresAt =
+      typeof row.expires_at === 'number' && row.expires_at > 0
+        ? row.expires_at
+        : createdAt + SHARE_TTL_MS;
+
+    if (now > expiresAt) {
+      try {
+        await env.DB.prepare(`DELETE FROM shared_packs WHERE id = ?`).bind(id).run();
+      } catch {}
+      return new Response(
+        JSON.stringify({
+          error: '此錯題分享連結已超過 30 天有效期限，系統已自動失效並清除。',
+          expired: true
+        }),
+        {
+          status: 410,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     let items: any[] = [];
@@ -64,7 +113,9 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
           id: row.id,
           title: row.title,
           creatorName: row.creator_name || 'PobiNotes 學習者',
-          createdAt: row.created_at,
+          createdAt,
+          expiresAt,
+          ttlDays: SHARE_TTL_DAYS,
           items
         }
       }),
@@ -78,7 +129,7 @@ export const onRequestGet: PagesFunction<Env, any, UserContext> = async (context
   }
 };
 
-// POST /api/share (Authenticated)
+// POST /api/share (Authenticated, 30-day TTL)
 export const onRequestPost: PagesFunction<Env, any, UserContext> = async (context) => {
   try {
     const { request, env, data } = context;
@@ -103,17 +154,23 @@ export const onRequestPost: PagesFunction<Env, any, UserContext> = async (contex
 
     const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
     const now = Date.now();
+    const expiresAt = now + SHARE_TTL_MS;
+
+    await cleanupExpiredSharedPacks(env.DB, now);
+
     await env.DB.prepare(
-      `INSERT INTO shared_packs (id, user_id, title, creator_name, payload, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO shared_packs (id, user_id, title, creator_name, payload, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(id, data.user.id, title, data.user.username || '', JSON.stringify(items), now)
+      .bind(id, data.user.id, title, data.user.username || '', JSON.stringify(items), now, expiresAt)
       .run();
 
     return new Response(
       JSON.stringify({
         success: true,
-        shareId: id
+        shareId: id,
+        expiresAt,
+        ttlDays: SHARE_TTL_DAYS
       }),
       { status: 201, headers: { 'Content-Type': 'application/json' } }
     );

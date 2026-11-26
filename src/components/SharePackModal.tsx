@@ -4,7 +4,7 @@ import { apiRequest } from '../utils/api';
 import type { MistakeRecord } from '../types';
 import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import { useUiFeedback } from './UiFeedbackProvider';
-import { X, Share2, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { X, Share2, Copy, Check, ExternalLink, Loader2, Clock } from 'lucide-react';
 
 interface SharePackModalProps {
   defaultTitle: string;
@@ -36,6 +36,7 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
   const [selectedIds, setSelectedIds] = useState<string[]>(() => mistakes.slice(0, 20).map(m => m.id));
   const [creating, setCreating] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
     }
     setCreating(true);
     try {
-      const res = await apiRequest<{ success: boolean; shareId: string }>('/api/share', {
+      const res = await apiRequest<{ success: boolean; shareId: string; expiresAt?: number; ttlDays?: number }>('/api/share', {
         method: 'POST',
         body: {
           title: title.trim() || defaultTitle,
@@ -71,7 +72,8 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
       if (res?.shareId) {
         const url = `${window.location.origin}${window.location.pathname}?share=${res.shareId}`;
         setShareUrl(url);
-        showToast('已建立唯讀錯題分享連結', 'success');
+        setExpiresAt(typeof res.expiresAt === 'number' ? res.expiresAt : Date.now() + 30 * 24 * 60 * 60 * 1000);
+        showToast('已建立唯讀錯題分享連結（30 天內有效）', 'success');
       }
     } catch (err: any) {
       showToast(err?.message || '建立分享連結失敗', 'error');
@@ -149,7 +151,7 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
             <div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>建立錯題包唯讀分享連結</h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                對方不須登入即可閱讀題目與解析，適合與同學討論或請家教老師批改
+                對方不須登入即可閱讀題目與解析，連結有效期限為 30 天，到期後將自動失效並清除
               </p>
             </div>
           </div>
@@ -161,8 +163,14 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {shareUrl ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ padding: '14px 16px', borderRadius: '10px', backgroundColor: '#ECFDF5', border: '1px solid #10B981', color: '#065F46', fontSize: '0.86rem', fontWeight: 600 }}>
-                唯讀分享連結已產生！任何擁有此連結的人都可檢視這 {selectedIds.length} 道錯題，但無法修改您的個人資料。
+              <div style={{ padding: '14px 16px', borderRadius: '10px', backgroundColor: '#ECFDF5', border: '1px solid #10B981', color: '#065F46', fontSize: '0.86rem', fontWeight: 600, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div>唯讀分享連結已產生！任何擁有此連結的人都可檢視這 {selectedIds.length} 道錯題，但無法修改您的個人資料。</div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 500, color: '#047857' }}>
+                  <Clock size={14} />
+                  <span>
+                    有效期限：30 天（有效至 {new Date(expiresAt || Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}，到期自動失效並清除）
+                  </span>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input
@@ -195,6 +203,26 @@ export default function SharePackModal({ defaultTitle, mistakes, onClose }: Shar
             </div>
           ) : (
             <>
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FFFBEB',
+                  border: '1px solid #FDE68A',
+                  color: '#92400E',
+                  fontSize: '0.79rem',
+                  lineHeight: 1.55,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px'
+                }}
+              >
+                <Clock size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  <strong>效期說明：</strong>為節省雲端空間並保護隱私，所有錯題分享連結一律保留 <strong>30 天</strong>；到期後連結會自動失效並從伺服器清除，不影響您原本的錯題本資料。
+                </span>
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
                   分享包標題

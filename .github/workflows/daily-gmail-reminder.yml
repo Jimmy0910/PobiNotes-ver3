@@ -16,8 +16,8 @@ jobs:
           SITE_URL: ${{ vars.POBI_SITE_URL || 'https://pobinotes-ver3.pages.dev' }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
-            echo "CRON_SECRET secret is not configured in GitHub Actions. Skipping dispatch."
-            exit 0
+            echo "ERROR: CRON_SECRET secret is not configured in GitHub Actions."
+            exit 1
           fi
           HTTP_STATUS=$(curl -sS -o /tmp/cron_response.json -w "%{http_code}" \
             -X POST "${SITE_URL}/api/cron/send-daily-reminders" \

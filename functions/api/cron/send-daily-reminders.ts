@@ -56,7 +56,6 @@ export const onRequestPost: PagesFunction<Env> = async context => {
     await ensureSchemaAndUserDefaults(env.DB);
 
     const clock = getTaipeiClock();
-    const currentHourPrefix = `${clock.hourStr}:`;
 
     // Fetch all enabled reminders belonging to Google/Gmail users who have not yet been sent today
     const rowsRes = await env.DB.prepare(
@@ -81,7 +80,9 @@ export const onRequestPost: PagesFunction<Env> = async context => {
 
     for (const row of candidates) {
       const config = parseReminderRow(row, String(row.subject_id || ''));
-      if (!config.sendTime.startsWith(currentHourPrefix)) continue;
+      // Catch-up safe: trigger whenever current Taipei time has reached or passed sendTime
+      // and today's email has not been sent yet (guarded by last_sent_date != clock.dateStr).
+      if (clock.timeStr < config.sendTime) continue;
       if (!config.daysOfWeek.includes(clock.dayOfWeek)) continue;
       if (!isValidEmail(row.user_email)) continue;
       matched.push({ row, config });
@@ -179,6 +180,7 @@ export const onRequestPost: PagesFunction<Env> = async context => {
       success: failedCount === 0,
       taipeiDate: clock.dateStr,
       taipeiHour: clock.hourStr,
+      taipeiTime: clock.timeStr,
       taipeiDayOfWeek: clock.dayOfWeek,
       matchedCount: matched.length,
       processedCount: toProcess.length,

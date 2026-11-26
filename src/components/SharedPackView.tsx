@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../utils/api';
 import { resolveImgUrl } from '../utils/mistakeMedia';
-import { BookOpen, Eye, EyeOff, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, Loader2, AlertCircle, ArrowRight, Clock } from 'lucide-react';
 
 interface SharedPackItem {
   id: string;
@@ -22,6 +22,8 @@ interface SharedPackData {
   title: string;
   creatorName: string;
   createdAt: number;
+  expiresAt?: number;
+  ttlDays?: number;
   items: SharedPackItem[];
 }
 
@@ -178,8 +180,16 @@ export default function SharedPackView({ shareId, onGoHome }: SharedPackViewProp
             <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid var(--glass-border)', padding: '20px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800 }}>{pack.title}</h1>
-                <div style={{ marginTop: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  分享者：{pack.creatorName} · 共 {pack.items.length} 道錯題 · 建立於 {new Date(pack.createdAt).toLocaleDateString()}
+                <div style={{ marginTop: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                  <span>
+                    分享者：{pack.creatorName} · 共 {pack.items.length} 道錯題 · 建立於 {new Date(pack.createdAt).toLocaleDateString()}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <Clock size={12} />
+                    <span>
+                      有效至 {new Date(pack.expiresAt || pack.createdAt + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}（{pack.ttlDays || 30} 天效期，到期自動失效）
+                    </span>
+                  </span>
                 </div>
               </div>
 
