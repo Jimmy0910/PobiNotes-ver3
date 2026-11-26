@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { FastForward } from 'lucide-react';
+import { FastForward, Volume2, VolumeX } from 'lucide-react';
+import { ShutterAudioEngine } from '../utils/shutterAudio';
 
 interface RollerShutterIntroProps {
   onComplete: () => void;
@@ -24,224 +25,129 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function easeOutBack(t: number): number {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+function easeInQuad(t: number): number {
+  return t * t;
 }
 
 /**
- * Custom SVG Illustration: Metallic Aerosol Spray Can with Nozzle Mist Cone
+ * Brushed-silver metallic aerosol spray can matching the warehouse studio scene:
+ * red nozzle cap, deep navy POBI label with bright green band, and fine green mist cone.
  */
 function SprayCanSvg({ spraying }: { spraying: boolean }) {
   return (
     <svg
-      width="142"
-      height="192"
-      viewBox="0 0 142 192"
-      fill="none"
-      aria-hidden="true"
-      style={{ overflow: 'visible', filter: 'drop-shadow(0 12px 18px rgba(15, 23, 42, 0.38))' }}
-    >
-      {spraying && (
-        <g opacity="0.9">
-          <defs>
-            <radialGradient id="pobiSprayCone" cx="85%" cy="50%" r="85%">
-              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
-              <stop offset="36%" stopColor="#0A2463" stopOpacity="0.42" />
-              <stop offset="72%" stopColor="#15803D" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <polygon points="56,24 -54,-26 -68,52" fill="url(#pobiSprayCone)" />
-          <circle cx="22" cy="14" r="3" fill="#081E5C" opacity="0.6" />
-          <circle cx="2" cy="25" r="2.3" fill="#15803D" opacity="0.55" />
-          <circle cx="10" cy="3" r="2.6" fill="#FFFFFF" opacity="0.8" />
-          <circle cx="-16" cy="13" r="2" fill="#081E5C" opacity="0.45" />
-        </g>
-      )}
-
-      <g transform="translate(66, 94) rotate(-18) translate(-44, -76)">
-        <rect x="35" y="8" width="18" height="13" rx="3" fill="#DC2626" stroke="#111827" strokeWidth="2.5" />
-        <circle cx="38" cy="14.5" r="2.3" fill="#111827" />
-        <rect x="41" y="21" width="6" height="5" fill="#94A3B8" stroke="#111827" strokeWidth="2" />
-        <path d="M16 44 C16 28, 72 28, 72 44 Z" fill="#E2E8F0" stroke="#111827" strokeWidth="2.6" />
-        <rect x="13" y="42" width="62" height="7" rx="3.5" fill="#CBD5E1" stroke="#111827" strokeWidth="2.4" />
-        <rect x="15" y="49" width="58" height="96" rx="5" fill="#F8FAFC" stroke="#111827" strokeWidth="2.8" />
-        <rect x="19" y="51" width="9" height="92" fill="#FFFFFF" opacity="0.82" />
-        <rect x="61" y="51" width="10" height="92" fill="#94A3B8" opacity="0.45" />
-
-        <rect x="16.5" y="68" width="55" height="54" fill="#081E5C" />
-        <path d="M16.5 68 H42 L32 122 H16.5 Z" fill="#15803D" />
-        <line x1="16.5" y1="68" x2="71.5" y2="68" stroke="#E4C284" strokeWidth="2.2" />
-        <line x1="16.5" y1="122" x2="71.5" y2="122" stroke="#E4C284" strokeWidth="2.2" />
-        <text
-          x="44"
-          y="99"
-          textAnchor="middle"
-          fill="#FFFFFF"
-          fontSize="13"
-          fontWeight="900"
-          fontFamily="Inter, system-ui, sans-serif"
-          letterSpacing="1.5"
-        >
-          POBI
-        </text>
-
-        <rect x="13" y="143" width="62" height="8" rx="4" fill="#CBD5E1" stroke="#111827" strokeWidth="2.4" />
-      </g>
-    </svg>
-  );
-}
-
-/**
- * Custom SVG Illustration: Plump, Stubby, Curly-White Bichon Frise Front Leg & Paw
- * Unmistakable arched 4-toe puppy paw with rose-pink toe beans & central trilobed pad,
- * connected to a short, stubby, curly-furred Bichon foreleg lifting the shutter bar.
- */
-function BichonChubbyPawSvg({ side, effortSquish }: { side: 'left' | 'right'; effortSquish: number }) {
-  const scaleX = 1 + effortSquish * 0.06;
-  const scaleY = 1 - effortSquish * 0.05;
-  const tiltDeg = side === 'left' ? 8 : -8;
-
-  return (
-    <svg
-      width="148"
-      height="164"
-      viewBox="0 0 148 164"
+      width="160"
+      height="210"
+      viewBox="0 0 160 210"
       fill="none"
       aria-hidden="true"
       style={{
         overflow: 'visible',
-        transform: `rotate(${tiltDeg}deg) scale(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)})`,
-        transformOrigin: '74px 36px',
-        filter: 'drop-shadow(0 10px 16px rgba(15, 23, 42, 0.34))',
+        filter: 'drop-shadow(0 14px 20px rgba(15, 23, 42, 0.34))',
       }}
     >
-      <g transform={side === 'right' ? 'translate(148, 0) scale(-1, 1)' : undefined}>
-        {/* Stubby, short, fluffy curly-white foreleg (narrower than paw so silhouette reads instantly as a puppy leg!) */}
+      <defs>
+        <linearGradient id="pobiCanMetal" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#8C99A8" />
+          <stop offset="22%" stopColor="#E6EDF4" />
+          <stop offset="46%" stopColor="#F8FAFC" />
+          <stop offset="72%" stopColor="#B8C5D4" />
+          <stop offset="100%" stopColor="#64748B" />
+        </linearGradient>
+        <linearGradient id="pobiCanDome" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F1F5F9" />
+          <stop offset="55%" stopColor="#CBD5E1" />
+          <stop offset="100%" stopColor="#64748B" />
+        </linearGradient>
+        <linearGradient id="pobiCanNavy" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#071940" />
+          <stop offset="35%" stopColor="#0F2D6B" />
+          <stop offset="75%" stopColor="#091E4A" />
+          <stop offset="100%" stopColor="#040F29" />
+        </linearGradient>
+        <linearGradient id="pobiCanGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#2E8B3D" />
+          <stop offset="38%" stopColor="#58C454" />
+          <stop offset="78%" stopColor="#38A347" />
+          <stop offset="100%" stopColor="#1F6A2D" />
+        </linearGradient>
+        <radialGradient id="pobiGreenMistCone" cx="92%" cy="50%" r="92%">
+          <stop offset="0%" stopColor="#DCFCE7" stopOpacity="0.95" />
+          <stop offset="24%" stopColor="#4ADE80" stopOpacity="0.62" />
+          <stop offset="58%" stopColor="#22C55E" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* Directional Green Aerosol Spray Mist Cone */}
+      {spraying && (
+        <g opacity="0.95">
+          <polygon points="56,28 -118,-18 -134,76" fill="url(#pobiGreenMistCone)" />
+          <circle cx="24" cy="24" r="2.2" fill="#22C55E" opacity="0.6" />
+          <circle cx="-6" cy="18" r="1.8" fill="#16A34A" opacity="0.5" />
+          <circle cx="-22" cy="34" r="2.4" fill="#4ADE80" opacity="0.45" />
+          <circle cx="-48" cy="25" r="1.9" fill="#22C55E" opacity="0.38" />
+          <circle cx="-72" cy="39" r="1.5" fill="#15803D" opacity="0.32" />
+        </g>
+      )}
+
+      {/* Tilted Metallic Aerosol Can Body */}
+      <g transform="translate(80, 108) rotate(-14) translate(-44, -84)">
+        {/* Red Nozzle Actuator */}
+        <rect x="34" y="8" width="18" height="14" rx="2.5" fill="#D93829" stroke="#7F1D1D" strokeWidth="1.4" />
+        <rect x="37" y="10" width="4" height="10" rx="1" fill="#F87171" opacity="0.55" />
+        {/* Tiny black nozzle orifice on left side */}
+        <circle cx="36" cy="15" r="2" fill="#1E293B" />
+        {/* Metallic Valve Stem & Cup */}
+        <rect x="40" y="22" width="6" height="4" fill="#94A3B8" />
+        <rect x="33" y="25" width="20" height="4" rx="1.5" fill="#CBD5E1" stroke="#64748B" strokeWidth="1" />
+
+        {/* Metallic Dome Shoulder */}
         <path
-          d="M44 74
-             C32 82, 31 96, 38 107
-             C30 118, 33 134, 44 142
-             C49 154, 62 160, 74 160
-             C86 160, 99 154, 104 142
-             C115 134, 118 118, 110 107
-             C117 96, 116 82, 104 74 Z"
+          d="M15 47 C15 30, 71 30, 71 47 Z"
+          fill="url(#pobiCanDome)"
+          stroke="#64748B"
+          strokeWidth="1.5"
+        />
+        {/* Top Rim */}
+        <rect x="13" y="45" width="60" height="6" rx="3" fill="url(#pobiCanMetal)" stroke="#64748B" strokeWidth="1.2" />
+
+        {/* Cylindrical Can Body */}
+        <rect
+          x="15"
+          y="51"
+          width="56"
+          height="108"
+          rx="4"
+          fill="url(#pobiCanMetal)"
+          stroke="#475569"
+          strokeWidth="1.5"
+        />
+
+        {/* Navy Brand Label Band */}
+        <rect x="15.8" y="68" width="54.4" height="44" fill="url(#pobiCanNavy)" />
+        {/* Bright Green Lower Accent Band */}
+        <rect x="15.8" y="112" width="54.4" height="11" fill="url(#pobiCanGreen)" />
+
+        {/* Subtle Specular Vertical Highlight across can + label */}
+        <rect x="24" y="52" width="8" height="106" fill="#FFFFFF" opacity="0.2" />
+
+        {/* POBI Wordmark on Label */}
+        <text
+          x="43"
+          y="96"
+          textAnchor="middle"
           fill="#FFFFFF"
-          stroke="#111827"
-          strokeWidth="4"
-          strokeLinejoin="round"
-        />
+          fontSize="14.5"
+          fontWeight="800"
+          fontFamily="Inter, system-ui, -apple-system, sans-serif"
+          letterSpacing="1.6"
+        >
+          POBI
+        </text>
 
-        {/* Soft side fur shading on the stubby foreleg */}
-        <path
-          d="M41 96 C45 110, 44 124, 49 138 M107 96 C103 110, 104 124, 99 138"
-          stroke="#E2E8F0"
-          strokeWidth="5"
-          strokeLinecap="round"
-        />
-        {/* Delicate side fluff curls (no horizontal face-like lines!) */}
-        <path d="M46 112 C42 117, 43 124, 49 127" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M102 112 C106 117, 105 124, 99 127" stroke="#94A3B8" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M62 149 C68 154, 80 154, 86 149" stroke="#CBD5E1" strokeWidth="3" strokeLinecap="round" />
-
-        {/* Plump, Arched 4-Toe Puppy Paw Head ("圓滾滾饅頭狗掌") */}
-        <path
-          d="M20 56
-             C11 45, 14 27, 29 24
-             C33 10, 50 4, 64 11
-             C71 4, 86 4, 94 12
-             C109 6, 123 16, 123 30
-             C135 35, 136 52, 124 62
-             C118 76, 98 85, 74 85
-             C50 85, 30 76, 20 56 Z"
-          fill="#FFFFFF"
-          stroke="#111827"
-          strokeWidth="4.2"
-          strokeLinejoin="round"
-        />
-
-        {/* Soft grey-blue volume shadow along bottom of the round paw cushion */}
-        <path
-          d="M30 66 C46 79, 102 79, 118 65"
-          stroke="#E2E8F0"
-          strokeWidth="5.5"
-          strokeLinecap="round"
-        />
-
-        {/* Tiny cute dark-charcoal blunt puppy claws peeking at the top of the 4 arched toes */}
-        <path d="M28 22 C27 16, 32 14, 35 19" fill="#334155" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-        <path d="M56 8 C56 2, 62 1, 64 7" fill="#334155" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-        <path d="M88 8 C90 2, 96 3, 95 9" fill="#334155" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-        <path d="M119 23 C122 18, 127 20, 125 26" fill="#334155" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-
-        {/* Subtle fluffy toe-cleft notches at top */}
-        <path d="M43 21 C44 27, 45 31, 46 34" stroke="#111827" strokeWidth="2.6" strokeLinecap="round" />
-        <path d="M75 14 C75 20, 75 25, 75 29" stroke="#111827" strokeWidth="2.6" strokeLinecap="round" />
-        <path d="M106 21 C105 27, 104 31, 102 34" stroke="#111827" strokeWidth="2.6" strokeLinecap="round" />
-
-        {/* 4 Plump Rose-Pink Puppy Toe Beans (四顆圓潤粉嫩小肉球) in a natural arch! */}
-        <ellipse
-          cx="35"
-          cy="44"
-          rx="8.5"
-          ry="11"
-          transform="rotate(-22 35 44)"
-          fill="#F48FB1"
-          stroke="#111827"
-          strokeWidth="2.8"
-        />
-        <ellipse
-          cx="60"
-          cy="32"
-          rx="9"
-          ry="12"
-          transform="rotate(-7 60 32)"
-          fill="#F48FB1"
-          stroke="#111827"
-          strokeWidth="2.8"
-        />
-        <ellipse
-          cx="89"
-          cy="32"
-          rx="9"
-          ry="12"
-          transform="rotate(7 89 32)"
-          fill="#F48FB1"
-          stroke="#111827"
-          strokeWidth="2.8"
-        />
-        <ellipse
-          cx="113"
-          cy="45"
-          rx="8.5"
-          ry="11"
-          transform="rotate(22 113 45)"
-          fill="#F48FB1"
-          stroke="#111827"
-          strokeWidth="2.8"
-        />
-
-        {/* Cute glossy highlights on each toe bean */}
-        <ellipse cx="33" cy="40" rx="2.6" ry="3.8" transform="rotate(-22 33 40)" fill="#FCE7F3" />
-        <ellipse cx="58" cy="27" rx="2.8" ry="4.2" transform="rotate(-7 58 27)" fill="#FCE7F3" />
-        <ellipse cx="87" cy="27" rx="2.8" ry="4.2" transform="rotate(7 87 27)" fill="#FCE7F3" />
-        <ellipse cx="111" cy="41" rx="2.6" ry="3.8" transform="rotate(22 111 41)" fill="#FCE7F3" />
-
-        {/* Plump Trilobed / M-Heart Central Puppy Metacarpal Pad (掌心大肉球)! */}
-        <path
-          d="M50 64
-             C47 54, 60 46, 74 47
-             C88 46, 101 54, 98 64
-             C96 73, 86 76, 74 73
-             C62 76, 52 73, 50 64 Z"
-          fill="#F48FB1"
-          stroke="#111827"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <ellipse cx="68" cy="56" rx="6" ry="3.2" fill="#FCE7F3" opacity="0.85" />
+        {/* Bottom Rim */}
+        <rect x="13" y="156" width="60" height="7" rx="3.5" fill="url(#pobiCanMetal)" stroke="#475569" strokeWidth="1.2" />
       </g>
     </svg>
   );
@@ -250,26 +156,72 @@ function BichonChubbyPawSvg({ side, effortSquish }: { side: 'left' | 'right'; ef
 export default function RollerShutterIntro({ onComplete }: RollerShutterIntroProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const completedRef = useRef(false);
+  const audioRef = useRef<ShutterAudioEngine | null>(null);
+  const phaseRef = useRef<'shake' | 'spray-logo' | 'spray-text' | 'hold' | 'lift' | 'done'>('shake');
 
   const [logoRevealPct, setLogoRevealPct] = useState(2);
   const [textRevealPct, setTextRevealPct] = useState(0);
-  const [canState, setCanState] = useState<{ visible: boolean; x: number; y: number; spraying: boolean }>({
+  const [canState, setCanState] = useState<{ visible: boolean; x: number; y: number; spraying: boolean; opacity: number }>({
     visible: true,
-    x: 110,
-    y: -60,
+    x: 150,
+    y: -90,
     spraying: false,
+    opacity: 1,
   });
   const [shutterLiftPct, setShutterLiftPct] = useState(0);
-  const [pawReachPct, setPawReachPct] = useState(0);
-  const [pawEffort, setPawEffort] = useState(0);
-  const [pawWiggle, setPawWiggle] = useState(0);
+  const [shutterShakeX, setShutterShakeX] = useState(0);
   const [frameFadeOut, setFrameFadeOut] = useState(false);
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   const finishIntro = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
+    audioRef.current?.dispose();
+    audioRef.current = null;
     onComplete();
   }, [onComplete]);
+
+  const unlockAndSyncAudio = useCallback(async () => {
+    const engine = audioRef.current;
+    if (!engine) return;
+    const running = await engine.tryUnlock();
+    setAudioBlocked(!running);
+    if (!running || engine.isMuted()) return;
+
+    const currentPhase = phaseRef.current;
+    if (currentPhase === 'spray-logo') {
+      engine.startSpray(1.0);
+    } else if (currentPhase === 'spray-text') {
+      engine.startSpray(0.88);
+    } else if (currentPhase === 'lift') {
+      engine.playShutterRollUp(1.45);
+    }
+  }, []);
+
+  const handleToggleAudio = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const engine = audioRef.current;
+      if (!engine) return;
+
+      if (audioBlocked) {
+        engine.setMuted(false);
+        setIsMuted(false);
+        await unlockAndSyncAudio();
+        return;
+      }
+
+      const nextMuted = !isMuted;
+      engine.setMuted(nextMuted);
+      setIsMuted(nextMuted);
+      if (!nextMuted) {
+        await unlockAndSyncAudio();
+      }
+    },
+    [audioBlocked, isMuted, unlockAndSyncAudio]
+  );
 
   useEffect(() => {
     try {
@@ -279,30 +231,55 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       }
     } catch {}
 
+    const engine = new ShutterAudioEngine();
+    audioRef.current = engine;
+
+    // Attempt immediate autoplay unlock (succeeds automatically on replay clicks or prior user gesture)
+    engine.tryUnlock().then((running) => {
+      if (completedRef.current) return;
+      setAudioBlocked(!running);
+      if (running && phaseRef.current === 'shake') {
+        engine.playCanShake();
+      }
+    });
+
+    const handleUserGesture = () => {
+      unlockAndSyncAudio();
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         finishIntro();
+        return;
       }
+      handleUserGesture();
     };
+
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('pointerdown', handleUserGesture, { passive: true });
 
     const particles: MistParticle[] = [];
-    const sprayPalette = ['#081E5C', '#0A2463', '#15803D', '#FFFFFF', '#E2E8F0'];
+    const sprayPalette = ['#4ADE80', '#22C55E', '#16A34A', '#60A5FA', '#0A296B', '#FFFFFF'];
     let rafId = 0;
+    let startedLogoSprayAudio = false;
+    let startedTextSprayAudio = false;
+    let stoppedSprayAudio = false;
+    let startedLiftAudio = false;
+
     const startTime = performance.now();
 
     const spawnMist = (cx: number, cy: number, count: number) => {
       for (let i = 0; i < count; i++) {
-        const angle = Math.PI + (Math.random() - 0.5) * 1.15;
-        const speed = 1.6 + Math.random() * 5.4;
+        const angle = Math.PI + (Math.random() - 0.5) * 0.92;
+        const speed = 2.0 + Math.random() * 5.8;
         particles.push({
-          x: cx + (Math.random() - 0.5) * 14,
-          y: cy + (Math.random() - 0.5) * 14,
+          x: cx + (Math.random() - 0.5) * 10,
+          y: cy + (Math.random() - 0.5) * 10,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 0.3,
-          r: 1.6 + Math.random() * 4.4,
-          alpha: 0.5 + Math.random() * 0.4,
-          decay: 0.022 + Math.random() * 0.02,
+          vy: Math.sin(angle) * speed - 0.2,
+          r: 1.4 + Math.random() * 4.0,
+          alpha: 0.45 + Math.random() * 0.38,
+          decay: 0.024 + Math.random() * 0.022,
           color: sprayPalette[Math.floor(Math.random() * sprayPalette.length)],
         });
       }
@@ -319,107 +296,148 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       }
 
       const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight * 0.42;
+      const centerY = window.innerHeight * 0.46;
+      const isCompact = window.innerWidth < 640;
 
-      // Phase 1A (0.0s - 0.30s): Spray can enters & rattles
-      if (elapsed < 0.3) {
-        const p = clamp01(elapsed / 0.3);
-        const shake = Math.sin(elapsed * 58) * 6;
+      // Phase 1A (0.00s - 0.26s): Spray can enters & shakes briefly
+      if (elapsed < 0.26) {
+        phaseRef.current = 'shake';
+        const p = clamp01(elapsed / 0.26);
+        const shake = Math.sin(elapsed * 62) * 5;
         setCanState({
           visible: true,
-          x: 92 - p * 42,
-          y: -120 + shake,
+          x: (isCompact ? 96 : 145) - p * 45,
+          y: -110 + shake,
           spraying: false,
+          opacity: 1,
         });
       }
-      // Phase 1B (0.30s - 1.85s): Spraying the circular Bichon PDF logo onto the shutter
-      else if (elapsed < 1.85) {
-        const p = clamp01((elapsed - 0.3) / 1.55);
+      // Phase 1B (0.26s - 1.56s): Spraying the circular Bichon studio logo
+      else if (elapsed < 1.56) {
+        phaseRef.current = 'spray-logo';
+        if (!startedLogoSprayAudio) {
+          startedLogoSprayAudio = true;
+          engine.startSpray(1.0);
+        }
+
+        const p = clamp01((elapsed - 0.26) / 1.3);
         setLogoRevealPct(p * 100);
 
-        const sweepX = Math.sin(p * Math.PI * 3.5) * 120 + 52;
-        const sweepY = -120 + p * 220;
+        const sweepAmp = isCompact ? 76 : 118;
+        const sweepX = Math.sin(p * Math.PI * 3.5) * sweepAmp + (isCompact ? 42 : 58);
+        const sweepY = -125 + p * 215;
         setCanState({
           visible: true,
           x: sweepX,
           y: sweepY,
           spraying: true,
+          opacity: 1,
         });
-        spawnMist(centerX + sweepX - 40, centerY + sweepY - 54, 4);
+        spawnMist(centerX + sweepX - 38, centerY + sweepY - 62, 4);
       }
-      // Phase 1C (1.85s - 2.65s): Spraying "POBI STUDIO presents" left-to-right
-      else if (elapsed < 2.65) {
+      // Phase 1C (1.56s - 2.38s): Spraying "POBI STUDIO presents" & finishing at lower-right hero pose
+      else if (elapsed < 2.38) {
+        phaseRef.current = 'spray-text';
+        if (!startedTextSprayAudio) {
+          startedTextSprayAudio = true;
+          engine.startSpray(0.88);
+        }
+
         setLogoRevealPct(100);
-        const p = clamp01((elapsed - 1.85) / 0.8);
+        const p = clamp01((elapsed - 1.56) / 0.82);
         const eased = easeInOutCubic(p);
         setTextRevealPct(eased * 100);
 
-        const sweepX = -155 + eased * 320 + 48;
-        const sweepY = 166 + Math.sin(p * Math.PI * 2) * 5;
+        const startX = isCompact ? -96 : -175;
+        const endX = isCompact ? 118 : 265;
+        const sweepX = startX + eased * (endX - startX);
+        const sweepY = (isCompact ? 132 : 162) + Math.sin(p * Math.PI * 2) * 4;
         setCanState({
           visible: true,
           x: sweepX,
           y: sweepY,
           spraying: true,
+          opacity: 1,
         });
-        spawnMist(centerX + sweepX - 40, centerY + sweepY - 54, 3);
+        spawnMist(centerX + sweepX - 38, centerY + sweepY - 62, 4);
       }
-      // Phase 1D (2.65s - 3.05s): Spray can exits, brief hero hold on finished mural
-      else if (elapsed < 3.05) {
+      // Phase 1D (2.38s - 2.86s): Hero hold matching the reference scene, then spray can exits
+      else if (elapsed < 2.86) {
+        phaseRef.current = 'hold';
         setLogoRevealPct(100);
         setTextRevealPct(100);
-        const p = clamp01((elapsed - 2.65) / 0.4);
+
+        const p = clamp01((elapsed - 2.38) / 0.48);
+        if (p >= 0.22 && !stoppedSprayAudio) {
+          stoppedSprayAudio = true;
+          engine.stopSpray();
+        }
+
+        const exitP = clamp01((p - 0.45) / 0.55);
+        const baseX = isCompact ? 118 : 265;
+        const baseY = isCompact ? 132 : 162;
         setCanState({
-          visible: p < 0.98,
-          x: 205 + p * 190,
-          y: 170 + p * 150,
-          spraying: false,
+          visible: exitP < 0.98,
+          x: baseX + exitP * 140,
+          y: baseY + exitP * 90,
+          spraying: p < 0.22,
+          opacity: 1 - exitP,
         });
-      }
-      // Phase 2A (3.05s - 3.65s): Chubby Bichon front paws reach up, hook the bottom bar, and heave!
-      else if (elapsed < 3.65) {
-        setLogoRevealPct(100);
-        setTextRevealPct(100);
-        setCanState((prev) => (prev.visible ? { ...prev, visible: false, spraying: false } : prev));
-
-        const reachP = clamp01((elapsed - 3.05) / 0.32);
-        setPawReachPct(easeOutBack(reachP));
-
-        // Initial cute puppy crack-open heave so stubby forearms show clearly at bottom!
-        if (elapsed >= 3.3) {
-          const tugP = (elapsed - 3.3) / 0.35;
-          const tugWave = Math.sin(tugP * Math.PI);
-          setPawEffort(tugWave);
-          setShutterLiftPct(tugP * 8.5 + tugWave * 2.0);
+        if (p < 0.22) {
+          spawnMist(centerX + baseX - 38, centerY + baseY - 62, 3);
         }
       }
-      // Phase 2B (3.65s - 5.85s): Chubby Bichon front paws slowly & steadily push the shutter all the way up!
-      else if (elapsed < 5.85) {
-        setPawReachPct(1);
-        const liftP = clamp01((elapsed - 3.65) / 2.2);
-        const easedLift = easeInOutCubic(liftP);
-        setShutterLiftPct(8.5 + easedLift * 96.5);
-        setPawEffort(0.45 + 0.28 * Math.sin(liftP * Math.PI * 6));
-        setPawWiggle(Math.sin(liftP * Math.PI * 7));
+      // Phase 2 (2.86s - 4.46s): Motorized industrial roller shutter rolls smoothly upward
+      else if (elapsed < 4.46) {
+        phaseRef.current = 'lift';
+        if (!stoppedSprayAudio) {
+          stoppedSprayAudio = true;
+          engine.stopSpray();
+        }
+        if (!startedLiftAudio) {
+          startedLiftAudio = true;
+          engine.playShutterRollUp(1.58);
+        }
+
+        setLogoRevealPct(100);
+        setTextRevealPct(100);
+        setCanState((prev) => (prev.visible ? { ...prev, visible: false, spraying: false, opacity: 0 } : prev));
+
+        const liftElapsed = elapsed - 2.86;
+        // Brief mechanical motor engagement shudder in first 0.14s
+        if (liftElapsed < 0.14) {
+          const shudder = Math.sin(liftElapsed * 150) * 1.6 * (1 - liftElapsed / 0.14);
+          setShutterShakeX(shudder);
+          setShutterLiftPct((liftElapsed / 0.14) * 1.4);
+        } else {
+          setShutterShakeX(Math.sin(liftElapsed * 42) * 0.45);
+          const liftP = clamp01((liftElapsed - 0.14) / 1.46);
+          // Smooth electric motor acceleration into steady upward roll
+          const easedLift = liftP < 0.3 ? easeInQuad(liftP / 0.3) * 0.18 : 0.18 + easeInOutCubic((liftP - 0.3) / 0.7) * 0.82;
+          setShutterLiftPct(1.4 + easedLift * 102.6);
+        }
       }
-      // Phase 3 (5.85s - 6.15s): Top hood & side rails retract cleanly
-      else if (elapsed < 6.15) {
-        setShutterLiftPct(105);
+      // Phase 3 (4.46s - 4.78s): Top header beam & side rails fade cleanly to reveal LandingPage
+      else if (elapsed < 4.78) {
+        phaseRef.current = 'done';
+        setShutterLiftPct(104);
+        setShutterShakeX(0);
         setFrameFadeOut(true);
       } else {
         finishIntro();
         return;
       }
 
+      // Render aerosol mist canvas
       if (ctx && canvas) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let i = particles.length - 1; i >= 0; i--) {
           const pt = particles[i];
           pt.x += pt.vx;
           pt.y += pt.vy;
-          pt.vx *= 0.95;
-          pt.vy *= 0.95;
-          pt.r += 0.22;
+          pt.vx *= 0.94;
+          pt.vy *= 0.94;
+          pt.r += 0.24;
           pt.alpha -= pt.decay;
           if (pt.alpha <= 0) {
             particles.splice(i, 1);
@@ -441,8 +459,10 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('pointerdown', handleUserGesture);
+      engine.dispose();
     };
-  }, [finishIntro]);
+  }, [finishIntro, unlockAndSyncAudio]);
 
   const logoMask =
     logoRevealPct >= 99.5
@@ -454,7 +474,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       ? 'linear-gradient(90deg, transparent 0%, transparent 100%)'
       : textRevealPct >= 99.5
       ? 'none'
-      : `linear-gradient(90deg, #000000 ${Math.max(0, textRevealPct - 10)}%, rgba(0,0,0,0.4) ${textRevealPct + 4}%, transparent ${textRevealPct + 18}%)`;
+      : `linear-gradient(90deg, #000000 ${Math.max(0, textRevealPct - 10)}%, rgba(0,0,0,0.45) ${textRevealPct + 4}%, transparent ${textRevealPct + 16}%)`;
 
   return (
     <div
@@ -469,111 +489,142 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         userSelect: 'none',
       }}
     >
-      {/* Left & Right Galvanized Steel Guide Rails */}
+      {/* Left Brushed-Silver Steel Guide Track */}
       <div
+        aria-hidden="true"
         style={{
           position: 'absolute',
           top: 0,
           bottom: 0,
           left: 0,
-          width: '14px',
-          background: 'linear-gradient(90deg, #64748B 0%, #CBD5E1 48%, #475569 100%)',
-          borderRight: '1px solid #334155',
-          boxShadow: '4px 0 12px rgba(15, 23, 42, 0.25)',
-          zIndex: 4,
-          opacity: frameFadeOut ? 0 : 1,
-          transition: 'opacity 0.28s ease',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          right: 0,
-          width: '14px',
-          background: 'linear-gradient(270deg, #64748B 0%, #CBD5E1 48%, #475569 100%)',
-          borderLeft: '1px solid #334155',
-          boxShadow: '-4px 0 12px rgba(15, 23, 42, 0.25)',
-          zIndex: 4,
+          width: 'clamp(14px, 2.2vw, 28px)',
+          background: 'linear-gradient(90deg, #9AA8B9 0%, #D9E2EC 38%, #BAC6D4 78%, #64748B 100%)',
+          borderRight: '2px solid #475569',
+          boxShadow: '6px 0 18px rgba(15, 23, 42, 0.24)',
+          zIndex: 5,
           opacity: frameFadeOut ? 0 : 1,
           transition: 'opacity 0.28s ease',
         }}
       />
 
-      {/* Top Roller Shutter Housing Hood */}
+      {/* Right Brushed-Silver Steel Guide Track */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          right: 0,
+          width: 'clamp(14px, 2.2vw, 28px)',
+          background: 'linear-gradient(270deg, #9AA8B9 0%, #D9E2EC 38%, #BAC6D4 78%, #64748B 100%)',
+          borderLeft: '2px solid #475569',
+          boxShadow: '-6px 0 18px rgba(15, 23, 42, 0.24)',
+          zIndex: 5,
+          opacity: frameFadeOut ? 0 : 1,
+          transition: 'opacity 0.28s ease',
+        }}
+      />
+
+      {/* Top Industrial Header Beam with Dual Warm-White LED Bars */}
       <div
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
-          height: '32px',
-          background: 'linear-gradient(180deg, #94A3B8 0%, #CBD5E1 35%, #64748B 88%, #334155 100%)',
-          borderBottom: '2px solid #1E293B',
-          boxShadow: '0 8px 18px rgba(15, 23, 42, 0.36)',
-          zIndex: 6,
+          height: '44px',
+          background: 'linear-gradient(180deg, #D5DFE9 0%, #BCC9D8 52%, #9AA8BA 94%, #526071 100%)',
+          borderBottom: '2px solid #475569',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.28)',
+          zIndex: 7,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 24px',
+          padding: '0 clamp(22px, 5vw, 72px)',
           transform: frameFadeOut ? 'translate3d(0, -110%, 0)' : 'translate3d(0, 0, 0)',
-          transition: 'transform 0.28s ease',
+          transition: 'transform 0.3s ease',
         }}
       >
-        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#475569', border: '1px solid #E2E8F0' }} />
+        {/* Left Warm-White Warehouse LED Light Bar */}
+        <div
+          aria-hidden="true"
+          style={{
+            width: 'clamp(44px, 10vw, 132px)',
+            height: '8px',
+            borderRadius: '999px',
+            background: 'linear-gradient(180deg, #FFFDF7 0%, #FDE8C8 100%)',
+            border: '1px solid #94A3B8',
+            boxShadow: '0 0 14px 3px rgba(254, 235, 200, 0.9), 0 6px 26px 8px rgba(255, 237, 213, 0.55)',
+          }}
+        />
+
+        {/* Center Warehouse Stamped Header */}
         <span
           style={{
-            fontSize: '0.66rem',
+            fontSize: 'clamp(0.62rem, 1.15vw, 0.82rem)',
             fontWeight: 800,
             letterSpacing: '0.24em',
-            color: '#1E293B',
-            opacity: 0.75,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            color: '#0B2253',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+            whiteSpace: 'nowrap',
           }}
         >
           WAREHOUSE BAY 01 · POBI STUDIO
         </span>
-        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#475569', border: '1px solid #E2E8F0' }} />
+
+        {/* Right Warm-White Warehouse LED Light Bar */}
+        <div
+          aria-hidden="true"
+          style={{
+            width: 'clamp(44px, 10vw, 132px)',
+            height: '8px',
+            borderRadius: '999px',
+            background: 'linear-gradient(180deg, #FFFDF7 0%, #FDE8C8 100%)',
+            border: '1px solid #94A3B8',
+            boxShadow: '0 0 14px 3px rgba(254, 235, 200, 0.9), 0 6px 26px 8px rgba(255, 237, 213, 0.55)',
+          }}
+        />
       </div>
 
-      {/* Main Rising Corrugated Steel Roller Shutter Curtain */}
+      {/* Main Rising Bright Silver-White Galvanized Roller Shutter */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 3,
-          transform: `translate3d(0, -${shutterLiftPct.toFixed(3)}%, 0)`,
+          transform: `translate3d(${shutterShakeX.toFixed(2)}px, -${shutterLiftPct.toFixed(3)}%, 0)`,
           willChange: 'transform',
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        {/* Corrugated Horizontal Galvanized Steel Slats */}
+        {/* Bright Horizontal Corrugated Steel Slats */}
         <div
           style={{
             position: 'relative',
             flex: 1,
             width: '100%',
-            backgroundColor: '#CBD5E1',
+            backgroundColor: '#E3EAF2',
             backgroundImage: `
-              linear-gradient(90deg, rgba(15,23,42,0.18) 0%, rgba(255,255,255,0.28) 20%, rgba(15,23,42,0.03) 50%, rgba(255,255,255,0.24) 80%, rgba(15,23,42,0.18) 100%),
+              radial-gradient(ellipse 36% 24% at 15% 6%, rgba(255, 244, 224, 0.62) 0%, rgba(255, 244, 224, 0) 78%),
+              radial-gradient(ellipse 36% 24% at 85% 6%, rgba(255, 244, 224, 0.62) 0%, rgba(255, 244, 224, 0) 78%),
+              linear-gradient(90deg, rgba(15, 23, 42, 0.14) 0%, rgba(255, 255, 255, 0.25) 14%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.25) 86%, rgba(15, 23, 42, 0.14) 100%),
               repeating-linear-gradient(
                 180deg,
-                #EEF2F6 0px,
-                #EEF2F6 2px,
-                #D8E0E8 3px,
-                #C5CFD9 12px,
-                #B3BFCB 21px,
-                #7B8796 24px,
-                #525E6E 26px
+                #F8FAFC 0px,
+                #F3F7FB 3px,
+                #E4ECF5 10px,
+                #D5E0EC 18px,
+                #C4D1E0 23px,
+                #9AA8B9 26px,
+                #7D8CA0 28px
               )
             `,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '40px 20px 34px 20px',
+            padding: '58px 24px 36px 24px',
             overflow: 'hidden',
           }}
         >
@@ -585,62 +636,47 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
               flexDirection: 'column',
               alignItems: 'center',
               maxWidth: '92vw',
-              transform: 'translateY(-14px)',
+              transform: 'translateY(-6px)',
             }}
           >
-            {/* Sprayed Circular PDF Bichon Logo */}
+            {/* Sprayed Circular POBI STUDIO Bichon Emblem */}
             <div
               style={{
                 position: 'relative',
-                width: 'clamp(215px, 34vmin, 300px)',
-                height: 'clamp(215px, 34vmin, 300px)',
+                width: 'clamp(220px, 37vmin, 336px)',
+                height: 'clamp(220px, 37vmin, 336px)',
                 WebkitMaskImage: logoMask,
                 maskImage: logoMask,
               }}
             >
-              {/* Clean soft white aerosol stencil mist behind the circular emblem */}
+              {/* Soft bright white backing halo matching the crisp studio stencil look */}
               <div
+                aria-hidden="true"
                 style={{
                   position: 'absolute',
-                  inset: '-14px',
+                  inset: '4px',
                   borderRadius: '50%',
                   background:
-                    'radial-gradient(circle, rgba(255,255,255,0.92) 58%, rgba(255,255,255,0.35) 68%, transparent 76%)',
-                  filter: 'blur(3px)',
+                    'radial-gradient(circle, rgba(255,255,255,0.96) 62%, rgba(248,250,252,0.72) 76%, transparent 94%)',
                 }}
               />
-
-              {/* Authentic tiny spray-paint droplets around the perimeter */}
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 340 340"
-                style={{ position: 'absolute', inset: '-20px', width: 'calc(100% + 40px)', height: 'calc(100% + 40px)', pointerEvents: 'none' }}
-              >
-                <circle cx="38" cy="88" r="2.6" fill="#081E5C" opacity="0.55" />
-                <circle cx="29" cy="102" r="1.6" fill="#15803D" opacity="0.5" />
-                <circle cx="304" cy="96" r="2.8" fill="#081E5C" opacity="0.5" />
-                <circle cx="312" cy="112" r="1.8" fill="#15803D" opacity="0.55" />
-                <circle cx="52" cy="264" r="2.4" fill="#15803D" opacity="0.5" />
-                <circle cx="292" cy="256" r="2.2" fill="#081E5C" opacity="0.5" />
-                <circle cx="168" cy="14" r="2" fill="#081E5C" opacity="0.45" />
-              </svg>
 
               <img
                 src="/pobi-shutter-logo.webp"
                 alt="POBI STUDIO Bichon Emblem"
-                width={300}
-                height={300}
+                width={336}
+                height={336}
                 style={{
                   position: 'relative',
                   width: '100%',
                   height: '100%',
                   objectFit: 'contain',
                   display: 'block',
-                  filter: 'contrast(1.05) drop-shadow(0 2px 6px rgba(8, 30, 92, 0.16))',
+                  filter: 'contrast(1.04) drop-shadow(0 3px 10px rgba(10, 41, 107, 0.14))',
                 }}
               />
 
-              {/* Corrugated Slat Seam Shadow Overlay across the paint */}
+              {/* Subtle Slat Seam Overlay so Logo sits naturally on the Steel Door */}
               <div
                 aria-hidden="true"
                 style={{
@@ -649,42 +685,66 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
                   borderRadius: '50%',
                   pointerEvents: 'none',
                   mixBlendMode: 'multiply',
-                  opacity: 0.3,
+                  opacity: 0.18,
                   backgroundImage: `repeating-linear-gradient(
                     180deg,
                     transparent 0px,
-                    transparent 22px,
-                    rgba(51, 65, 85, 0.52) 24px,
-                    rgba(30, 41, 59, 0.72) 26px
+                    transparent 24px,
+                    rgba(100, 116, 139, 0.45) 26px,
+                    rgba(71, 85, 105, 0.65) 28px
                   )`,
                 }}
               />
+
+              {/* Signature Blue-Green Paint Droplets Accent Cluster (lower-right of circular emblem) */}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 96 96"
+                style={{
+                  position: 'absolute',
+                  right: '-44px',
+                  bottom: '8px',
+                  width: '88px',
+                  height: '88px',
+                  pointerEvents: 'none',
+                }}
+              >
+                <circle cx="52" cy="24" r="5" fill="#94B5CE" opacity="0.72" />
+                <circle cx="38" cy="42" r="4" fill="#A5C3D8" opacity="0.65" />
+                <circle cx="50" cy="48" r="6.2" fill="#63B85D" opacity="0.82" />
+                <circle cx="67" cy="54" r="5.4" fill="#6D9DC2" opacity="0.78" />
+                <circle cx="32" cy="66" r="6.8" fill="#5CB65A" opacity="0.76" />
+                <circle cx="53" cy="68" r="8.2" fill="#5B8EB5" opacity="0.82" />
+                <circle cx="18" cy="76" r="5.5" fill="#7EAAC9" opacity="0.65" />
+                <circle cx="36" cy="80" r="3.6" fill="#6A9BC0" opacity="0.7" />
+              </svg>
             </div>
 
-            {/* Sprayed "POBI STUDIO presents" High-Contrast Stencil Banner */}
+            {/* Sprayed "POBI STUDIO presents" Wordmark + Gradient Underline */}
             <div
               style={{
                 position: 'relative',
                 marginTop: '18px',
-                padding: '8px 26px 10px 26px',
+                padding: '6px 20px 8px 20px',
                 WebkitMaskImage: textMask,
                 maskImage: textMask,
                 opacity: textRevealPct > 0.2 ? 1 : 0,
                 textAlign: 'center',
               }}
             >
-              {/* Crisp white stencil mist backing so lettering pops off the steel slats */}
+              {/* Soft subtle glow behind text to keep razor-sharp legibility over slats */}
               <div
                 aria-hidden="true"
                 style={{
                   position: 'absolute',
-                  inset: '-4px -16px',
+                  inset: '-4px -18px',
                   borderRadius: '999px',
                   background:
-                    'radial-gradient(ellipse at center, rgba(255,255,255,0.92) 0%, rgba(241,245,249,0.72) 68%, transparent 100%)',
+                    'radial-gradient(ellipse at center, rgba(255,255,255,0.88) 0%, rgba(241,245,249,0.52) 66%, transparent 100%)',
                   filter: 'blur(4px)',
                 }}
               />
+
               <div
                 style={{
                   position: 'relative',
@@ -692,51 +752,51 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
                   flexWrap: 'wrap',
                   alignItems: 'baseline',
                   justifyContent: 'center',
-                  gap: '12px',
+                  gap: '14px',
                 }}
               >
                 <span
                   style={{
                     fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                    fontSize: 'clamp(1.32rem, 3.3vw, 1.95rem)',
+                    fontSize: 'clamp(1.42rem, 3.6vw, 2.25rem)',
                     fontWeight: 900,
-                    letterSpacing: '0.16em',
+                    letterSpacing: '0.14em',
+                    lineHeight: 1.1,
                   }}
                 >
-                  <span style={{ color: '#15803D' }}>P</span>
-                  <span style={{ color: '#081E5C' }}>OB</span>
-                  <span style={{ color: '#15803D' }}>I</span>
-                  <span style={{ color: '#081E5C', marginLeft: '0.28em' }}>STUDIO</span>
+                  <span style={{ color: '#22993D' }}>P</span>
+                  <span style={{ color: '#0A296B' }}>OBI STUDIO</span>
                 </span>
                 <span
                   style={{
-                    fontFamily: 'Georgia, "Noto Serif TC", serif',
+                    fontFamily: 'Georgia, "Times New Roman", "Noto Serif TC", serif',
                     fontStyle: 'italic',
                     fontWeight: 700,
-                    fontSize: 'clamp(1.12rem, 2.6vw, 1.52rem)',
-                    letterSpacing: '0.1em',
-                    color: '#0F172A',
+                    fontSize: 'clamp(1.22rem, 2.9vw, 1.75rem)',
+                    letterSpacing: '0.06em',
+                    color: '#0A296B',
                   }}
                 >
                   presents
                 </span>
               </div>
 
-              {/* Sprayed street-underline streak */}
+              {/* Clean Green-to-Navy Horizontal Accent Bar matching reference */}
               <div
                 aria-hidden="true"
                 style={{
                   position: 'relative',
-                  margin: '5px auto 0 auto',
-                  width: '90%',
-                  height: '4px',
+                  margin: '10px auto 0 auto',
+                  width: 'clamp(190px, 34vw, 340px)',
+                  height: '4.5px',
                   borderRadius: '999px',
-                  background: 'linear-gradient(90deg, transparent 0%, #15803D 16%, #081E5C 52%, #15803D 86%, transparent 100%)',
+                  background: 'linear-gradient(90deg, #8CC63F 0%, #22993D 24%, #0A296B 52%, #0A296B 72%, #7CC17A 100%)',
+                  boxShadow: '0 1px 4px rgba(10, 41, 107, 0.16)',
                 }}
               />
             </div>
 
-            {/* Animated Spray Paint Can */}
+            {/* Animated Brushed-Silver POBI Spray Can */}
             {canState.visible && (
               <div
                 aria-hidden="true"
@@ -745,6 +805,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
                   left: '50%',
                   top: '50%',
                   transform: `translate3d(${canState.x.toFixed(1)}px, ${canState.y.toFixed(1)}px, 0)`,
+                  opacity: canState.opacity,
                   pointerEvents: 'none',
                   zIndex: 8,
                 }}
@@ -755,105 +816,119 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
           </div>
         </div>
 
-        {/* Heavy Industrial Bottom Locking Bar + Bichon Paws */}
+        {/* Heavy Industrial Bottom Rubber-Edged Steel Bar */}
         <div
+          aria-hidden="true"
           style={{
             position: 'relative',
-            height: '42px',
+            height: '32px',
             width: '100%',
-            background: 'linear-gradient(180deg, #E2E8F0 0%, #94A3B8 45%, #64748B 80%, #1E293B 81%, #0F172A 100%)',
-            borderTop: '2px solid #475569',
-            boxShadow: '0 22px 42px rgba(15, 23, 42, 0.45)',
+            background: 'linear-gradient(180deg, #DCE4EE 0%, #A9B7C7 48%, #778699 80%, #334155 82%, #1E293B 100%)',
+            borderTop: '2px solid #7C8BA1',
+            boxShadow: '0 18px 36px rgba(15, 23, 42, 0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          {/* Central Recessed Metal Handle Plate */}
           <div
             style={{
-              width: '132px',
-              height: '16px',
-              borderRadius: '4px',
+              width: '116px',
+              height: '11px',
+              borderRadius: '3px',
               backgroundColor: '#334155',
-              border: '1.5px solid #CBD5E1',
-              boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.65)',
-              marginBottom: '6px',
+              border: '1px solid #CBD5E1',
+              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.55)',
+              marginBottom: '4px',
             }}
           />
-
-          {/* Two Chubby Fluffy Bichon Frise Front Paws Gripping & Pushing the Shutter Up! */}
-          {pawReachPct > 0.01 && (
-            <div
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '-28px',
-                transform: `translate3d(-50%, ${((1 - pawReachPct) * 120).toFixed(1)}px, 0)`,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 'clamp(88px, 18vw, 168px)',
-                pointerEvents: 'none',
-                zIndex: 10,
-              }}
-            >
-              <div style={{ transform: `translateY(${(pawWiggle * 4).toFixed(1)}px) rotate(-3deg)` }}>
-                <BichonChubbyPawSvg side="left" effortSquish={pawEffort} />
-              </div>
-              <div style={{ transform: `translateY(${(-pawWiggle * 4).toFixed(1)}px) rotate(3deg)` }}>
-                <BichonChubbyPawSvg side="right" effortSquish={pawEffort} />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Live Aerosol Paint Mist Particle Canvas */}
+      {/* Live 2D Canvas for Aerosol Mist Spray Particles */}
       <canvas
         ref={canvasRef}
         aria-hidden="true"
         style={{
           position: 'absolute',
           inset: 0,
-          width: '100%',
-          height: '100%',
           pointerEvents: 'none',
-          zIndex: 5,
+          zIndex: 6,
+          opacity: shutterLiftPct > 2 ? 0 : 1,
+          transition: 'opacity 0.2s ease',
         }}
       />
 
-      {/* Skip Intro Button */}
-      {!frameFadeOut && (
+      {/* Top-Right Controls: Audio Toggle & Skip Button */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '56px',
+          right: 'clamp(22px, 3.6vw, 44px)',
+          zIndex: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          opacity: frameFadeOut ? 0 : 1,
+          transition: 'opacity 0.2s ease',
+        }}
+      >
         <button
           type="button"
-          onClick={finishIntro}
-          data-testid="skip-shutter-intro-btn"
+          onClick={handleToggleAudio}
+          aria-label={audioBlocked ? '開啟開場音效' : isMuted ? '取消靜音' : '靜音'}
           style={{
-            position: 'absolute',
-            top: '46px',
-            right: '26px',
-            zIndex: 12,
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '7px 14px',
+            padding: '8px 13px',
             borderRadius: '999px',
-            border: '1px solid rgba(30, 41, 59, 0.35)',
-            backgroundColor: 'rgba(248, 250, 252, 0.88)',
-            color: '#1E293B',
-            fontSize: '0.8rem',
-            fontWeight: 700,
+            backgroundColor: audioBlocked ? '#FEF3C7' : 'rgba(255, 255, 255, 0.94)',
+            color: '#0A296B',
+            border: audioBlocked ? '1.5px solid #D97706' : '1px solid #94A3B8',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
             cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
             boxShadow: '0 4px 12px rgba(15, 23, 42, 0.16)',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <span>略過開場</span>
-          <FastForward size={14} />
+          {isMuted || audioBlocked ? (
+            <VolumeX className="w-3.5 h-3.5" style={{ color: '#0A296B' }} aria-hidden="true" />
+          ) : (
+            <Volume2 className="w-3.5 h-3.5" style={{ color: '#15803D' }} aria-hidden="true" />
+          )}
+          <span style={{ color: '#0A296B' }}>{audioBlocked ? '點擊開啟音效' : isMuted ? '已靜音' : '音效開'}</span>
         </button>
-      )}
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            finishIntro();
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '999px',
+            backgroundColor: 'rgba(255, 255, 255, 0.94)',
+            color: '#0A296B',
+            border: '1px solid #94A3B8',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.16)',
+          }}
+        >
+          <span style={{ color: '#0A296B' }}>略過開場</span>
+          <FastForward className="w-3.5 h-3.5" style={{ color: '#0A296B' }} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
