@@ -63,7 +63,7 @@ export class ShutterAudioEngine {
     if (this.whiteNoiseBuffer && this.whiteNoiseBuffer.sampleRate === ctx.sampleRate) {
       return this.whiteNoiseBuffer;
     }
-    const durationSec = 2.4;
+    const durationSec = 0.8;
     const length = Math.floor(ctx.sampleRate * durationSec);
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -78,7 +78,7 @@ export class ShutterAudioEngine {
     if (this.pinkNoiseBuffer && this.pinkNoiseBuffer.sampleRate === ctx.sampleRate) {
       return this.pinkNoiseBuffer;
     }
-    const durationSec = 2.5;
+    const durationSec = 0.8;
     const length = Math.floor(ctx.sampleRate * durationSec);
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -203,10 +203,10 @@ export class ShutterAudioEngine {
    * - Fine paint-on-steel surface overspray texture (1.1kHz - 1.7kHz)
    */
   public startSpray(intensity = 1): void {
-    if (this.disposed) return;
-    const ctx = this.ensureContext();
+    if (this.disposed || this.muted) return;
+    const ctx = this.ctx;
     const out = this.getOutputNode();
-    if (!ctx || !out) return;
+    if (!ctx || !out || ctx.state !== 'running') return;
 
     if (this.isSpraying && this.sprayGain) {
       const now = ctx.currentTime;
@@ -471,10 +471,10 @@ export class ShutterAudioEngine {
    * 5. Top-stop steel brake clank & ring-out
    */
   public playShutterRollUp(durationSec = 1.62): void {
-    if (this.disposed || this.isRolling) return;
-    const ctx = this.ensureContext();
+    if (this.disposed || this.isRolling || this.muted) return;
+    const ctx = this.ctx;
     const out = this.getOutputNode();
-    if (!ctx || !out) return;
+    if (!ctx || !out || ctx.state !== 'running') return;
 
     this.isRolling = true;
     const now = ctx.currentTime;

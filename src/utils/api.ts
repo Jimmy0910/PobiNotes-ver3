@@ -110,6 +110,13 @@ export async function apiRequest<T = any>(
     response.status === 404 ||
     (isHtmlResponse && endpoint.startsWith('/api'))
   ) {
+    if (endpoint === '/api/auth/me') {
+      try {
+        if (!localStorage.getItem(STORAGE_KEYS.USER)) {
+          return { success: false, user: null } as any as T;
+        }
+      } catch {}
+    }
     console.warn(`[Local Fallback] API ${endpoint} returned ${response.status} (${contentType || 'no type'}). Switching to Local Storage Adapter.`);
     return await invokeLocalFallback<T>(endpoint, method, parsedBodyData);
   }

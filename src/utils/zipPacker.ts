@@ -1,5 +1,3 @@
-import JSZip from 'jszip';
-
 interface PackImageItem {
   name?: string;
   url: string;
@@ -61,6 +59,7 @@ export async function packageImagesToZip(
   onProgress?: (current: number, total: number, message: string) => void
 ): Promise<Blob> {
   const { questionImages, answerImages, promptText } = options;
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
 
   const total = questionImages.length + answerImages.length + (promptText ? 1 : 0);

@@ -2,8 +2,8 @@ export const onRequestGet: PagesFunction<{ DB?: D1Database }, any, { user?: { id
   const { data, env } = context;
 
   if (!data.user) {
-    return new Response(JSON.stringify({ error: 'Not authenticated.' }), {
-      status: 401,
+    return new Response(JSON.stringify({ success: false, user: null }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   }

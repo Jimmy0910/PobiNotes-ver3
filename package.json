@@ -13,6 +13,7 @@
     "test:e2e": "node tests/e2e/runner.js",
     "lhci:mobile": "lhci autorun --config=./lighthouserc.json",
     "lhci:desktop": "lhci autorun --config=./lighthouserc.desktop.json",
+    "lhci:flow": "node scripts/test-user-flow.mjs",
     "lhci": "npm run lhci:mobile && npm run lhci:desktop"
   },
   "dependencies": {

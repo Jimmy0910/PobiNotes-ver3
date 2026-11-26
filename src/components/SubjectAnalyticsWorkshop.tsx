@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import JSZip from 'jszip';
 import { apiRequest } from '../utils/api';
 import {
   type CategoriesBundle,
@@ -684,6 +683,7 @@ export default function SubjectAnalyticsWorkshop({
     setPackingZip(true);
     setZipProgress('正在收集題目與解析圖片...');
     try {
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
       const imagesFolder = zip.folder('images');
       const zipImageMap: Record<string, MistakeZipImageMapping> = {};

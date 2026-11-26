@@ -15,13 +15,18 @@ function lazyWithPreload<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) {
   let cachedPromise: Promise<{ default: T }> | null = null;
+  let loaded = false;
   const preload = () => {
     if (!cachedPromise) {
-      cachedPromise = factory();
+      cachedPromise = factory().then((mod) => {
+        loaded = true;
+        return mod;
+      });
     }
     return cachedPromise;
   };
-  return Object.assign(lazy(preload), { preload });
+  const isLoaded = () => loaded;
+  return Object.assign(lazy(preload), { preload, isLoaded });
 }
 
 const AuthPage = lazyWithPreload(() => import('./components/AuthPage'));
@@ -39,29 +44,38 @@ const DailyReviewHubView = lazyWithPreload(() => import('./components/DailyRevie
 const BatchExamImportModal = lazyWithPreload(() => import('./components/BatchExamImportModal'));
 const BinderSpineNav = lazyWithPreload(() => import('./components/BinderSpineNav'));
 
-function preloadAuthenticatedChunks(includeAdmin = false) {
+let hasStartedCorePreload = false;
+
+function preloadAllCoreViews(includeAdmin = false) {
   void preloadLocalFallback();
+  void AuthPage.preload();
   void BinderSpineNav.preload();
   void BookshelfView.preload();
-  const runSecondary = () => {
-    void NotebookOpenView.preload();
-    void DailyReviewHubView.preload();
-    void UncategorizedView.preload();
-    void PromptGenerator.preload();
-    void TemplateManager.preload();
-    void UsageGuide.preload();
-    void PobiTutorialModal.preload();
-    void BatchExamImportModal.preload();
-    void BackupRestoreModal.preload();
-    if (includeAdmin) {
-      void AdminPanel.preload();
-    }
-  };
-  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(runSecondary);
-  } else {
-    globalThis.setTimeout(runSecondary, 120);
+
+  if (hasStartedCorePreload && !includeAdmin) return;
+  hasStartedCorePreload = true;
+
+  // Stagger secondary views in small micro-batches so no single task exceeds 50ms (0 TBT)
+  const queue: Array<() => Promise<unknown>> = [
+    () => NotebookOpenView.preload(),
+    () => DailyReviewHubView.preload(),
+    () => UncategorizedView.preload(),
+    () => PromptGenerator.preload(),
+    () => TemplateManager.preload(),
+    () => UsageGuide.preload(),
+    () => PobiTutorialModal.preload(),
+    () => BatchExamImportModal.preload(),
+    () => BackupRestoreModal.preload(),
+  ];
+  if (includeAdmin) {
+    queue.push(() => AdminPanel.preload());
   }
+
+  queue.forEach((fn, idx) => {
+    globalThis.setTimeout(() => {
+      void fn();
+    }, 90 * (idx + 1));
+  });
 }
 import {
   LogOut,
@@ -296,16 +310,15 @@ export default function App() {
     checkSession();
   }, [showToast]);
 
-  // Load categories and mistakes whenever user logs in, and warm-preload all authenticated chunks
+  // Load categories and mistakes whenever user logs in, and warm-preload all views
   useEffect(() => {
     if (user) {
-      preloadAuthenticatedChunks(user.is_admin === 1);
+      preloadAllCoreViews(user.is_admin === 1);
       refreshAllData().then(() => {
         try {
           const doneKey = `pobi_onboarding_done_${user.id}`;
           const alreadyDone = localStorage.getItem(doneKey) === '1';
           if (!alreadyDone && user.id !== 'demo-guest') {
-            // Check after data loads if mistakes are empty
             apiRequest('/api/mistakes')
               .then(list => {
                 if (Array.isArray(list) && list.length === 0) {
@@ -328,23 +341,24 @@ export default function App() {
     }
   }, [user, refreshAllData]);
 
-  // Warm-preload entry chunks upon first human interaction on LandingPage (zero cold-load cost)
+  // Automatically preload all core views during the opening shutter animation (and immediately on any interaction)
   useEffect(() => {
     if (user) return;
     let triggered = false;
-    const warmOnInteraction = () => {
+    const triggerPreload = () => {
       if (triggered) return;
       triggered = true;
-      void AuthPage.preload();
-      preloadAuthenticatedChunks(false);
+      preloadAllCoreViews(false);
     };
+    const timer = window.setTimeout(triggerPreload, 5800);
     const events: Array<keyof WindowEventMap> = ['pointermove', 'pointerdown', 'touchstart', 'keydown', 'scroll'];
     for (const evt of events) {
-      window.addEventListener(evt, warmOnInteraction, { once: true, passive: true });
+      window.addEventListener(evt, triggerPreload, { once: true, passive: true });
     }
     return () => {
+      window.clearTimeout(timer);
       for (const evt of events) {
-        window.removeEventListener(evt, warmOnInteraction);
+        window.removeEventListener(evt, triggerPreload);
       }
     };
   }, [user]);
@@ -374,27 +388,24 @@ export default function App() {
   }, [theme]);
 
   const navigateView = useCallback((nextView: AppViewType) => {
-    const preloaderMap: Partial<Record<AppViewType, () => Promise<unknown>>> = {
-      bookshelf: BookshelfView.preload,
-      notebook: NotebookOpenView.preload,
-      'daily-review': DailyReviewHubView.preload,
-      uncategorized: UncategorizedView.preload,
-      prompt: PromptGenerator.preload,
-      templates: TemplateManager.preload,
-      guide: UsageGuide.preload,
-      admin: AdminPanel.preload
+    const viewMap: Partial<Record<AppViewType, { preload: () => Promise<unknown>; isLoaded: () => boolean }>> = {
+      bookshelf: BookshelfView,
+      notebook: NotebookOpenView,
+      'daily-review': DailyReviewHubView,
+      uncategorized: UncategorizedView,
+      prompt: PromptGenerator,
+      templates: TemplateManager,
+      guide: UsageGuide,
+      admin: AdminPanel
     };
-    const preloadFn = preloaderMap[nextView];
-    const apply = () => {
-      startTransition(() => {
-        setActiveView(nextView);
-      });
-    };
-    if (preloadFn) {
-      void preloadFn().finally(apply);
-    } else {
-      apply();
+    const targetMod = viewMap[nextView];
+    if (!targetMod || targetMod.isLoaded()) {
+      setActiveView(nextView);
+      return;
     }
+    void targetMod.preload().finally(() => {
+      setActiveView(nextView);
+    });
   }, []);
 
   const handleLoginSuccess = (loggedInUser: User) => {
@@ -407,12 +418,16 @@ export default function App() {
         localStorage.setItem('pobi_has_session', '1');
       } catch {}
     }
+    if (BinderSpineNav.isLoaded() && BookshelfView.isLoaded()) {
+      setUser(loggedInUser);
+      setShowAuthView(false);
+      setActiveView('bookshelf');
+      return;
+    }
     void Promise.all([BinderSpineNav.preload(), BookshelfView.preload()]).finally(() => {
-      startTransition(() => {
-        setUser(loggedInUser);
-        setShowAuthView(false);
-        setActiveView('bookshelf');
-      });
+      setUser(loggedInUser);
+      setShowAuthView(false);
+      setActiveView('bookshelf');
     });
   };
 
@@ -462,16 +477,12 @@ export default function App() {
           }
         }
       } catch {}
-      await Promise.all([BinderSpineNav.preload(), BookshelfView.preload()]);
-      startTransition(() => {
-        setUser(demoUser);
-        setActiveView('bookshelf');
-      });
+      await Promise.all([preloadLocalFallback(), BinderSpineNav.preload(), BookshelfView.preload()]);
+      setUser(demoUser);
+      setActiveView('bookshelf');
       showToast('已進入訪客體驗模式（登出後將自動清空重設）', 'info');
     } catch {
-      void AuthPage.preload().finally(() => {
-        startTransition(() => setShowAuthView(true));
-      });
+      void AuthPage.preload().finally(() => setShowAuthView(true));
     }
   };
 
@@ -504,12 +515,16 @@ export default function App() {
   };
 
   const handleOpenNotebook = useCallback((subjectId: string, options?: NotebookOpenOptions) => {
+    if (NotebookOpenView.isLoaded()) {
+      setSelectedSubjectId(subjectId);
+      setNotebookPreset(options ?? null);
+      setActiveView('notebook');
+      return;
+    }
     void NotebookOpenView.preload().finally(() => {
-      startTransition(() => {
-        setSelectedSubjectId(subjectId);
-        setNotebookPreset(options ?? null);
-        setActiveView('notebook');
-      });
+      setSelectedSubjectId(subjectId);
+      setNotebookPreset(options ?? null);
+      setActiveView('notebook');
     });
   }, []);
 
@@ -652,19 +667,20 @@ export default function App() {
         <LandingPage
           onEnterDemo={handleEnterDemo}
           onPrefetchDemo={() => {
-            void preloadLocalFallback();
-            void BinderSpineNav.preload();
-            void BookshelfView.preload();
+            preloadAllCoreViews(false);
           }}
           onPrefetchAuth={() => {
             void AuthPage.preload();
           }}
           onGoToAuth={mode => {
+            if (AuthPage.isLoaded()) {
+              setAuthInitialMode(mode || 'login');
+              setShowAuthView(true);
+              return;
+            }
             void AuthPage.preload().finally(() => {
-              startTransition(() => {
-                setAuthInitialMode(mode || 'login');
-                setShowAuthView(true);
-              });
+              setAuthInitialMode(mode || 'login');
+              setShowAuthView(true);
             });
           }}
         />
@@ -676,7 +692,7 @@ export default function App() {
         <div style={{ position: 'fixed', top: '16px', left: '16px', zIndex: 50 }}>
           <button
             type="button"
-            onClick={() => startTransition(() => setShowAuthView(false))}
+            onClick={() => setShowAuthView(false)}
             className="btn btn-secondary"
             style={{ padding: '6px 12px', fontSize: '0.82rem' }}
           >

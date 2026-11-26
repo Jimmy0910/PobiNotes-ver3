@@ -12,6 +12,7 @@ export const onRequest: PagesFunction<Env, any, { user?: { id: string; username:
   
   const isApiRequest = url.pathname.startsWith('/api/');
   const isAuthRequest =
+    url.pathname === '/api/auth/me' ||
     url.pathname.startsWith('/api/auth/login') ||
     url.pathname.startsWith('/api/auth/register') ||
     url.pathname.startsWith('/api/auth/google');
