@@ -12,6 +12,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const completedRef = useRef(false);
   const fadingRef = useRef(false);
+  const userMutedRef = useRef(false);
   const fadeTimerRef = useRef<number | null>(null);
 
   const [fadingOut, setFadingOut] = useState(false);
@@ -36,7 +37,6 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       setFadeDurationMs(duration);
       setFadingOut(true);
 
-      // Gently fade audio volume out if playing unmuted
       const video = videoRef.current;
       if (video && !video.muted && !video.paused) {
         const startVol = video.volume;
@@ -63,8 +63,10 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
   const tryEnableAudio = useCallback(() => {
     const video = videoRef.current;
     if (!video || fadingRef.current) return;
+    userMutedRef.current = false;
     try {
       video.muted = false;
+      video.defaultMuted = false;
       video.volume = 1;
       setIsMuted(false);
       setAudioBlocked(false);
@@ -73,6 +75,39 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       }
     } catch {}
   }, []);
+
+  const attemptUnmutedPlay = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || completedRef.current || fadingRef.current || userMutedRef.current) return;
+
+    video.defaultMuted = false;
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+      if (!completedRef.current) {
+        setIsMuted(false);
+        setAudioBlocked(false);
+      }
+    } catch (err: any) {
+      if (completedRef.current) return;
+      // Only fall back to muted autoplay when the browser explicitly blocks unmuted autoplay.
+      // Ignore transient AbortError during mount/load so audio stays enabled by default.
+      if (err?.name === 'NotAllowedError') {
+        try {
+          video.muted = true;
+          setIsMuted(true);
+          setAudioBlocked(true);
+          await video.play();
+        } catch {
+          if (!completedRef.current) {
+            startFadeOut(SKIP_FADE_MS);
+          }
+        }
+      }
+    }
+  }, [startFadeOut]);
 
   const handleToggleAudio = useCallback(
     (e: React.MouseEvent) => {
@@ -83,6 +118,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       if (audioBlocked || isMuted) {
         tryEnableAudio();
       } else {
+        userMutedRef.current = true;
         video.muted = true;
         setIsMuted(true);
       }
@@ -98,73 +134,47 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       }
     } catch {}
 
-    const video = videoRef.current;
-    let cancelled = false;
+    attemptUnmutedPlay();
 
-    const startPlayback = async () => {
-      if (!video || cancelled) return;
-      // Default to unmuted audio ON
-      video.muted = false;
-      video.volume = 1;
-      try {
-        await video.play();
-        if (!cancelled) {
-          setIsMuted(false);
-          setAudioBlocked(false);
-        }
-      } catch {
-        // Browser autoplay policy blocked unmuted playback on cold load:
-        // start muted immediately so visuals never stall, and unmute on first gesture.
-        if (cancelled) return;
-        try {
-          video.muted = true;
-          setIsMuted(true);
-          setAudioBlocked(true);
-          await video.play();
-        } catch {
-          // If playback itself is unsupported/blocked, smoothly fade into LandingPage
-          if (!cancelled) {
-            startFadeOut(SKIP_FADE_MS);
-          }
-        }
+    const unlockOnGesture = () => {
+      const video = videoRef.current;
+      if (video && video.muted && !userMutedRef.current) {
+        tryEnableAudio();
       }
     };
-
-    startPlayback();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         startFadeOut(SKIP_FADE_MS);
         return;
       }
-      if (video && video.muted) {
-        tryEnableAudio();
-      }
+      unlockOnGesture();
     };
 
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('pointerdown', unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener('touchstart', unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', onKeyDown, { capture: true });
 
-    // Safety failsafe so intro never blocks LandingPage indefinitely
     const failsafeTimer = window.setTimeout(() => {
       startFadeOut(FADE_OUT_MS);
     }, 11500);
 
     return () => {
-      cancelled = true;
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('pointerdown', unlockOnGesture, { capture: true });
+      window.removeEventListener('touchstart', unlockOnGesture, { capture: true });
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
       window.clearTimeout(failsafeTimer);
       if (fadeTimerRef.current !== null) {
         window.clearTimeout(fadeTimerRef.current);
       }
     };
-  }, [finalizeIntro, startFadeOut, tryEnableAudio]);
+  }, [attemptUnmutedPlay, finalizeIntro, startFadeOut, tryEnableAudio]);
 
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (!video || fadingRef.current || !Number.isFinite(video.duration) || video.duration <= 0) {
       return;
     }
-    // Begin smooth fade-out during the final 0.7s hold so transition to LandingPage feels seamless
     if (video.duration - video.currentTime <= 0.7) {
       startFadeOut(FADE_OUT_MS);
     }
@@ -175,7 +185,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
       data-testid="roller-shutter-intro"
       aria-label="POBI STUDIO 開場動畫"
       onClick={() => {
-        if (audioBlocked) {
+        if (audioBlocked || (isMuted && !userMutedRef.current)) {
           tryEnableAudio();
         }
       }}
@@ -210,8 +220,15 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         <video
           ref={videoRef}
           src="/pobi-intro.mp4"
+          autoPlay
           playsInline
           preload="auto"
+          onCanPlay={() => {
+            const video = videoRef.current;
+            if (video && video.paused && !fadingRef.current) {
+              attemptUnmutedPlay();
+            }
+          }}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => startFadeOut(FADE_OUT_MS)}
           onError={() => startFadeOut(SKIP_FADE_MS)}
@@ -223,7 +240,6 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
             backgroundColor: '#FFFFFF',
           }}
         />
-        {/* Soft pure-white feather edge to blend any compressed video border invisibly into #FFFFFF */}
         <div
           aria-hidden="true"
           style={{
@@ -234,6 +250,40 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
           }}
         />
       </div>
+
+      {/* Bottom Center Prompt when Browser Cold-Load Autoplay Policy Temporarily Mutes Audio */}
+      {audioBlocked && !fadingOut && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            tryEnableAudio();
+          }}
+          style={{
+            position: 'fixed',
+            bottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '999px',
+            backgroundColor: '#0A296B',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            letterSpacing: '0.03em',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(10, 41, 107, 0.22)',
+          }}
+        >
+          <Volume2 className="w-4 h-4" style={{ color: '#4ADE80' }} aria-hidden="true" />
+          <span>點擊畫面任意處開啟開場音效</span>
+        </button>
+      )}
 
       {/* Top-Right Controls: Audio Toggle & Skip */}
       <div
