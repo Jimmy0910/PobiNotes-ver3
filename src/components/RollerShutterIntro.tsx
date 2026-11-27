@@ -204,17 +204,17 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         userSelect: 'none',
       }}
     >
-      {/* Centered Pure-White Seamless Video Stage */}
+      {/* Centered Pure-White Seamless Square Video Stage (Cropped Edges) */}
       <div
         style={{
           position: 'relative',
-          width: 'min(94vw, 960px)',
-          maxHeight: '82dvh',
-          aspectRatio: '16 / 9',
+          width: 'min(86vw, 76dvh, 620px)',
+          aspectRatio: '1 / 1',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#FFFFFF',
+          overflow: 'hidden',
         }}
       >
         <video
@@ -238,15 +238,8 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
             objectFit: 'contain',
             display: 'block',
             backgroundColor: '#FFFFFF',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            boxShadow: 'inset 0 0 28px 18px #FFFFFF',
+            mixBlendMode: 'multiply',
+            clipPath: 'inset(2%)',
           }}
         />
       </div>
