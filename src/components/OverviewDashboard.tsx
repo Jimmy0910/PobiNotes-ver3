@@ -167,7 +167,7 @@ export default function OverviewDashboard({
 
         {categories.familiarities.filter(f => f.is_active === 1).map(f => {
           const count = stats.famCounts[f.id] || 0;
-          const color = f.color === 'success' ? '#4D7C0F' : f.color === 'warning' ? '#D97706' : f.color === 'danger' ? '#C5221F' : '#8B5A2B';
+          const color = f.name.includes('誤解') || f.color === 'purple' ? '#7C3AED' : f.name.includes('順') || f.color === 'success' ? '#15803D' : f.name.includes('卡') || f.color === 'warning' ? '#CA8A04' : f.name.includes('不會') || f.color === 'danger' ? '#DC2626' : '#8B5A2B';
           return (
             <div
               key={f.id}

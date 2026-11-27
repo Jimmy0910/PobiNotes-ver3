@@ -15,7 +15,6 @@ import {
 import { apiRequest } from '../utils/api';
 import { extractMistakeMediaAndText } from '../utils/mistakeMedia';
 import MistakeEditor from './MistakeEditor';
-import ImageAnnotatorModal from './ImageAnnotatorModal';
 import HierarchyMoverModal, { type HierarchyMoveResult } from './HierarchyMoverModal';
 import SharePackModal from './SharePackModal';
 import DeleteScopeModal, { type DeleteScopeTarget } from './DeleteScopeModal';
@@ -44,7 +43,6 @@ import {
   EyeOff,
   Edit2,
   Trash2,
-  PenTool,
   Search,
   BarChart3
 } from 'lucide-react';
@@ -275,15 +273,8 @@ export default function NotebookOpenView({
     }
   };
 
-  // Lightbox & Annotator state
+  // Lightbox state
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
-  const [annotatingData, setAnnotatingData] = useState<{
-    mistake: MistakeRecord;
-    fieldKey: string;
-    isQuestion: boolean;
-    imageUrl: string;
-    answerIndex?: number;
-  } | null>(null);
 
   // Active Subject & Chapters
   const activeSubject = useMemo(() => {
@@ -490,88 +481,36 @@ export default function NotebookOpenView({
     }
   };
 
-  // Save Annotated Image from Modal
-  const handleSaveAnnotatedImage = async (newImgKey: string) => {
-    if (!annotatingData) return;
-    const { mistake, fieldKey, isQuestion, answerIndex } = annotatingData;
-    const currentQData = { ...(mistake.data?.questionData || {}) };
-    const currentAData = { ...(mistake.data?.answerData || {}) };
-
-    if (isQuestion) {
-      currentQData[fieldKey] = newImgKey;
-      currentQData.q_image = newImgKey;
-      currentQData.q_img = newImgKey;
-    } else {
-      const existingList = Array.isArray(currentAData.a_images)
-        ? [...currentAData.a_images]
-        : [currentAData.a_image || currentAData.a_img].filter(Boolean);
-      if (typeof answerIndex === 'number' && answerIndex >= 0 && answerIndex < existingList.length) {
-        existingList[answerIndex] = newImgKey;
-      } else {
-        existingList[0] = newImgKey;
-      }
-      currentAData.a_images = existingList;
-      currentAData.a_image = existingList[0] || newImgKey;
-      currentAData.a_img = existingList[0] || newImgKey;
-    }
-
-    const updatedMistake: MistakeRecord = {
-      ...mistake,
-      data: {
-        ...mistake.data,
-        questionData: currentQData,
-        answerData: currentAData
-      }
-    };
-
-    onUpdateMistake?.(updatedMistake);
-
-    try {
-      await apiRequest('/api/mistakes', {
-        method: 'PUT',
-        body: {
-          id: mistake.id,
-          data: updatedMistake.data
-        }
-      });
-      await onRefreshAll?.();
-    } catch (e) {
-      console.error('儲存標註圖片失敗', e);
-    } finally {
-      setAnnotatingData(null);
-    }
-  };
-
-  // Helper for Familiarity Display styling
+  // Helper for Familiarity Display styling (順=綠, 卡=黃, 不會=紅, 誤解=紫)
   const getFamiliarityBadgeStyle = (m: MistakeRecord) => {
     const famName = m.familiarity_name || '';
     if (famName.includes('順') || famName.includes('精熟') || famName.includes('熟練')) {
       return {
-        bg: 'rgba(25, 122, 39, 0.12)',
-        border: '1px solid rgba(25, 122, 39, 0.4)',
-        color: '#14532D',
+        bg: 'rgba(22, 163, 74, 0.14)',
+        border: '1px solid rgba(22, 163, 74, 0.45)',
+        color: '#15803D',
         label: '掌握度：順 (精熟)'
       };
     }
     if (famName.includes('卡') || famName.includes('稍微')) {
       return {
-        bg: 'rgba(217, 119, 6, 0.12)',
-        border: '1px solid rgba(217, 119, 6, 0.4)',
-        color: '#92400E',
+        bg: 'rgba(234, 179, 8, 0.16)',
+        border: '1px solid rgba(202, 138, 4, 0.5)',
+        color: '#A16207',
         label: '掌握度：卡 (卡頓)'
       };
     }
     if (famName.includes('誤解')) {
       return {
-        bg: 'rgba(220, 38, 38, 0.12)',
-        border: '1px solid rgba(220, 38, 38, 0.4)',
-        color: '#991B1B',
+        bg: 'rgba(147, 51, 234, 0.13)',
+        border: '1px solid rgba(147, 51, 234, 0.45)',
+        color: '#6D28D9',
         label: '掌握度：誤解 (審題)'
       };
     }
     return {
-      bg: 'rgba(239, 68, 68, 0.12)',
-      border: '1px solid rgba(239, 68, 68, 0.4)',
+      bg: 'rgba(220, 38, 38, 0.13)',
+      border: '1px solid rgba(220, 38, 38, 0.45)',
       color: '#B91C1C',
       label: '掌握度：不會 (生疏)'
     };
@@ -1626,31 +1565,6 @@ export default function NotebookOpenView({
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                                 onClick={() => setLightboxImageUrl(src)}
                               />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setAnnotatingData({
-                                    mistake: m,
-                                    fieldKey: 'q_image',
-                                    isQuestion: true,
-                                    imageUrl: src
-                                  })
-                                }
-                                style={{
-                                  position: 'absolute',
-                                  top: '4px',
-                                  right: '4px',
-                                  backgroundColor: 'rgba(28, 25, 23, 0.75)',
-                                  color: '#FFFFFF',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '3px 5px',
-                                  cursor: 'pointer'
-                                }}
-                                title="手帳紅筆標註"
-                              >
-                                <PenTool size={11} />
-                              </button>
                             </div>
                           ))}
                         </div>
@@ -1728,32 +1642,6 @@ export default function NotebookOpenView({
                                   style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
                                   onClick={() => setLightboxImageUrl(src)}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setAnnotatingData({
-                                      mistake: m,
-                                      fieldKey: 'a_image',
-                                      isQuestion: false,
-                                      imageUrl: src,
-                                      answerIndex: aIdx
-                                    })
-                                  }
-                                  style={{
-                                    position: 'absolute',
-                                    top: '4px',
-                                    right: '4px',
-                                    backgroundColor: 'rgba(25, 122, 39, 0.85)',
-                                    color: '#FFFFFF',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    padding: '3px 5px',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="手帳紅筆標註"
-                                >
-                                  <PenTool size={11} />
-                                </button>
                               </div>
                             ))}
                           </div>
@@ -2208,16 +2096,6 @@ export default function NotebookOpenView({
           </div>,
           document.body
         )}
-
-      {/* IMAGE ANNOTATOR MODAL (RED PEN & HIGHLIGHTER) */}
-      {annotatingData && (
-        <ImageAnnotatorModal
-          imageUrl={annotatingData.imageUrl}
-          title={`手帳紅筆標註｜${annotatingData.mistake.title}（${annotatingData.isQuestion ? '題目圖' : '詳解圖'}）`}
-          onClose={() => setAnnotatingData(null)}
-          onSaveAnnotatedImage={handleSaveAnnotatedImage}
-        />
-      )}
 
       {/* GOOGLE DRIVE-STYLE HIERARCHY MOVER MODAL */}
       {moverModalOpen && (

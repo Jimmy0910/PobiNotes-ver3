@@ -288,7 +288,7 @@ export default function MistakeList({
       { name: '順', color: 'success' },
       { name: '卡', color: 'warning' },
       { name: '不會', color: 'danger' },
-      { name: '誤解', color: 'danger' }
+      { name: '誤解', color: 'purple' }
     ];
     for (const def of standardDefaults) {
       if (!map.has(def.name)) {
@@ -877,7 +877,7 @@ export default function MistakeList({
             {deduplicatedFamiliarities.map(fam => {
               const isChecked = !excludedFamNames.includes(fam.name);
               const displayLabel = fam.name === '順' ? '順 (會)' : fam.name;
-              const color = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--text-primary)';
+              const color = fam.name.includes('誤解') || fam.color === 'purple' ? '#7C3AED' : fam.name.includes('順') || fam.color === 'success' ? '#15803D' : fam.name.includes('卡') || fam.color === 'warning' ? '#CA8A04' : fam.name.includes('不會') || fam.color === 'danger' ? '#DC2626' : 'var(--text-primary)';
               return (
                 <label
                   key={fam.name}
@@ -921,7 +921,7 @@ export default function MistakeList({
             const count = filteredMistakes.filter(
               m => getEffectiveFamiliarityName(m, categories.familiarities) === fam.name
             ).length;
-            const color = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : '#8B5A2B';
+            const color = fam.name.includes('誤解') || fam.color === 'purple' ? '#7C3AED' : fam.name.includes('順') || fam.color === 'success' ? '#15803D' : fam.name.includes('卡') || fam.color === 'warning' ? '#CA8A04' : fam.name.includes('不會') || fam.color === 'danger' ? '#DC2626' : '#8B5A2B';
             return (
               <div
                 key={fam.name}
@@ -972,7 +972,7 @@ export default function MistakeList({
               const count = chapterFamiliarityStats.famCounts[fam.name] || 0;
               if (count === 0) return null;
               const pct = (count / chapterFamiliarityStats.total) * 100;
-              const bg = fam.color === 'success' ? '#4D7C0F' : fam.color === 'warning' ? '#D97706' : fam.color === 'danger' ? '#C5221F' : 'var(--accent-primary)';
+              const bg = fam.name.includes('誤解') || fam.color === 'purple' ? '#7C3AED' : fam.name.includes('順') || fam.color === 'success' ? '#15803D' : fam.name.includes('卡') || fam.color === 'warning' ? '#CA8A04' : fam.name.includes('不會') || fam.color === 'danger' ? '#DC2626' : 'var(--accent-primary)';
               return (
                 <div
                   key={fam.name}
@@ -1166,6 +1166,7 @@ export default function MistakeList({
                           handleCycleFamiliarity(m);
                         }}
                         className={`binder-fam-cycle-btn ${
+                          m.familiarity_color === 'purple' || (famName && famName.includes('誤解')) ? 'fam-purple' :
                           m.familiarity_color === 'success' || (famName && famName.includes('順')) ? 'fam-success' :
                           m.familiarity_color === 'warning' || (famName && famName.includes('卡')) ? 'fam-warning' :
                           'fam-danger'

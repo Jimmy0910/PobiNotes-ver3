@@ -965,12 +965,14 @@ export default function MistakeEditor({
                         document.documentElement.classList.contains('dark') ||
                         document.documentElement.getAttribute('data-theme') === 'dark'
                       );
-                      const color = f.color === 'success'
+                      const color = f.name.includes('誤解') || f.color === 'purple'
+                        ? (isDark ? '#c084fc' : '#7c3aed')
+                        : f.name.includes('順') || f.color === 'success'
                         ? (isDark ? '#4ade80' : '#15803d')
-                        : f.color === 'warning'
-                        ? (isDark ? '#fbbf24' : '#b45309')
-                        : f.color === 'danger'
-                        ? (isDark ? '#f87171' : '#b91c1c')
+                        : f.name.includes('卡') || f.color === 'warning'
+                        ? (isDark ? '#facc15' : '#ca8a04')
+                        : f.name.includes('不會') || f.color === 'danger'
+                        ? (isDark ? '#f87171' : '#dc2626')
                         : (isDark ? '#cbd5e1' : '#475569');
                       return (
                         <button

@@ -54,7 +54,7 @@ export async function healMistakeFamiliarities(db: D1Database, userId: string): 
       { name: '順', color: 'success', order: 10 },
       { name: '卡', color: 'warning', order: 20 },
       { name: '不會', color: 'danger', order: 30 },
-      { name: '誤解', color: 'danger', order: 40 }
+      { name: '誤解', color: 'purple', order: 40 }
     ];
     const now = Date.now();
     for (const item of defaultFamiliarity) {
@@ -65,6 +65,10 @@ export async function healMistakeFamiliarities(db: D1Database, userId: string): 
           `INSERT INTO categories (id, user_id, dimension, parent_id, name, color, sort_order, is_active, created_at, updated_at)
            VALUES (?, ?, 'familiarity', NULL, ?, ?, ?, 1, ?, ?)`
         ).bind(id, userId, item.name, item.color, item.order, now, now).run();
+      } else {
+        await db.prepare(
+          `UPDATE categories SET color = ?, updated_at = ? WHERE id = ? AND color != ?`
+        ).bind(item.color, now, famNameToId[item.name], item.color).run();
       }
     }
 
@@ -595,7 +599,7 @@ export async function ensureSchemaAndUserDefaults(db: D1Database, userId?: strin
           { name: '順', color: 'success', order: 10 },
           { name: '卡', color: 'warning', order: 20 },
           { name: '不會', color: 'danger', order: 30 },
-          { name: '誤解', color: 'danger', order: 40 }
+          { name: '誤解', color: 'purple', order: 40 }
         ];
         for (const item of defaultFamiliarity) {
           const id = crypto.randomUUID();

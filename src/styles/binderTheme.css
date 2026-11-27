@@ -1359,6 +1359,18 @@ html:not([data-theme="dark"]) .binder-index-tab.active {
   color: #000000 !important;
 }
 
+.binder-fam-cycle-btn.fam-purple {
+  background: #e9d5ff !important;
+  border-color: #c084fc !important;
+  color: #000000 !important;
+}
+
+[data-theme="dark"] .binder-fam-cycle-btn.fam-purple {
+  background: #d8b4fe !important;
+  border-color: #a855f7 !important;
+  color: #000000 !important;
+}
+
 /* 全域掌握度標籤與按鈕文字一律黑色 */
 .fam-chip,
 .badge-familiarity,
@@ -1749,7 +1761,7 @@ html:not([data-theme="dark"]) .binder-mastery-badge {
   font-weight: 650 !important;
 }
 
-/* 圖片操作工具列與紅筆標註按鈕 */
+/* 圖片操作工具列 */
 .binder-full-image-wrapper {
   position: relative;
   display: inline-block;
@@ -1777,7 +1789,6 @@ html:not([data-theme="dark"]) .binder-mastery-badge {
   z-index: 10;
 }
 
-.binder-image-annotate-btn,
 .binder-image-zoom-btn {
   display: inline-flex;
   align-items: center;
@@ -1791,19 +1802,6 @@ html:not([data-theme="dark"]) .binder-mastery-badge {
   transition: all 0.15s;
   backdrop-filter: blur(4px);
   user-select: none;
-}
-
-.binder-image-annotate-btn {
-  background: rgba(254, 226, 226, 0.95) !important;
-  color: #991b1b !important;
-  border-color: rgba(239, 68, 68, 0.4) !important;
-}
-
-.binder-image-annotate-btn:hover {
-  background: #fee2e2 !important;
-  color: #7f1d1d !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
 }
 
 .binder-image-zoom-btn {
@@ -1905,7 +1903,6 @@ html:not([data-theme="dark"]) .binder-mastery-badge {
     visibility: visible !important;
   }
 
-  .binder-image-annotate-btn,
   .binder-image-zoom-btn {
     padding: 7px 12px !important;
     font-size: 0.82rem !important;
@@ -1927,18 +1924,6 @@ html:not([data-theme="dark"]) .binder-mastery-badge {
   /* Mobile PDF sheet padding */
   #print-sheet-preview {
     padding: 24px 16px !important;
-  }
-
-  /* Mobile Annotator full viewport */
-  .image-annotator-overlay {
-    padding: 0 !important;
-  }
-
-  .image-annotator-overlay > div {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    border-radius: 0 !important;
   }
 }
 

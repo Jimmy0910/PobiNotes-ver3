@@ -9,7 +9,7 @@ export interface CategoryItem {
   subject_id?: string | null;
   chapter_id?: string | null;
   name: string;
-  color: 'default' | 'success' | 'warning' | 'danger' | string;
+  color: 'default' | 'success' | 'warning' | 'danger' | 'purple' | string;
   sort_order: number;
   is_active: number;
   created_at: number;

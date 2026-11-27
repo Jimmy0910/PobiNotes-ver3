@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { FastForward, Volume2, VolumeX, Play } from 'lucide-react';
+import { FastForward, Volume2, VolumeX } from 'lucide-react';
 
 interface RollerShutterIntroProps {
   onComplete: () => void;
@@ -187,7 +187,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         startFadeOut(SKIP_FADE_MS);
         return;
       }
-      if ((e.key === 'Enter' || e.key === ' ') && needsTapRef.current) {
+      if (needsTapRef.current) {
         e.preventDefault();
         handleEnterWithSound();
       }
@@ -271,9 +271,14 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         />
       </div>
 
-      {/* Minimalist Pure-White Entry Gate with Dark Button (when browser blocks unmuted autoplay) */}
+      {/* Minimalist Pure-White Entry Gate with Floating Black Text (when browser blocks unmuted autoplay) */}
       {needsTapToEnter && !fadingOut && (
         <div
+          onClick={handleEnterWithSound}
+          role="button"
+          tabIndex={0}
+          data-testid="intro-enter-btn"
+          aria-label="Press any button to start"
           style={{
             position: 'fixed',
             inset: 0,
@@ -284,33 +289,29 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
             alignItems: 'center',
             justifyContent: 'center',
             padding: '24px',
+            cursor: 'pointer',
           }}
         >
-          <button
-            type="button"
-            onClick={handleEnterWithSound}
-            data-testid="intro-enter-btn"
+          <style>{`
+            @keyframes pobiIntroFloat {
+              0%, 100% { transform: translateY(0px); opacity: 0.92; }
+              50% { transform: translateY(-10px); opacity: 1; }
+            }
+          `}</style>
+          <span
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              padding: '15px 30px',
-              borderRadius: '999px',
-              backgroundColor: '#111827',
-              color: '#FFFFFF',
-              border: '1px solid #111827',
-              fontSize: '0.96rem',
+              color: '#000000',
+              fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+              fontSize: 'clamp(1rem, 2.4vw, 1.35rem)',
               fontWeight: 700,
-              letterSpacing: '0.06em',
-              cursor: 'pointer',
-              boxShadow: '0 10px 28px rgba(17, 24, 39, 0.16)',
-              transition: 'transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              animation: 'pobiIntroFloat 2.4s ease-in-out infinite',
             }}
           >
-            <Play className="w-4 h-4" style={{ color: '#FFFFFF', fill: '#FFFFFF' }} aria-hidden="true" />
-            <span>點擊進入 POBI STUDIO</span>
-          </button>
+            press any button to start
+          </span>
         </div>
       )}
 

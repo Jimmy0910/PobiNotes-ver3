@@ -2,8 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { type MistakeRecord, addDaysToDateStr, getTodayDateStr } from '../types';
 import {
   type SubjectFamiliaritySchedule,
-  type CanonicalFamiliarityKey,
-  DEFAULT_SUBJECT_REVIEW_SCHEDULE,
   FAMILIARITY_SCHEDULE_META,
   normalizeFamiliarityKey,
   saveSubjectReviewSchedule
@@ -18,13 +16,11 @@ import {
   Square,
   Folder,
   FileText,
-  CalendarClock,
-  Ban,
+  Sliders,
   Clock,
   Save,
   Send,
   Loader2,
-  RefreshCw,
   CheckCircle2
 } from 'lucide-react';
 
@@ -58,6 +54,7 @@ interface GmailDailyReminderPanelProps {
   currentSubjectSchedule: SubjectFamiliaritySchedule;
   initialConfig: DailyReminderClientConfig | null;
   loadingConfig: boolean;
+  onOpenScheduleSettings?: () => void;
   onConfigSaved: (saved: DailyReminderClientConfig) => void;
   onScheduleSynced: (nextSchedule: SubjectFamiliaritySchedule) => void;
 }
@@ -105,6 +102,7 @@ export default function GmailDailyReminderPanel({
   currentSubjectSchedule,
   initialConfig,
   loadingConfig,
+  onOpenScheduleSettings,
   onConfigSaved,
   onScheduleSynced
 }: GmailDailyReminderPanelProps) {
@@ -112,28 +110,20 @@ export default function GmailDailyReminderPanel({
 
   const [enabled, setEnabled] = useState<boolean>(false);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(allScopeKeys);
-  const [schedule, setSchedule] = useState<SubjectFamiliaritySchedule>(currentSubjectSchedule);
-  const [draftDays, setDraftDays] = useState<Record<CanonicalFamiliarityKey, string>>({
-    不會: currentSubjectSchedule['不會'] === null ? '' : String(currentSubjectSchedule['不會']),
-    卡: currentSubjectSchedule['卡'] === null ? '' : String(currentSubjectSchedule['卡']),
-    誤解: currentSubjectSchedule['誤解'] === null ? '' : String(currentSubjectSchedule['誤解']),
-    順: currentSubjectSchedule['順'] === null ? '' : String(currentSubjectSchedule['順'])
-  });
   const [sendTime, setSendTime] = useState<string>('20:00');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [saving, setSaving] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
 
   const allKeysSig = useMemo(() => allScopeKeys.join('|'), [allScopeKeys]);
+  const schedule = currentSubjectSchedule;
 
-  const syncDraftsFromSchedule = (next: SubjectFamiliaritySchedule) => {
-    setDraftDays({
-      不會: next['不會'] === null ? '' : String(next['不會']),
-      卡: next['卡'] === null ? '' : String(next['卡']),
-      誤解: next['誤解'] === null ? '' : String(next['誤解']),
-      順: next['順'] === null ? '' : String(next['順'])
-    });
-  };
+  const syncedScheduleSummary = useMemo(() => {
+    return FAMILIARITY_SCHEDULE_META.map(meta => {
+      const v = schedule[meta.key];
+      return `${meta.label} ${v === null ? '不再複習' : `${v} 天`}`;
+    }).join(' · ');
+  }, [schedule]);
 
   // Hydrate form state when subject or loaded server config changes
   useEffect(() => {
@@ -146,8 +136,6 @@ export default function GmailDailyReminderPanel({
         const filtered = initialConfig.scopeKeys.filter(k => validSet.has(k));
         setSelectedKeys(filtered);
       }
-      setSchedule(initialConfig.schedule);
-      syncDraftsFromSchedule(initialConfig.schedule);
       setSendTime(
         SEND_TIME_OPTIONS.includes(initialConfig.sendTime) ? initialConfig.sendTime : '20:00'
       );
@@ -157,8 +145,6 @@ export default function GmailDailyReminderPanel({
     } else {
       setEnabled(false);
       setSelectedKeys(allScopeKeys);
-      setSchedule(currentSubjectSchedule);
-      syncDraftsFromSchedule(currentSubjectSchedule);
       setSendTime('20:00');
       setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
     }
@@ -214,22 +200,6 @@ export default function GmailDailyReminderPanel({
     return selectedMistakes.filter(m => evaluateMistakeDueWithSchedule(m, schedule, today)).length;
   }, [selectedMistakes, schedule]);
 
-  const handleScheduleModeChange = (key: CanonicalFamiliarityKey, value: number | null) => {
-    setSchedule(prev => ({ ...prev, [key]: value }));
-    setDraftDays(prev => ({ ...prev, [key]: value === null ? '' : String(value) }));
-  };
-
-  const handleDraftDaysChange = (key: CanonicalFamiliarityKey, rawInput: string) => {
-    const digitsOnly = rawInput.replace(/[^\d]/g, '');
-    setDraftDays(prev => ({ ...prev, [key]: digitsOnly }));
-    if (digitsOnly !== '') {
-      const parsed = parseInt(digitsOnly, 10);
-      if (Number.isFinite(parsed) && parsed >= 1) {
-        setSchedule(prev => ({ ...prev, [key]: parsed }));
-      }
-    }
-  };
-
   const toggleWeekday = (day: number) => {
     setDaysOfWeek(prev => {
       if (prev.includes(day)) {
@@ -247,19 +217,6 @@ export default function GmailDailyReminderPanel({
     scopeKeys: string[];
     schedule: SubjectFamiliaritySchedule;
   } | null => {
-    const nextSchedule: SubjectFamiliaritySchedule = { ...schedule };
-    for (const meta of FAMILIARITY_SCHEDULE_META) {
-      if (nextSchedule[meta.key] !== null) {
-        const raw = (draftDays[meta.key] || '').trim();
-        const parsed = parseInt(raw, 10);
-        if (!raw || !Number.isFinite(parsed) || parsed < 1) {
-          showToast(`請為「${meta.label}」輸入大於 0 的間隔天數，或切換為「不再複習」`, 'error');
-          return null;
-        }
-        nextSchedule[meta.key] = parsed;
-      }
-    }
-
     if (enabled && allScopeKeys.length > 0 && selectedKeys.length === 0) {
       showToast('開啟每日通知時，請至少勾選一個章節或單元範圍', 'error');
       return null;
@@ -271,7 +228,7 @@ export default function GmailDailyReminderPanel({
 
     return {
       scopeKeys: scopeKeysToSave,
-      schedule: nextSchedule
+      schedule: { ...schedule }
     };
   };
 
@@ -293,10 +250,7 @@ export default function GmailDailyReminderPanel({
         })
       });
 
-      // Keep local subject review schedule synced with saved reminder schedule
       const syncedLocal = saveSubjectReviewSchedule(subjectId, validated.schedule);
-      setSchedule(syncedLocal);
-      syncDraftsFromSchedule(syncedLocal);
       onScheduleSynced(syncedLocal);
 
       if (res?.reminder) {
@@ -667,152 +621,39 @@ export default function GmailDailyReminderPanel({
             )}
           </div>
 
-          {/* Section B: Familiarity Review Cycle */}
+          {/* Synced Familiarity Schedule Notice (managed centrally in Step 3: 排程設定) */}
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: '10px',
-              paddingTop: '14px',
-              borderTop: '1px dashed var(--glass-border)'
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--glass-border)'
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '8px'
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                  2. 設定熟悉度複習週期
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  儲存時將同步套用到本科閃卡複習與每日信件的到期計算
-                </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sliders size={14} style={{ color: 'var(--accent-secondary)' }} />
+                <span>熟悉度複習週期已與「3. 排程設定」自動同步</span>
               </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '3px', fontVariantNumeric: 'tabular-nums' }}>
+                目前同步週期：{syncedScheduleSummary}
+              </div>
+            </div>
+            {onOpenScheduleSettings && (
               <button
                 type="button"
-                onClick={() => {
-                  const defaults = { ...DEFAULT_SUBJECT_REVIEW_SCHEDULE };
-                  setSchedule(defaults);
-                  syncDraftsFromSchedule(defaults);
-                }}
+                onClick={onOpenScheduleSettings}
                 className="btn btn-secondary"
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
+                style={{ padding: '5px 12px', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}
               >
-                <RefreshCw size={12} />
-                <span>恢復預設（1/3/5/14天）</span>
+                前往調整排程
               </button>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '10px'
-              }}
-            >
-              {FAMILIARITY_SCHEDULE_META.map(meta => {
-                const val = schedule[meta.key];
-                const isNever = val === null;
-                return (
-                  <div
-                    key={meta.key}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: `1.5px solid ${meta.accentBorder}55`,
-                      backgroundColor: 'var(--bg-secondary)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                        熟悉度：{meta.label}
-                      </span>
-                      <span style={{ fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
-                        {meta.desc}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleScheduleModeChange(meta.key, isNever ? 3 : val)}
-                        className={!isNever ? 'btn btn-primary' : 'btn btn-secondary'}
-                        style={{
-                          padding: '4px 9px',
-                          fontSize: '0.76rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <CalendarClock size={12} /> 間隔天數
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleScheduleModeChange(meta.key, null)}
-                        className={isNever ? 'btn btn-primary' : 'btn btn-secondary'}
-                        style={{
-                          padding: '4px 9px',
-                          fontSize: '0.76rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <Ban size={12} /> 不再複習
-                      </button>
-
-                      {!isNever ? (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={draftDays[meta.key]}
-                            onChange={e => handleDraftDaysChange(meta.key, e.target.value)}
-                            data-testid={`gmail-schedule-days-${meta.key}`}
-                            className="input"
-                            style={{
-                              width: '62px',
-                              height: '28px',
-                              padding: '2px 6px',
-                              fontWeight: 700,
-                              fontSize: '0.82rem',
-                              textAlign: 'center',
-                              fontVariantNumeric: 'tabular-nums'
-                            }}
-                          />
-                          <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            天
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
-                          不列入提醒
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            )}
           </div>
 
           {/* Section C: Auto-Send Time & Weekly Schedule */}
@@ -827,7 +668,7 @@ export default function GmailDailyReminderPanel({
           >
             <div>
               <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                3. 設定自動寄信時程（台灣時間 UTC+8）
+                2. 設定自動寄信時程（台灣時間 UTC+8）
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 系統將於指定星期與整點時段自動整理今日到期題目並寄送到您的 Gmail

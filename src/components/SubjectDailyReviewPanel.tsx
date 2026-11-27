@@ -30,8 +30,6 @@ import {
   Save,
   Ban,
   CalendarClock,
-  ChevronDown,
-  ChevronUp,
   ArrowRight,
   Check,
   Mail,
@@ -79,9 +77,9 @@ export default function SubjectDailyReviewPanel({
     };
   });
   const [scheduleVersion, setScheduleVersion] = useState(0);
-  // Default: show the 3 step buttons (1. 選擇範圍 / 2. 開始複習 / 3. GMAIL 每日通知), with schedule collapsed
-  const [activeReviewStep, setActiveReviewStep] = useState<'scope' | 'start' | 'gmail' | null>(null);
-  const [showScheduleEditor, setShowScheduleEditor] = useState(false);
+  // 2x2 Quad Grid: 1. 選擇範圍 / 2. 開始複習 / 3. 排程設定 / 4. GMAIL 每日通知
+  const [activeReviewStep, setActiveReviewStep] = useState<'scope' | 'start' | 'schedule' | 'gmail' | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   // Gmail Daily Notification eligibility & saved server state
   const isGmailUser = Boolean(
@@ -108,6 +106,12 @@ export default function SubjectDailyReviewPanel({
         if (cancelled) return;
         if (res?.success && res?.reminder) {
           setGmailConfig(res.reminder);
+          if (res.reminder.schedule) {
+            const synced = saveSubjectReviewSchedule(subjectId, res.reminder.schedule);
+            setSchedule(synced);
+            syncDraftsFromSchedule(synced);
+            setScheduleVersion(v => v + 1);
+          }
         } else {
           setGmailConfig(null);
         }
@@ -137,7 +141,6 @@ export default function SubjectDailyReviewPanel({
     setSchedule(loaded);
     syncDraftsFromSchedule(loaded);
     setActiveReviewStep(null);
-    setShowScheduleEditor(false);
   }, [subjectId]);
 
   const subjectChapters = useMemo(() => {
@@ -303,7 +306,33 @@ export default function SubjectDailyReviewPanel({
     }
   };
 
-  const handleSaveSchedule = () => {
+  const syncScheduleToGmailServer = async (nextSchedule: SubjectFamiliaritySchedule) => {
+    if (!isGmailUser) return;
+    try {
+      const scopeKeysToSave =
+        gmailConfig?.scopeKeys && gmailConfig.scopeKeys.length > 0
+          ? gmailConfig.scopeKeys
+          : ['__ALL__'];
+      const res = await apiRequest('/api/daily-reminder', {
+        method: 'PUT',
+        body: JSON.stringify({
+          subjectId,
+          enabled: gmailConfig?.enabled ?? false,
+          scopeKeys: scopeKeysToSave,
+          schedule: nextSchedule,
+          sendTime: gmailConfig?.sendTime || '20:00',
+          daysOfWeek: gmailConfig?.daysOfWeek || [0, 1, 2, 3, 4, 5, 6]
+        })
+      });
+      if (res?.reminder) {
+        setGmailConfig(res.reminder);
+      }
+    } catch {
+      // Local schedule is already saved; cloud sync is best-effort
+    }
+  };
+
+  const handleSaveSchedule = async () => {
     const nextSchedule: SubjectFamiliaritySchedule = { ...schedule };
     for (const meta of FAMILIARITY_SCHEDULE_META) {
       if (nextSchedule[meta.key] !== null) {
@@ -316,21 +345,38 @@ export default function SubjectDailyReviewPanel({
         nextSchedule[meta.key] = parsed;
       }
     }
-    const saved = saveSubjectReviewSchedule(subjectId, nextSchedule);
-    setSchedule(saved);
-    syncDraftsFromSchedule(saved);
-    setScheduleVersion(v => v + 1);
-    onScheduleChanged?.();
-    showToast(`已儲存《${subjectName}》的熟悉度複習排程設定`, 'success');
+    setSavingSchedule(true);
+    try {
+      const saved = saveSubjectReviewSchedule(subjectId, nextSchedule);
+      setSchedule(saved);
+      syncDraftsFromSchedule(saved);
+      setScheduleVersion(v => v + 1);
+      onScheduleChanged?.();
+      await syncScheduleToGmailServer(saved);
+      showToast(
+        isGmailUser
+          ? `已儲存《${subjectName}》排程，並同步套用於每日複習與 Gmail 通知`
+          : `已儲存《${subjectName}》的熟悉度複習排程設定`,
+        'success'
+      );
+    } finally {
+      setSavingSchedule(false);
+    }
   };
 
-  const handleResetSchedule = () => {
-    const defaults = resetSubjectReviewSchedule(subjectId);
-    setSchedule(defaults);
-    syncDraftsFromSchedule(defaults);
-    setScheduleVersion(v => v + 1);
-    onScheduleChanged?.();
-    showToast(`已恢復《${subjectName}》預設複習週期（1 / 3 / 5 / 14 天）`, 'info');
+  const handleResetSchedule = async () => {
+    setSavingSchedule(true);
+    try {
+      const defaults = resetSubjectReviewSchedule(subjectId);
+      setSchedule(defaults);
+      syncDraftsFromSchedule(defaults);
+      setScheduleVersion(v => v + 1);
+      onScheduleChanged?.();
+      await syncScheduleToGmailServer(defaults);
+      showToast(`已恢復《${subjectName}》預設複習週期（1 / 3 / 5 / 14 天）並完成同步`, 'info');
+    } finally {
+      setSavingSchedule(false);
+    }
   };
 
   const scheduleSummaryText = useMemo(() => {
@@ -410,14 +456,20 @@ export default function SubjectDailyReviewPanel({
           </div>
         </div>
 
-        {/* Primary Step Cards (1. 選擇範圍 / 2. 開始複習 / 3. GMAIL 每日通知) */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-            gap: '16px'
-          }}
-        >
+        {/* Primary 2x2 Quad Grid Cards (田字型四格排列: 1. 選擇範圍 / 2. 開始複習 / 3. 排程設定 / 4. GMAIL 每日通知) */}
+        <style>{`
+          .pobi-daily-review-quad-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+          }
+          @media (max-width: 720px) {
+            .pobi-daily-review-quad-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}</style>
+        <div className="pobi-daily-review-quad-grid" data-testid="daily-review-quad-grid">
           {/* Step Button 1: 選擇範圍 */}
           <button
             type="button"
@@ -578,7 +630,87 @@ export default function SubjectDailyReviewPanel({
             </div>
           </button>
 
-          {/* Step Button 3: GMAIL 每日通知 (Gmail-registered users only; locked otherwise) */}
+          {/* Step Button 3: 排程設定 (Unified Daily Review + Gmail Sync) */}
+          <button
+            type="button"
+            onClick={() => setActiveReviewStep(prev => (prev === 'schedule' ? null : 'schedule'))}
+            data-testid="daily-review-step3-schedule-btn"
+            className={`pobi-mode-card ${activeReviewStep === 'schedule' ? 'is-selected' : ''}`}
+            style={{
+              minHeight: '176px',
+              padding: '22px 22px 18px 22px',
+              borderRadius: '14px',
+              border: activeReviewStep === 'schedule' ? '2px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+              backgroundColor: activeReviewStep === 'schedule' ? 'var(--warning-bg)' : 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '14px',
+              boxShadow: activeReviewStep === 'schedule' ? '0 8px 20px rgba(217, 119, 6, 0.16)' : '0 2px 8px rgba(0, 0, 0, 0.05)'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '11px',
+                    backgroundColor: activeReviewStep === 'schedule' ? 'var(--accent-secondary)' : 'var(--glass-highlight)',
+                    color: activeReviewStep === 'schedule' ? '#FFFFFF' : 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <Sliders size={21} />
+                </div>
+                <span
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    border: activeReviewStep === 'schedule' ? '1px solid var(--accent-secondary)' : '1px solid var(--glass-border)',
+                    backgroundColor: activeReviewStep === 'schedule' ? 'var(--accent-secondary)' : 'var(--bg-secondary)',
+                    color: activeReviewStep === 'schedule' ? '#FFFFFF' : 'var(--text-secondary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {activeReviewStep === 'schedule' && <Check size={12} />}
+                  <span>{activeReviewStep === 'schedule' ? '調整中（點此收合）' : '點此調整排程'}</span>
+                </span>
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '1.08rem', color: 'var(--text-primary)' }}>
+                  3. 排程設定
+                </div>
+                <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.6 }}>
+                  統一設定各熟悉度（不會／卡／誤解／順）的複習間隔天數或設為不再複習，每日複習與 Gmail 通知自動同步。
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                paddingTop: '10px',
+                borderTop: '1px dashed var(--glass-border)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: activeReviewStep === 'schedule' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                fontVariantNumeric: 'tabular-nums'
+              }}
+            >
+              目前週期：{scheduleSummaryText}
+            </div>
+          </button>
+
+          {/* Step Button 4: GMAIL 每日通知 (Gmail-registered users only; locked otherwise) */}
           <button
             type="button"
             onClick={() => {
@@ -687,7 +819,7 @@ export default function SubjectDailyReviewPanel({
               </div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: '1.08rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>3. GMAIL 每日通知</span>
+                  <span>4. GMAIL 每日通知</span>
                 </div>
                 {!isGmailUser ? (
                   <div
@@ -712,7 +844,7 @@ export default function SubjectDailyReviewPanel({
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.6 }}>
-                    自訂通知範圍、熟悉度週期、開啟或關閉每日提醒，以及自動寄信時間與星期。
+                    開啟或關閉每日提醒信、自訂通知範圍與自動寄信時間及星期（複習週期與第 3 格自動同步）。
                   </div>
                 )}
               </div>
@@ -987,79 +1119,33 @@ export default function SubjectDailyReviewPanel({
           </div>
         )}
 
-        {/* Expanded Panel for Step 3: GMAIL Daily Notification Settings (Gmail users only) */}
-        {activeReviewStep === 'gmail' && isGmailUser && (
-          <GmailDailyReminderPanel
-            subjectId={subjectId}
-            subjectName={subjectName}
-            userEmail={userGmailEmail}
-            scopeGroups={scopeStructure.groups}
-            allScopeKeys={scopeStructure.allScopeKeys}
-            currentReviewScopeKeys={selectedKeys}
-            currentSubjectSchedule={schedule}
-            initialConfig={gmailConfig}
-            loadingConfig={loadingGmailConfig}
-            onConfigSaved={saved => setGmailConfig(saved)}
-            onScheduleSynced={nextSchedule => {
-              setSchedule(nextSchedule);
-              syncDraftsFromSchedule(nextSchedule);
-              setScheduleVersion(v => v + 1);
-              onScheduleChanged?.();
+        {/* Expanded Panel for Step 3: Unified Familiarity Schedule Settings (Daily Review + Gmail Sync) */}
+        {activeReviewStep === 'schedule' && (
+          <div
+            data-testid="subject-review-schedule-card"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderRadius: '12px',
+              border: '1px solid var(--glass-border)',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
             }}
-          />
-        )}
-      </section>
-
-      {/* Collapsible Per-Subject Familiarity Review Interval Settings (Pre-collapsed by Default) */}
-      <div
-        className="glass"
-        style={{
-          borderRadius: '12px',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px'
-        }}
-        data-testid="subject-review-schedule-card"
-      >
-        <div
-          onClick={() => setShowScheduleEditor(prev => !prev)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px',
-            cursor: 'pointer'
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sliders size={16} style={{ color: 'var(--accent-secondary)' }} />
-              <span>《{subjectName}》熟悉度複習週期設定</span>
-            </h3>
-            <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-              目前週期：{scheduleSummaryText}（各科目獨立儲存，可設為「不再複習」）
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              setShowScheduleEditor(prev => !prev);
-            }}
-            data-testid="toggle-review-schedule-btn"
-            className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
           >
-            {showScheduleEditor ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            <span>{showScheduleEditor ? '收合週期設定' : '展開週期設定'}</span>
-          </button>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sliders size={16} style={{ color: 'var(--accent-secondary)' }} />
+                  <span>《{subjectName}》整合排程設定（每日複習與 Gmail 通知同步）</span>
+                </h3>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.79rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                  目前週期：{scheduleSummaryText}（套用後將同時更新閃卡到期排程與 Gmail 每日提醒週期）
+                </p>
+              </div>
+            </div>
 
-        {showScheduleEditor && (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '4px', borderTop: '1px solid var(--glass-border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px', paddingTop: '4px', borderTop: '1px solid var(--glass-border)' }}>
               {FAMILIARITY_SCHEDULE_META.map(meta => {
                 const val = schedule[meta.key];
                 const isNever = val === null;
@@ -1067,22 +1153,20 @@ export default function SubjectDailyReviewPanel({
                   <div
                     key={meta.key}
                     style={{
-                      padding: '10px 12px',
+                      padding: '12px 14px',
                       borderRadius: '10px',
-                      border: `1.5px solid ${meta.accentBorder}55`,
-                      backgroundColor: 'var(--bg-primary)',
+                      border: `1.5px solid ${meta.accentBorder}66`,
+                      backgroundColor: meta.accentBg,
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
+                      flexDirection: 'column',
                       gap: '10px'
                     }}
                   >
-                    <div style={{ minWidth: '110px' }}>
-                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontWeight: 800, fontSize: '0.92rem', color: meta.accentColor }}>
                         熟悉度：{meta.label}
-                      </div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>{meta.desc}</div>
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>{meta.desc}</span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1119,7 +1203,7 @@ export default function SubjectDailyReviewPanel({
                       </button>
 
                       {!isNever ? (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
                           <input
                             type="text"
                             inputMode="numeric"
@@ -1130,7 +1214,7 @@ export default function SubjectDailyReviewPanel({
                             data-testid={`schedule-days-input-${meta.key}`}
                             className="input"
                             style={{
-                              width: '74px',
+                              width: '70px',
                               height: '30px',
                               padding: '2px 8px',
                               fontWeight: 700,
@@ -1142,7 +1226,7 @@ export default function SubjectDailyReviewPanel({
                           <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>天後</span>
                         </div>
                       ) : (
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
                           不列入排程
                         </span>
                       )}
@@ -1152,10 +1236,11 @@ export default function SubjectDailyReviewPanel({
               })}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '6px', borderTop: '1px solid var(--glass-border)' }}>
               <button
                 type="button"
                 onClick={handleResetSchedule}
+                disabled={savingSchedule}
                 className="btn btn-secondary"
                 style={{ padding: '7px 12px', fontSize: '0.8rem', fontWeight: 600 }}
               >
@@ -1164,6 +1249,7 @@ export default function SubjectDailyReviewPanel({
               <button
                 type="button"
                 onClick={handleSaveSchedule}
+                disabled={savingSchedule}
                 data-testid="save-subject-schedule-btn"
                 className="btn btn-primary"
                 style={{
@@ -1176,12 +1262,35 @@ export default function SubjectDailyReviewPanel({
                 }}
               >
                 <Save size={15} />
-                <span>套用並儲存本科設定</span>
+                <span>{savingSchedule ? '同步儲存中...' : '套用並同步排程設定'}</span>
               </button>
             </div>
-          </>
+          </div>
         )}
-      </div>
+
+        {/* Expanded Panel for Step 4: GMAIL Daily Notification Settings (Gmail users only) */}
+        {activeReviewStep === 'gmail' && isGmailUser && (
+          <GmailDailyReminderPanel
+            subjectId={subjectId}
+            subjectName={subjectName}
+            userEmail={userGmailEmail}
+            scopeGroups={scopeStructure.groups}
+            allScopeKeys={scopeStructure.allScopeKeys}
+            currentReviewScopeKeys={selectedKeys}
+            currentSubjectSchedule={schedule}
+            initialConfig={gmailConfig}
+            loadingConfig={loadingGmailConfig}
+            onOpenScheduleSettings={() => setActiveReviewStep('schedule')}
+            onConfigSaved={saved => setGmailConfig(saved)}
+            onScheduleSynced={nextSchedule => {
+              setSchedule(nextSchedule);
+              syncDraftsFromSchedule(nextSchedule);
+              setScheduleVersion(v => v + 1);
+              onScheduleChanged?.();
+            }}
+          />
+        )}
+      </section>
     </div>
   );
 }

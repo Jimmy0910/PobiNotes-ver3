@@ -46,6 +46,67 @@ const BinderSpineNav = lazyWithPreload(() => import('./components/BinderSpineNav
 
 let hasStartedCorePreload = false;
 
+const PRELOAD_IMAGE_URLS = [
+  '/pobi-mascot.jpg',
+  '/pobi-mascot-128.webp',
+  '/logo.png',
+  '/logo-128.webp',
+  '/demo/parabola-q.png',
+  '/demo/parabola-a.png',
+  '/demo/discriminant-q.png',
+  '/demo/discriminant-a.png'
+];
+
+function preloadImageAsset(src: string): Promise<void> {
+  return new Promise(resolve => {
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        if (typeof img.decode === 'function') {
+          img.decode().catch(() => {}).finally(() => resolve());
+        } else {
+          resolve();
+        }
+      };
+      img.onerror = () => resolve();
+      img.src = src;
+    } catch {
+      resolve();
+    }
+  });
+}
+
+function preloadWorkspaceEverything(includeAdmin = false): Promise<void> {
+  const tasks: Array<Promise<unknown>> = [
+    preloadLocalFallback(),
+    BinderSpineNav.preload(),
+    BookshelfView.preload(),
+    NotebookOpenView.preload(),
+    DailyReviewHubView.preload(),
+    UncategorizedView.preload(),
+    PromptGenerator.preload(),
+    TemplateManager.preload(),
+    UsageGuide.preload(),
+    PobiTutorialModal.preload(),
+    BatchExamImportModal.preload(),
+    BackupRestoreModal.preload(),
+    ...PRELOAD_IMAGE_URLS.map(preloadImageAsset)
+  ];
+  if (includeAdmin) {
+    tasks.push(AdminPanel.preload());
+  }
+  if (typeof document !== 'undefined' && document.fonts?.ready) {
+    tasks.push(
+      Promise.race([
+        document.fonts.ready,
+        new Promise(resolve => globalThis.setTimeout(resolve, 600))
+      ])
+    );
+  }
+  return Promise.allSettled(tasks).then(() => undefined);
+}
+
 function preloadAllCoreViews(includeAdmin = false) {
   void preloadLocalFallback();
   void AuthPage.preload();
@@ -129,6 +190,7 @@ export default function App() {
     }
   });
   const [showAuthView, setShowAuthView] = useState(false);
+  const [workspaceWarming, setWorkspaceWarming] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [authInitialError, setAuthInitialError] = useState<string>('');
   const [showPobiTutorial, setShowPobiTutorial] = useState(false);
@@ -310,36 +372,74 @@ export default function App() {
     checkSession();
   }, [showToast]);
 
-  // Load categories and mistakes whenever user logs in, and warm-preload all views
+  // Load categories, mistakes, and preload ALL workspace chunks + POBI tutorial assets before revealing UI
   useEffect(() => {
-    if (user) {
-      preloadAllCoreViews(user.is_admin === 1);
-      refreshAllData().then(() => {
-        try {
-          const doneKey = `pobi_onboarding_done_${user.id}`;
-          const alreadyDone = localStorage.getItem(doneKey) === '1';
-          if (!alreadyDone && user.id !== 'demo-guest') {
-            apiRequest('/api/mistakes')
-              .then(list => {
-                if (Array.isArray(list) && list.length === 0) {
-                  void PobiTutorialModal.preload().then(() => {
-                    startTransition(() => {
-                      setIsNewUserTutorial(true);
-                      setShowPobiTutorial(true);
-                    });
-                  });
-                }
-              })
-              .catch(() => {});
-          }
-        } catch {}
-      }).finally(() => setLoading(false));
-    } else {
+    if (!user) {
       setCategories(EMPTY_CATEGORIES);
       setAllMistakes([]);
       setShowPobiTutorial(false);
+      setWorkspaceWarming(false);
+      return;
     }
-  }, [user, refreshAllData]);
+
+    let cancelled = false;
+    setWorkspaceWarming(true);
+
+    const minDelay = new Promise<void>(resolve => window.setTimeout(resolve, 900));
+    const maxTimeout = new Promise<void>(resolve => window.setTimeout(resolve, 6000));
+
+    const fetchAndPreload = async () => {
+      const [dataResult] = await Promise.all([
+        (async () => {
+          try {
+            const [catRes, mistakesRes] = await Promise.all([
+              apiRequest('/api/categories'),
+              apiRequest('/api/mistakes')
+            ]);
+            if (!cancelled) {
+              if (catRes && catRes.subjects) setCategories(catRes);
+              if (Array.isArray(mistakesRes)) setAllMistakes(mistakesRes);
+            }
+            return Array.isArray(mistakesRes) ? mistakesRes : null;
+          } catch (e) {
+            console.error('Failed to preload workspace data:', e);
+            return null;
+          }
+        })(),
+        preloadWorkspaceEverything(user.is_admin === 1),
+        minDelay
+      ]);
+      return dataResult;
+    };
+
+    Promise.race([fetchAndPreload(), maxTimeout])
+      .then(mistakesList => {
+        if (cancelled) return;
+        setWorkspaceWarming(false);
+        setLoading(false);
+
+        try {
+          const doneKey = `pobi_onboarding_done_${user.id}`;
+          const alreadyDone = localStorage.getItem(doneKey) === '1';
+          if (!alreadyDone && user.id !== 'demo-guest' && Array.isArray(mistakesList) && mistakesList.length === 0) {
+            startTransition(() => {
+              setIsNewUserTutorial(true);
+              setShowPobiTutorial(true);
+            });
+          }
+        } catch {}
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWorkspaceWarming(false);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Automatically preload all core views during the opening shutter animation (and immediately on any interaction)
   useEffect(() => {
@@ -418,17 +518,10 @@ export default function App() {
         localStorage.setItem('pobi_has_session', '1');
       } catch {}
     }
-    if (BinderSpineNav.isLoaded() && BookshelfView.isLoaded()) {
-      setUser(loggedInUser);
-      setShowAuthView(false);
-      setActiveView('bookshelf');
-      return;
-    }
-    void Promise.all([BinderSpineNav.preload(), BookshelfView.preload()]).finally(() => {
-      setUser(loggedInUser);
-      setShowAuthView(false);
-      setActiveView('bookshelf');
-    });
+    setWorkspaceWarming(true);
+    setShowAuthView(false);
+    setActiveView('bookshelf');
+    setUser(loggedInUser);
   };
 
   const clearGuestDemoStorage = () => {
@@ -477,7 +570,7 @@ export default function App() {
           }
         }
       } catch {}
-      await Promise.all([preloadLocalFallback(), BinderSpineNav.preload(), BookshelfView.preload()]);
+      setWorkspaceWarming(true);
       setUser(demoUser);
       setActiveView('bookshelf');
       showToast('已進入訪客體驗模式（登出後將自動清空重設）', 'info');
@@ -625,17 +718,44 @@ export default function App() {
   };
 
   const suspenseFallback = (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'var(--bg-primary)',
-      color: 'var(--text-primary)'
-    }}>
-      <Loader2 size={36} className="animate-spin" style={{ color: 'var(--accent-primary)', marginBottom: '16px' }} />
-      <span style={{ fontSize: '0.95rem', letterSpacing: '0.05em' }}>載入錯題本中...</span>
+    <div
+      data-testid="workspace-loading-screen"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+        background: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        gap: '16px'
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '64px',
+          height: '64px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            border: '3px solid rgba(20, 91, 56, 0.14)',
+            borderTopColor: 'var(--accent-primary)',
+            animation: 'spin 0.9s linear infinite'
+          }}
+        />
+        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent-secondary)' }} />
+      </div>
+      <div style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-primary)' }}>
+        載入中...
+      </div>
     </div>
   );
 
@@ -657,7 +777,7 @@ export default function App() {
     );
   }
 
-  if (loading) {
+  if (loading || workspaceWarming) {
     return suspenseFallback;
   }
 

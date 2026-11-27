@@ -50,7 +50,6 @@ export default function UsageGuide() {
                 <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                   <li>點右上角「+ 新增錯題」，可拍照或貼上題目與解析圖片。</li>
                   <li>熟悉度（順／卡／不會／誤解）為必選；錯因可依需要補充。</li>
-                  <li>點擊圖片可開啟紅筆手寫標註重點。</li>
                 </ul>
               </div>
 

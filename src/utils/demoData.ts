@@ -108,7 +108,7 @@ export const DEMO_CATEGORIES: CategoriesBundle = {
       dimension: 'familiarity',
       parent_id: null,
       name: '誤解',
-      color: 'danger',
+      color: 'purple',
       sort_order: 40,
       is_active: 1,
       created_at: Date.now(),
