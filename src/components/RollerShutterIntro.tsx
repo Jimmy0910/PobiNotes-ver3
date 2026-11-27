@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { FastForward, Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 
 interface RollerShutterIntroProps {
   onComplete: () => void;
@@ -315,7 +315,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
         </div>
       )}
 
-      {/* Top-Right Controls: Audio Toggle (while playing) & Skip */}
+      {/* Top-Right Controls: Borderless Speaker Icon & Minimal "skip" */}
       <div
         style={{
           position: 'fixed',
@@ -324,7 +324,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
           zIndex: 12,
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '16px',
           opacity: fadingOut ? 0 : 1,
           transition: 'opacity 0.25s ease',
         }}
@@ -334,28 +334,24 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
             type="button"
             onClick={handleToggleAudio}
             aria-label={isMuted ? '開啟音效' : '靜音'}
+            title={isMuted ? '開啟音效' : '靜音'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(255, 255, 255, 0.94)',
+              justifyContent: 'center',
+              padding: '6px',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
               color: '#111827',
-              border: '1px solid #D1D5DB',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              letterSpacing: '0.03em',
               cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(15, 23, 42, 0.06)',
             }}
           >
             {isMuted ? (
-              <VolumeX className="w-3.5 h-3.5" style={{ color: '#111827' }} aria-hidden="true" />
+              <VolumeX className="w-5 h-5" style={{ color: '#6B7280' }} aria-hidden="true" />
             ) : (
-              <Volume2 className="w-3.5 h-3.5" style={{ color: '#15803D' }} aria-hidden="true" />
+              <Volume2 className="w-5 h-5" style={{ color: '#111827' }} aria-hidden="true" />
             )}
-            <span style={{ color: '#111827' }}>{isMuted ? '已靜音' : '音效開'}</span>
           </button>
         )}
 
@@ -365,24 +361,23 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
             e.stopPropagation();
             startFadeOut(SKIP_FADE_MS);
           }}
+          aria-label="skip"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
-            borderRadius: '999px',
-            backgroundColor: 'rgba(255, 255, 255, 0.94)',
+            justifyContent: 'center',
+            padding: '6px 4px',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
             color: '#111827',
-            border: '1px solid #D1D5DB',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            letterSpacing: '0.03em',
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            letterSpacing: '0.08em',
             cursor: 'pointer',
-            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.06)',
           }}
         >
-          <span style={{ color: '#111827' }}>略過開場</span>
-          <FastForward className="w-3.5 h-3.5" style={{ color: '#111827' }} aria-hidden="true" />
+          skip
         </button>
       </div>
     </div>
