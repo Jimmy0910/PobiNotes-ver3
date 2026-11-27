@@ -161,7 +161,7 @@ export default function LandingPage({ onEnterDemo, onGoToAuth, onPrefetchDemo, o
         flexDirection: 'column'
       }}
     >
-      {/* Opening Warehouse Roller Shutter + Spray Paint + Bichon Paws Reveal */}
+      {/* Opening Brand Logo Video Intro (Pure White Backdrop -> Smooth Fade Out) */}
       {showShutterIntro && (
         <RollerShutterIntro
           key={introRunKey}
