@@ -15,6 +15,7 @@ import {
   renderPromptWithMistakes,
   type MistakeZipImageMapping
 } from '../utils/promptTemplates';
+import { getFamiliarityPalette } from '../utils/reviewSettings';
 import { useUiFeedback } from './UiFeedbackProvider';
 import ExportPDF from './ExportPDF';
 import { GoldCornerOrnaments } from './PobiDesignElements';
@@ -479,7 +480,10 @@ export default function SubjectAnalyticsWorkshop({
         count,
         pct: total > 0 ? (count / total) * 100 : 0,
         pctText: formatPct(count, total),
-        color: CHART_COLORS[idx % CHART_COLORS.length]
+        color:
+          distDimension === 'familiarity'
+            ? getFamiliarityPalette(item.name, (item as any).color).chart
+            : CHART_COLORS[idx % CHART_COLORS.length]
       });
     });
 
@@ -1123,7 +1127,17 @@ export default function SubjectAnalyticsWorkshop({
             <>
               <MultiSelectPillRow
                 label="熟悉度（多選）"
-                items={categories.familiarities.map(f => ({ id: f.id, name: f.name }))}
+                items={categories.familiarities.map(f => {
+                  const pal = getFamiliarityPalette(f.name, f.color);
+                  return {
+                    id: f.id,
+                    name: f.name,
+                    accentColor: pal.text,
+                    accentBg: pal.bg,
+                    accentBorder: pal.border,
+                    accentDot: pal.chart
+                  };
+                })}
                 selectedIds={selectedFamiliarityIds}
                 uncategorizedLabel="尚未設定熟悉度"
                 onToggle={id => toggleItem(selectedFamiliarityIds, setSelectedFamiliarityIds, id)}
@@ -1961,9 +1975,22 @@ export default function SubjectAnalyticsWorkshop({
                       {m.chapter_name && (
                         <span className="pobi-tag-chip">{m.chapter_name}{m.unit_name ? ` / ${m.unit_name}` : ''}</span>
                       )}
-                      {m.familiarity_name && (
-                        <span className="pobi-tag-chip">熟悉度：{m.familiarity_name}</span>
-                      )}
+                      {m.familiarity_name && (() => {
+                        const pal = getFamiliarityPalette(m.familiarity_name, m.familiarity_color);
+                        return (
+                          <span
+                            className="pobi-tag-chip"
+                            style={{
+                              backgroundColor: pal.bg,
+                              borderColor: pal.border,
+                              color: pal.text,
+                              fontWeight: 700
+                            }}
+                          >
+                            熟悉度：{m.familiarity_name}
+                          </span>
+                        );
+                      })()}
                       {imgTotal > 0 && (
                         <span className="pobi-tag-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                           <ImageIcon size={11} /> {imgTotal} 張圖
@@ -2316,7 +2343,14 @@ function MultiSelectPillRow({
   onClear
 }: {
   label: string;
-  items: Array<{ id: string; name: string }>;
+  items: Array<{
+    id: string;
+    name: string;
+    accentColor?: string;
+    accentBg?: string;
+    accentBorder?: string;
+    accentDot?: string;
+  }>;
   selectedIds: string[];
   uncategorizedLabel: string;
   onToggle: (id: string) => void;
@@ -2336,14 +2370,40 @@ function MultiSelectPillRow({
       </button>
       {items.map(item => {
         const active = selectedIds.includes(item.id);
+        const hasAccent = Boolean(item.accentColor && item.accentBorder);
         return (
           <button
             key={item.id}
             type="button"
             onClick={() => onToggle(item.id)}
             className={`pobi-filter-pill ${active ? 'is-active' : ''}`}
+            style={
+              hasAccent
+                ? {
+                    borderColor: active ? item.accentBorder : `${item.accentBorder}66`,
+                    backgroundColor: active ? item.accentBorder : item.accentBg,
+                    color: active ? '#FFFFFF' : item.accentColor,
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }
+                : undefined
+            }
           >
-            {item.name}
+            {item.accentDot && (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: active ? '#FFFFFF' : item.accentDot,
+                  flexShrink: 0
+                }}
+              />
+            )}
+            <span>{item.name}</span>
           </button>
         );
       })}

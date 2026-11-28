@@ -26,55 +26,111 @@ export const FAMILIARITY_SCHEDULE_META: Array<{
     key: '不會',
     label: '不會',
     desc: '完全卡住或沒頭緒',
-    accentBg: 'rgba(220, 38, 38, 0.12)',
-    accentBorder: '#DC2626',
-    accentColor: '#B91C1C'
+    accentBg: 'rgba(239, 68, 68, 0.14)',
+    accentBorder: '#EF4444',
+    accentColor: '#DC2626'
   },
   {
     key: '卡',
     label: '卡',
     desc: '寫到一半卡關或算錯',
-    accentBg: 'rgba(234, 179, 8, 0.16)',
-    accentBorder: '#CA8A04',
+    accentBg: 'rgba(234, 179, 8, 0.18)',
+    accentBorder: '#EAB308',
     accentColor: '#A16207'
   },
   {
     key: '誤解',
     label: '誤解',
     desc: '題意或觀念解讀錯誤',
-    accentBg: 'rgba(147, 51, 234, 0.13)',
-    accentBorder: '#9333EA',
-    accentColor: '#6D28D9'
+    accentBg: 'rgba(88, 28, 135, 0.14)',
+    accentBorder: '#6B21A8',
+    accentColor: '#581C87'
   },
   {
     key: '順',
     label: '順',
     desc: '已能順利獨立解出',
-    accentBg: 'rgba(22, 163, 74, 0.13)',
+    accentBg: 'rgba(22, 163, 74, 0.14)',
     accentBorder: '#16A34A',
     accentColor: '#15803D'
   }
 ];
+
+export interface FamiliarityPalette {
+  chart: string;      // Solid color for charts / bars / dots
+  text: string;       // High-contrast label text
+  border: string;     // Border color
+  bg: string;         // Soft badge background
+  activeBg: string;   // Selected pill background
+  darkText: string;   // Dark-mode readable text
+}
+
+export function getFamiliarityPalette(
+  name?: string | null,
+  colorToken?: string | null
+): FamiliarityPalette {
+  const n = (name || '').trim();
+  // 誤解 -> 深紫
+  if (n.includes('誤解') || colorToken === 'purple') {
+    return {
+      chart: '#581C87',
+      text: '#581C87',
+      border: '#6B21A8',
+      bg: 'rgba(88, 28, 135, 0.13)',
+      activeBg: 'rgba(88, 28, 135, 0.22)',
+      darkText: '#C084FC'
+    };
+  }
+  // 順 -> 綠
+  if (n.includes('順') || n.includes('精熟') || n.includes('掌握') || n === '會' || colorToken === 'success') {
+    return {
+      chart: '#16A34A',
+      text: '#15803D',
+      border: '#16A34A',
+      bg: 'rgba(22, 163, 74, 0.13)',
+      activeBg: 'rgba(22, 163, 74, 0.22)',
+      darkText: '#4ADE80'
+    };
+  }
+  // 卡 -> 黃
+  if (n.includes('卡') || n.includes('稍微') || colorToken === 'warning') {
+    return {
+      chart: '#EAB308',
+      text: '#A16207',
+      border: '#CA8A04',
+      bg: 'rgba(234, 179, 8, 0.18)',
+      activeBg: 'rgba(234, 179, 8, 0.30)',
+      darkText: '#FACC15'
+    };
+  }
+  // 不會 -> 鮮紅
+  if (n.includes('不會') || n.includes('生疏') || colorToken === 'danger') {
+    return {
+      chart: '#EF4444',
+      text: '#DC2626',
+      border: '#EF4444',
+      bg: 'rgba(239, 68, 68, 0.14)',
+      activeBg: 'rgba(239, 68, 68, 0.24)',
+      darkText: '#F87171'
+    };
+  }
+  return {
+    chart: '#64748B',
+    text: '#475569',
+    border: '#94A3B8',
+    bg: 'rgba(100, 116, 139, 0.12)',
+    activeBg: 'rgba(100, 116, 139, 0.22)',
+    darkText: '#CBD5E1'
+  };
+}
 
 export function getFamiliarityColor(
   name?: string | null,
   colorToken?: string | null,
   isDark = false
 ): string {
-  const n = (name || '').trim();
-  if (n.includes('誤解') || colorToken === 'purple') {
-    return isDark ? '#C084FC' : '#7C3AED';
-  }
-  if (n.includes('順') || n.includes('精熟') || n.includes('掌握') || n === '會' || colorToken === 'success') {
-    return isDark ? '#4ADE80' : '#15803D';
-  }
-  if (n.includes('卡') || n.includes('稍微') || colorToken === 'warning') {
-    return isDark ? '#FACC15' : '#CA8A04';
-  }
-  if (n.includes('不會') || colorToken === 'danger') {
-    return isDark ? '#F87171' : '#DC2626';
-  }
-  return isDark ? '#CBD5E1' : '#475569';
+  const p = getFamiliarityPalette(name, colorToken);
+  return isDark ? p.darkText : p.text;
 }
 
 const STORAGE_KEY = 'pobi_subject_review_schedules_v1';

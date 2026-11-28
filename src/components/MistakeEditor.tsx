@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiRequest } from '../utils/api';
+import { getFamiliarityPalette } from '../utils/reviewSettings';
 import { useUiFeedback } from './UiFeedbackProvider';
 import { compressImage } from '../utils/compress';
 import type { CategoriesBundle, Field, FieldOption, MistakeRecord } from '../types';
@@ -965,15 +966,8 @@ export default function MistakeEditor({
                         document.documentElement.classList.contains('dark') ||
                         document.documentElement.getAttribute('data-theme') === 'dark'
                       );
-                      const color = f.name.includes('誤解') || f.color === 'purple'
-                        ? (isDark ? '#c084fc' : '#7c3aed')
-                        : f.name.includes('順') || f.color === 'success'
-                        ? (isDark ? '#4ade80' : '#15803d')
-                        : f.name.includes('卡') || f.color === 'warning'
-                        ? (isDark ? '#facc15' : '#ca8a04')
-                        : f.name.includes('不會') || f.color === 'danger'
-                        ? (isDark ? '#f87171' : '#dc2626')
-                        : (isDark ? '#cbd5e1' : '#475569');
+                      const palette = getFamiliarityPalette(f.name, f.color);
+                      const color = isDark ? palette.darkText : palette.text;
                       return (
                         <button
                           key={f.id}
@@ -985,19 +979,31 @@ export default function MistakeEditor({
                             fontSize: '0.84rem',
                             lineHeight: 1.4,
                             cursor: 'pointer',
-                            border: `1.5px solid ${active ? color : 'var(--glass-border)'}`,
-                            background: active ? (isDark ? `${color}30` : `${color}18`) : 'var(--glass-bg)',
-                            color: active ? color : 'var(--text-primary)',
-                            fontWeight: active ? 700 : 500,
+                            border: `1.5px solid ${active ? palette.border : `${palette.border}66`}`,
+                            background: active ? palette.activeBg : palette.bg,
+                            color,
+                            fontWeight: active ? 800 : 600,
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            gap: '6px',
                             whiteSpace: 'nowrap',
+                            boxShadow: active ? `0 0 0 2px ${palette.border}33` : 'none',
                             transition: 'all 0.15s ease'
                           }}
                           data-testid={`editor-familiarity-${f.name}`}
                         >
-                          {f.name}
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: palette.chart,
+                              flexShrink: 0
+                            }}
+                          />
+                          <span>{f.name}</span>
                         </button>
                       );
                     })}

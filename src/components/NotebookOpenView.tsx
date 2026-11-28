@@ -481,37 +481,37 @@ export default function NotebookOpenView({
     }
   };
 
-  // Helper for Familiarity Display styling (順=綠, 卡=黃, 不會=紅, 誤解=紫)
+  // Helper for Familiarity Display styling (順=綠, 卡=黃, 不會=鮮紅, 誤解=深紫)
   const getFamiliarityBadgeStyle = (m: MistakeRecord) => {
     const famName = m.familiarity_name || '';
     if (famName.includes('順') || famName.includes('精熟') || famName.includes('熟練')) {
       return {
         bg: 'rgba(22, 163, 74, 0.14)',
-        border: '1px solid rgba(22, 163, 74, 0.45)',
+        border: '1px solid rgba(22, 163, 74, 0.5)',
         color: '#15803D',
         label: '掌握度：順 (精熟)'
       };
     }
     if (famName.includes('卡') || famName.includes('稍微')) {
       return {
-        bg: 'rgba(234, 179, 8, 0.16)',
-        border: '1px solid rgba(202, 138, 4, 0.5)',
+        bg: 'rgba(234, 179, 8, 0.18)',
+        border: '1px solid rgba(202, 138, 4, 0.55)',
         color: '#A16207',
         label: '掌握度：卡 (卡頓)'
       };
     }
     if (famName.includes('誤解')) {
       return {
-        bg: 'rgba(147, 51, 234, 0.13)',
-        border: '1px solid rgba(147, 51, 234, 0.45)',
-        color: '#6D28D9',
+        bg: 'rgba(88, 28, 135, 0.14)',
+        border: '1px solid rgba(107, 33, 168, 0.5)',
+        color: '#581C87',
         label: '掌握度：誤解 (審題)'
       };
     }
     return {
-      bg: 'rgba(220, 38, 38, 0.13)',
-      border: '1px solid rgba(220, 38, 38, 0.45)',
-      color: '#B91C1C',
+      bg: 'rgba(239, 68, 68, 0.15)',
+      border: '1px solid rgba(239, 68, 68, 0.55)',
+      color: '#DC2626',
       label: '掌握度：不會 (生疏)'
     };
   };

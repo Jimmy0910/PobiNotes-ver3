@@ -10,6 +10,7 @@ import {
   formatPct,
   getEffectiveFamiliarityId
 } from '../types';
+import { getFamiliarityPalette } from '../utils/reviewSettings';
 import {
   BarChart3,
   PieChart,
@@ -299,7 +300,10 @@ export default function AnalyticsView({
         count: c,
         pct,
         pctText: formatPct(c, totalMistakes),
-        color: CHART_COLORS[idx % CHART_COLORS.length]
+        color:
+          distDimension === 'familiarity'
+            ? getFamiliarityPalette(item.name, (item as any).color).chart
+            : CHART_COLORS[idx % CHART_COLORS.length]
       });
     });
 
@@ -647,7 +651,7 @@ export default function AnalyticsView({
 
         {categories.familiarities.filter(f => f.is_active === 1).map(f => {
           const count = overviewStats.famCounts[f.id] || 0;
-          const borderColor = f.name.includes('誤解') || f.color === 'purple' ? '#7C3AED' : f.name.includes('順') || f.color === 'success' ? '#15803D' : f.name.includes('卡') || f.color === 'warning' ? '#CA8A04' : f.name.includes('不會') || f.color === 'danger' ? '#DC2626' : '#8B5A2B';
+          const borderColor = getFamiliarityPalette(f.name, f.color).chart;
           return (
             <div
               key={f.id}
@@ -1047,9 +1051,24 @@ export default function AnalyticsView({
                       單元：{m.unit_name}
                     </span>
                   )}
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                    熟悉度：{m.familiarity_name || '未設定'}
-                  </span>
+                  {(() => {
+                    const pal = getFamiliarityPalette(m.familiarity_name, m.familiarity_color);
+                    return (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: pal.bg,
+                          border: `1px solid ${pal.border}66`,
+                          color: pal.text,
+                          fontWeight: 700
+                        }}
+                      >
+                        熟悉度：{m.familiarity_name || '未設定'}
+                      </span>
+                    );
+                  })()}
                   {(m.error_reason_names || []).map(rName => (
                     <span key={rName} style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
                       錯因：{rName}

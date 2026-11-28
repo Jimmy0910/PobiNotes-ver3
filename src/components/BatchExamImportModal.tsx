@@ -841,9 +841,15 @@ ${scopeInstruction}
     if (!codeOrId) return categories.familiarities[0]?.id || null;
     const direct = categories.familiarities.find(f => f.id === codeOrId);
     if (direct) return direct.id;
+    if (codeOrId === 'fam_purple') {
+      const f =
+        categories.familiarities.find(item => item.name.includes('誤解') || item.color === 'purple') ||
+        categories.familiarities[0];
+      return f?.id || null;
+    }
     if (codeOrId === 'fam_danger') {
       const f =
-        categories.familiarities.find(item => item.color === 'danger' || item.name.includes('不會') || item.name.includes('生疏')) ||
+        categories.familiarities.find(item => item.name.includes('不會') || item.name.includes('生疏') || item.color === 'danger') ||
         categories.familiarities[0];
       return f?.id || null;
     }
@@ -2926,18 +2932,18 @@ ${scopeInstruction}
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '10px' }}>
                     <button
                       type="button"
                       disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_danger')}
                       style={{
-                        padding: '14px 10px',
+                        padding: '13px 10px',
                         borderRadius: '10px',
-                        border: '2px solid rgba(185, 28, 28, 0.4)',
-                        backgroundColor: '#FFF5F5',
-                        color: 'var(--danger)',
-                        fontSize: '0.96rem',
+                        border: '2px solid #EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                        color: '#DC2626',
+                        fontSize: '0.94rem',
                         fontWeight: 700,
                         cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
@@ -2947,7 +2953,7 @@ ${scopeInstruction}
                       }}
                     >
                       <span>不會 / 待加強</span>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>毫無頭緒 / 錯因嚴重</span>
+                      <span style={{ fontSize: '0.73rem', fontWeight: 500, opacity: 0.85 }}>毫無頭緒 / 錯因嚴重</span>
                     </button>
 
                     <button
@@ -2955,12 +2961,12 @@ ${scopeInstruction}
                       disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_warning')}
                       style={{
-                        padding: '14px 10px',
+                        padding: '13px 10px',
                         borderRadius: '10px',
-                        border: '2px solid rgba(217, 119, 6, 0.4)',
-                        backgroundColor: '#FFFBEB',
-                        color: '#B45309',
-                        fontSize: '0.96rem',
+                        border: '2px solid #EAB308',
+                        backgroundColor: 'rgba(234, 179, 8, 0.16)',
+                        color: '#A16207',
+                        fontSize: '0.94rem',
                         fontWeight: 700,
                         cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
@@ -2970,7 +2976,30 @@ ${scopeInstruction}
                       }}
                     >
                       <span>卡 / 稍微理解</span>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>看詳解懂 / 計算粗心</span>
+                      <span style={{ fontSize: '0.73rem', fontWeight: 500, opacity: 0.85 }}>看詳解懂 / 計算粗心</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={submittingBatch}
+                      onClick={() => handleAssignFamiliarity('fam_purple')}
+                      style={{
+                        padding: '13px 10px',
+                        borderRadius: '10px',
+                        border: '2px solid #6B21A8',
+                        backgroundColor: 'rgba(88, 28, 135, 0.13)',
+                        color: '#581C87',
+                        fontSize: '0.94rem',
+                        fontWeight: 700,
+                        cursor: submittingBatch ? 'wait' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <span>誤解 / 審題偏差</span>
+                      <span style={{ fontSize: '0.73rem', fontWeight: 500, opacity: 0.85 }}>題意或觀念解讀錯誤</span>
                     </button>
 
                     <button
@@ -2978,12 +3007,12 @@ ${scopeInstruction}
                       disabled={submittingBatch}
                       onClick={() => handleAssignFamiliarity('fam_success')}
                       style={{
-                        padding: '14px 10px',
+                        padding: '13px 10px',
                         borderRadius: '10px',
-                        border: '2px solid rgba(25, 122, 39, 0.4)',
-                        backgroundColor: '#F0FDF4',
-                        color: 'var(--success)',
-                        fontSize: '0.96rem',
+                        border: '2px solid #16A34A',
+                        backgroundColor: 'rgba(22, 163, 74, 0.12)',
+                        color: '#15803D',
+                        fontSize: '0.94rem',
                         fontWeight: 700,
                         cursor: submittingBatch ? 'wait' : 'pointer',
                         display: 'flex',
@@ -2993,7 +3022,7 @@ ${scopeInstruction}
                       }}
                     >
                       <span>順 / 熟練掌握</span>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 500, opacity: 0.85 }}>已完全弄懂 / 可自信作答</span>
+                      <span style={{ fontSize: '0.73rem', fontWeight: 500, opacity: 0.85 }}>已完全弄懂 / 可自信作答</span>
                     </button>
                   </div>
                 </div>

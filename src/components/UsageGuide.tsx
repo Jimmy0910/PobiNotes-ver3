@@ -57,8 +57,8 @@ export default function UsageGuide() {
                     熟悉度為必選四色標準：
                     <span style={{ color: '#15803D', fontWeight: 700 }}>順（綠）</span>、
                     <span style={{ color: '#CA8A04', fontWeight: 700 }}>卡（黃）</span>、
-                    <span style={{ color: '#DC2626', fontWeight: 700 }}>不會（紅）</span>、
-                    <span style={{ color: '#7C3AED', fontWeight: 700 }}>誤解（紫）</span>。
+                    <span style={{ color: '#EF4444', fontWeight: 700 }}>不會（鮮紅）</span>、
+                    <span style={{ color: '#581C87', fontWeight: 700 }}>誤解（深紫）</span>。
                   </li>
                   <li>可自由補充錯因標籤、自訂標籤、章節與小單元。</li>
                 </ul>

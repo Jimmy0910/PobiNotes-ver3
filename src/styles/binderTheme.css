@@ -1348,26 +1348,26 @@ html:not([data-theme="dark"]) .binder-index-tab.active {
 }
 
 .binder-fam-cycle-btn.fam-danger {
-  background: #fecaca !important;
-  border-color: #fca5a5 !important;
-  color: #000000 !important;
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
 }
 
 [data-theme="dark"] .binder-fam-cycle-btn.fam-danger {
   background: #fca5a5 !important;
-  border-color: #f87171 !important;
+  border-color: #ef4444 !important;
   color: #000000 !important;
 }
 
 .binder-fam-cycle-btn.fam-purple {
-  background: #e9d5ff !important;
-  border-color: #c084fc !important;
-  color: #000000 !important;
+  background: #ede9fe !important;
+  border-color: #6b21a8 !important;
+  color: #581c87 !important;
 }
 
 [data-theme="dark"] .binder-fam-cycle-btn.fam-purple {
   background: #d8b4fe !important;
-  border-color: #a855f7 !important;
+  border-color: #9333ea !important;
   color: #000000 !important;
 }
 
