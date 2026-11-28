@@ -77,7 +77,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
     }
     failsafeTimerRef.current = window.setTimeout(() => {
       startFadeOut(FADE_OUT_MS);
-    }, 11500);
+    }, 7500);
   }, [startFadeOut]);
 
   const attemptUnmutedPlay = useCallback(async () => {
@@ -205,7 +205,7 @@ export default function RollerShutterIntro({ onComplete }: RollerShutterIntroPro
     if (!video || fadingRef.current || !Number.isFinite(video.duration) || video.duration <= 0) {
       return;
     }
-    if (video.duration - video.currentTime <= 0.7) {
+    if (video.duration - video.currentTime <= 0.35) {
       startFadeOut(FADE_OUT_MS);
     }
   };
